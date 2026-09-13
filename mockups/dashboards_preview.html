@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExitAI — four dashboard mockups (preview)</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+
+<style>
+/* ------------------------------------------------------------------
+   PREVIEW SCAFFOLD — NOT FROM THE MOCKUP.
+   The Employee mockup references var(--surface-2) etc. but carries no
+   definitions; they came from the page it was embedded in. Every value
+   below is a reconstruction. Replace with the real palette if it is
+   ever recovered.
+
+   Employee section  = verbatim from employee_exit_dashboard_full.html.
+   HR / Manager / IT = DRAFTS, authored to match that mockup's visual
+   vocabulary, with content from blueprint.md Phase 4 / 6a / 6b.
+   ------------------------------------------------------------------ */
+:root {
+  --radius: 6px;
+  --bg-page:#faf9f7; --surface-1:#f0eeea; --surface-2:#ffffff;
+  --border:#dfdcd6; --border-warning:#e0b263;
+  --text-primary:#1a1a18; --text-secondary:#5c5a54; --text-muted:#8b8880;
+  --text-accent:#2563eb; --text-success:#17683a; --text-warning:#8a5a00; --text-danger:#b3261e;
+  --bg-accent:#e8f0fe; --bg-success:#e6f4ea; --bg-warning:#fdf3e0; --bg-danger:#fce8e6;
+  --fill-success:#1f9254; --fill-info:#2563eb; --fill-control:#e3e1dc; --on-success:#ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page:#1a1917; --surface-1:#211f1d; --surface-2:#262421;
+    --border:#3a3833; --border-warning:#7a5a1e;
+    --text-primary:#f0efea; --text-secondary:#b5b2a9; --text-muted:#8b8880;
+    --text-accent:#7aa7ff; --text-success:#6fd48f; --text-warning:#e6b566; --text-danger:#f08a80;
+    --bg-accent:#1c2b45; --bg-success:#163020; --bg-warning:#38290f; --bg-danger:#3a1b18;
+    --fill-success:#2e9c5a; --fill-info:#5a8cff; --fill-control:#3a3833; --on-success:#08160d;
+  }
+}
+body {
+  margin:0; background:var(--bg-page); color:var(--text-primary);
+  font-family:ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.preview-frame { max-width:960px; margin:0 auto; padding:0 16px; }
+.sr-only {
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+button {
+  font-family:inherit; color:var(--text-primary); background:var(--surface-2);
+  border:0.5px solid var(--border); border-radius:var(--radius);
+  padding:6px 10px; cursor:pointer;
+}
+button:hover { background:var(--surface-1); }
+
+/* Dev-only role switcher (blueprint Phase 1 asks for one, top-right). */
+.switcher {
+  max-width:960px; margin:0 auto; padding:12px 16px 0;
+  display:flex; align-items:center; gap:6px; justify-content:flex-end;
+}
+.switcher .lbl { font-size:11px; color:var(--text-muted); margin-right:auto; }
+.switcher button.on {
+  background:var(--bg-success); color:var(--text-success); border-color:transparent;
+}
+.draft-tag {
+  font-size:11px; background:var(--bg-warning); color:var(--text-warning);
+  padding:2px 7px; border-radius:var(--radius);
+}
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <span class="lbl">dev role switcher — not part of the mockups</span>
+  <button data-go="employee" class="on">Employee</button>
+  <button data-go="hr">HR</button>
+  <button data-go="manager">Manager</button>
+  <button data-go="it">IT</button>
+</div>
+
+<div class="preview-frame">
+
+<!-- ================= EMPLOYEE — verbatim from the real mockup ================= -->
+<section id="employee">
+<h2 class="sr-only">Employee exit dashboard with a sidebar nav, exit progress gauge, checklist, upcoming deadlines, exit timeline, and an assistant prompt.</h2>
+<div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding:1rem 0;">
+
+  <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:14px 10px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="width:22px;height:22px;border-radius:50%;background:var(--fill-success);display:inline-flex;align-items:center;justify-content:center;"><i class="ti ti-check" style="font-size:13px;color:var(--on-success);" aria-hidden="true"></i></span>
+      <span style="font-size:15px;font-weight:500;">ExitAI</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;font-size:13px;">
+      <span style="background:var(--bg-success);color:var(--text-success);padding:6px 8px;border-radius:var(--radius);">Dashboard</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">My exit</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">My tasks</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Documents</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Knowledge transfer</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Exit interview</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Timeline</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Help and support</span>
+    </div>
+    <div style="border-top:0.5px solid var(--border);margin-top:14px;padding-top:12px;display:flex;align-items:center;gap:8px;">
+      <span style="width:28px;height:28px;border-radius:50%;background:var(--fill-control);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;">RS</span>
+      <div style="line-height:1.2;"><p style="font-size:12px;font-weight:500;margin:0;">Rahul Sharma</p><p style="font-size:11px;color:var(--text-muted);margin:0;">Employee</p></div>
+    </div>
+  </div>
+
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div>
+        <p style="font-size:18px;font-weight:500;margin:0;">Good morning, Rahul</p>
+        <p style="font-size:13px;color:var(--text-secondary);margin:2px 0 0;">Complete your pending tasks for a smooth exit.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span style="font-size:11px;background:var(--surface-1);padding:6px 10px;border-radius:var(--radius);"><span style="color:var(--text-muted);">Exit ID</span> <span style="font-weight:500;">EMP00123</span></span>
+        <span style="font-size:11px;background:var(--bg-accent);color:var(--text-accent);padding:6px 10px;border-radius:var(--radius);">Last day · 25 Sep</span>
+      </div>
+    </div>
+
+    <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:12px;display:flex;align-items:center;gap:20px;">
+      <div style="position:relative;width:76px;height:76px;flex-shrink:0;">
+        <svg viewBox="0 0 80 80" width="76" height="76">
+          <circle cx="40" cy="40" r="32" fill="none" stroke="var(--border)" stroke-width="7"/>
+          <circle cx="40" cy="40" r="32" fill="none" stroke="var(--fill-success)" stroke-width="7" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="44" transform="rotate(-90 40 40)"/>
+        </svg>
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;">78%</span>
+      </div>
+      <div style="flex:1;">
+        <p style="font-size:16px;font-weight:500;margin:0 0 8px;">Exit progress</p>
+        <div style="display:flex;gap:10px;">
+          <span style="flex:1;background:var(--bg-warning);color:var(--text-warning);padding:8px 10px;border-radius:var(--radius);font-size:12px;">Pending <span style="font-size:16px;font-weight:500;display:block;">1</span></span>
+          <span style="flex:1;background:var(--bg-accent);color:var(--text-accent);padding:8px 10px;border-radius:var(--radius);font-size:12px;">In review <span style="font-size:16px;font-weight:500;display:block;">3</span></span>
+          <span style="flex:1;background:var(--bg-success);color:var(--text-success);padding:8px 10px;border-radius:var(--radius);font-size:12px;">Done <span style="font-size:16px;font-weight:500;display:block;">14</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:12px;margin-bottom:12px;">
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+        <p style="font-size:16px;font-weight:500;margin:0 0 10px;">My checklist</p>
+        <div style="display:flex;flex-direction:column;font-size:13px;">
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><i class="ti ti-circle-check" style="color:var(--text-success);font-size:17px;" aria-hidden="true"></i><span style="flex:1;">Submit KT document</span><span style="font-size:11px;color:var(--text-success);">Done</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><i class="ti ti-circle" style="color:var(--text-muted);font-size:17px;" aria-hidden="true"></i><span style="flex:1;">Complete exit interview</span><span style="font-size:11px;color:var(--text-warning);">Pending</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><i class="ti ti-circle" style="color:var(--text-muted);font-size:17px;" aria-hidden="true"></i><span style="flex:1;">Return laptop</span><span style="font-size:11px;color:var(--text-warning);">Pending</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><i class="ti ti-circle-check" style="color:var(--text-success);font-size:17px;" aria-hidden="true"></i><span style="flex:1;">Clear outstanding dues</span><span style="font-size:11px;color:var(--text-accent);">In review</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><i class="ti ti-circle-check" style="color:var(--text-success);font-size:17px;" aria-hidden="true"></i><span style="flex:1;">Acknowledge NDA</span><span style="font-size:11px;color:var(--text-success);">Done</span></div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+        <p style="font-size:16px;font-weight:500;margin:0 0 10px;">Upcoming deadlines</p>
+        <div style="font-size:13px;">
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;"><div><p style="margin:0;">Exit interview</p><p style="margin:0;font-size:11px;color:var(--text-muted);">18 Sep</p></div><span style="font-size:11px;background:var(--bg-danger);color:var(--text-danger);padding:2px 7px;border-radius:var(--radius);">3 days</span></div>
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;"><div><p style="margin:0;">Laptop return</p><p style="margin:0;font-size:11px;color:var(--text-muted);">23 Sep</p></div><span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:2px 7px;border-radius:var(--radius);">8 days</span></div>
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;"><div><p style="margin:0;">NDA acknowledgment</p><p style="margin:0;font-size:11px;color:var(--text-muted);">25 Sep</p></div><span style="font-size:11px;background:var(--surface-1);color:var(--text-secondary);padding:2px 7px;border-radius:var(--radius);">10 days</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:12px;">
+      <p style="font-size:16px;font-weight:500;margin:0 0 16px;">Exit timeline</p>
+      <div style="display:flex;justify-content:space-between;position:relative;">
+        <div style="position:absolute;top:7px;left:5%;right:5%;height:2px;background:var(--border);"></div>
+        <div style="position:absolute;top:7px;left:5%;width:67%;height:2px;background:var(--fill-success);"></div>
+        <div style="position:relative;text-align:center;flex:1;"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--fill-success);"></span><p style="font-size:11px;margin:6px 0 0;">Resignation</p><p style="font-size:10px;color:var(--text-muted);margin:0;">10 Sep</p></div>
+        <div style="position:relative;text-align:center;flex:1;"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--fill-success);"></span><p style="font-size:11px;margin:6px 0 0;">Manager talk</p><p style="font-size:10px;color:var(--text-muted);margin:0;">12 Sep</p></div>
+        <div style="position:relative;text-align:center;flex:1;"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--fill-success);"></span><p style="font-size:11px;margin:6px 0 0;">KT handover</p><p style="font-size:10px;color:var(--text-muted);margin:0;">15 Sep</p></div>
+        <div style="position:relative;text-align:center;flex:1;"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--fill-success);"></span><p style="font-size:11px;margin:6px 0 0;">Clearances</p><p style="font-size:10px;color:var(--text-muted);margin:0;">22 Sep</p></div>
+        <div style="position:relative;text-align:center;flex:1;"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--surface-2);border:2px solid var(--border);"></span><p style="font-size:11px;margin:6px 0 0;color:var(--text-secondary);">Relieving</p><p style="font-size:10px;color:var(--text-muted);margin:0;">25 Sep</p></div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface-1);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;">
+      <span style="width:32px;height:32px;border-radius:50%;background:var(--fill-success);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="ti ti-message-chatbot" style="font-size:17px;color:var(--on-success);" aria-hidden="true"></i></span>
+      <div style="flex:1;"><p style="font-size:13px;font-weight:500;margin:0;">ExitAI assistant</p><p style="font-size:12px;color:var(--text-secondary);margin:0;">Ask me anything about your exit process.</p></div>
+      <button onclick="sendPrompt('When will I get my final settlement?')" style="font-size:12px;">Ask ↗</button>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ================= HR — DRAFT ================= -->
+<section id="hr" hidden>
+<h2 class="sr-only">HR exit dashboard with a sidebar nav, KPI cards, all exit cases table including agent risk, trend alerts, attrition by department, and an analytics narrative.</h2>
+<div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding:1rem 0;">
+
+  <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:14px 10px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="width:22px;height:22px;border-radius:50%;background:var(--fill-success);display:inline-flex;align-items:center;justify-content:center;"><i class="ti ti-check" style="font-size:13px;color:var(--on-success);" aria-hidden="true"></i></span>
+      <span style="font-size:15px;font-weight:500;">ExitAI</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;font-size:13px;">
+      <span style="background:var(--bg-success);color:var(--text-success);padding:6px 8px;border-radius:var(--radius);">Dashboard</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">All exits</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Risk and compliance</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Exit interviews</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Trends</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Clearances</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Reports</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Settings</span>
+    </div>
+    <div style="border-top:0.5px solid var(--border);margin-top:14px;padding-top:12px;display:flex;align-items:center;gap:8px;">
+      <span style="width:28px;height:28px;border-radius:50%;background:var(--fill-control);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;">SV</span>
+      <div style="line-height:1.2;"><p style="font-size:12px;font-weight:500;margin:0;">Siva</p><p style="font-size:11px;color:var(--text-muted);margin:0;">HR</p></div>
+    </div>
+  </div>
+
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div>
+        <p style="font-size:18px;font-weight:500;margin:0;">Good morning, Siva</p>
+        <p style="font-size:13px;color:var(--text-secondary);margin:2px 0 0;">12 exits in progress across 6 departments.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span style="font-size:11px;background:var(--surface-1);padding:6px 10px;border-radius:var(--radius);"><span style="color:var(--text-muted);">Period</span> <span style="font-weight:500;">Sep 2026</span></span>
+        <span style="font-size:11px;background:var(--bg-danger);color:var(--text-danger);padding:6px 10px;border-radius:var(--radius);">3 high risk</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Active exits <span style="font-size:20px;font-weight:500;display:block;color:var(--text-primary);">12</span></span>
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Pending clearances <span style="font-size:20px;font-weight:500;display:block;color:var(--text-warning);">7</span></span>
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">High risk <span style="font-size:20px;font-weight:500;display:block;color:var(--text-danger);">3</span></span>
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Completed <span style="font-size:20px;font-weight:500;display:block;color:var(--text-success);">9</span></span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:12px;margin-bottom:12px;">
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+        <p style="font-size:16px;font-weight:500;margin:0 0 10px;">All exit cases</p>
+        <div style="font-size:13px;">
+          <div style="display:flex;gap:8px;padding:0 0 6px;font-size:11px;color:var(--text-muted);"><span style="flex:1.4;">Employee</span><span style="flex:1;">Department</span><span style="width:56px;">Last day</span><span style="width:74px;">Status</span><span style="width:72px;text-align:right;">Risk (agent)</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.4;">Rahul Sharma</span><span style="flex:1;color:var(--text-secondary);">Engineering</span><span style="width:56px;color:var(--text-secondary);">25 Sep</span><span style="width:74px;"><span style="font-size:11px;background:var(--bg-accent);color:var(--text-accent);padding:2px 7px;border-radius:var(--radius);">In progress</span></span><span style="width:72px;text-align:right;"><span style="font-size:11px;background:var(--bg-danger);color:var(--text-danger);padding:2px 7px;border-radius:var(--radius);">High 88</span></span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.4;">Meera Nair</span><span style="flex:1;color:var(--text-secondary);">Sales</span><span style="width:56px;color:var(--text-secondary);">30 Sep</span><span style="width:74px;"><span style="font-size:11px;background:var(--bg-accent);color:var(--text-accent);padding:2px 7px;border-radius:var(--radius);">In progress</span></span><span style="width:72px;text-align:right;"><span style="font-size:11px;background:var(--bg-success);color:var(--text-success);padding:2px 7px;border-radius:var(--radius);">Low 14</span></span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.4;">Arun Prakash</span><span style="flex:1;color:var(--text-secondary);">Engineering</span><span style="width:56px;color:var(--text-secondary);">02 Oct</span><span style="width:74px;"><span style="font-size:11px;background:var(--surface-1);color:var(--text-secondary);padding:2px 7px;border-radius:var(--radius);">Open</span></span><span style="width:72px;text-align:right;"><span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:2px 7px;border-radius:var(--radius);">Med 52</span></span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.4;">Divya Menon</span><span style="flex:1;color:var(--text-secondary);">Finance</span><span style="width:56px;color:var(--text-secondary);">04 Oct</span><span style="width:74px;"><span style="font-size:11px;background:var(--surface-1);color:var(--text-secondary);padding:2px 7px;border-radius:var(--radius);">Open</span></span><span style="width:72px;text-align:right;"><span style="font-size:11px;background:var(--bg-danger);color:var(--text-danger);padding:2px 7px;border-radius:var(--radius);">High 81</span></span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.4;">Karthik Iyer</span><span style="flex:1;color:var(--text-secondary);">Support</span><span style="width:56px;color:var(--text-secondary);">12 Sep</span><span style="width:74px;"><span style="font-size:11px;background:var(--bg-success);color:var(--text-success);padding:2px 7px;border-radius:var(--radius);">Completed</span></span><span style="width:72px;text-align:right;"><span style="font-size:11px;background:var(--bg-success);color:var(--text-success);padding:2px 7px;border-radius:var(--radius);">Low 09</span></span></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="background:var(--surface-2);border:0.5px solid var(--border-warning);border-radius:12px;padding:1rem 1.25rem;">
+          <p style="font-size:16px;font-weight:500;margin:0 0 10px;">Trend alerts</p>
+          <div style="font-size:13px;">
+            <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Compensation</p><p style="margin:0;font-size:11px;color:var(--text-muted);">Engineering · 4 mentions</p></div><span style="font-size:11px;background:var(--bg-danger);color:var(--text-danger);padding:2px 7px;border-radius:var(--radius);">High</span></div>
+            <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Manager support</p><p style="margin:0;font-size:11px;color:var(--text-muted);">Sales · 3 mentions</p></div><span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:2px 7px;border-radius:var(--radius);">Medium</span></div>
+            <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Career growth</p><p style="margin:0;font-size:11px;color:var(--text-muted);">All · 2 mentions</p></div><span style="font-size:11px;background:var(--surface-1);color:var(--text-secondary);padding:2px 7px;border-radius:var(--radius);">Low</span></div>
+          </div>
+        </div>
+
+        <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+          <p style="font-size:16px;font-weight:500;margin:0 0 10px;">Exits by department</p>
+          <div style="font-size:12px;display:flex;flex-direction:column;gap:9px;">
+            <div><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Engineering</span><span style="color:var(--text-muted);">5</span></div><div style="height:6px;background:var(--surface-1);border-radius:99px;"><div style="width:100%;height:6px;background:var(--fill-info);border-radius:99px;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Sales</span><span style="color:var(--text-muted);">3</span></div><div style="height:6px;background:var(--surface-1);border-radius:99px;"><div style="width:60%;height:6px;background:var(--fill-info);border-radius:99px;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Finance</span><span style="color:var(--text-muted);">2</span></div><div style="height:6px;background:var(--surface-1);border-radius:99px;"><div style="width:40%;height:6px;background:var(--fill-info);border-radius:99px;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Support</span><span style="color:var(--text-muted);">2</span></div><div style="height:6px;background:var(--surface-1);border-radius:99px;"><div style="width:40%;height:6px;background:var(--fill-info);border-radius:99px;"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface-1);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;">
+      <span style="width:32px;height:32px;border-radius:50%;background:var(--fill-success);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="ti ti-chart-line" style="font-size:17px;color:var(--on-success);" aria-hidden="true"></i></span>
+      <div style="flex:1;"><p style="font-size:13px;font-weight:500;margin:0;">Analytics insight</p><p style="font-size:12px;color:var(--text-secondary);margin:0;">Clearance is the slowest stage this month, averaging 6.2 days against a 3-day target. Engineering accounts for 5 of 12 exits, with compensation the most-cited reason.</p></div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ================= MANAGER — DRAFT ================= -->
+<!-- SECURITY: manager sees ONLY manager_case_view columns — id, employee_name,
+     department, role_title, last_working_day. No risk_level, no risk_score, no
+     rehire_eligible, no interview sentiment. Enforced by 0002_rls.sql. -->
+<section id="manager" hidden>
+<h2 class="sr-only">Manager dashboard with a sidebar nav, team exit summary, exiting reports table, knowledge-transfer approvals, and a KT review summary.</h2>
+<div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding:1rem 0;">
+
+  <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:14px 10px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="width:22px;height:22px;border-radius:50%;background:var(--fill-success);display:inline-flex;align-items:center;justify-content:center;"><i class="ti ti-check" style="font-size:13px;color:var(--on-success);" aria-hidden="true"></i></span>
+      <span style="font-size:15px;font-weight:500;">ExitAI</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;font-size:13px;">
+      <span style="background:var(--bg-success);color:var(--text-success);padding:6px 8px;border-radius:var(--radius);">Dashboard</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">My team</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Exiting reports</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">KT approvals</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Clearances</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Timeline</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Help and support</span>
+    </div>
+    <div style="border-top:0.5px solid var(--border);margin-top:14px;padding-top:12px;display:flex;align-items:center;gap:8px;">
+      <span style="width:28px;height:28px;border-radius:50%;background:var(--fill-control);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;">AR</span>
+      <div style="line-height:1.2;"><p style="font-size:12px;font-weight:500;margin:0;">Aravidhan</p><p style="font-size:11px;color:var(--text-muted);margin:0;">Manager</p></div>
+    </div>
+  </div>
+
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div>
+        <p style="font-size:18px;font-weight:500;margin:0;">Good morning, Aravidhan</p>
+        <p style="font-size:13px;color:var(--text-secondary);margin:2px 0 0;">Two of your reports are exiting this month.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span style="font-size:11px;background:var(--surface-1);padding:6px 10px;border-radius:var(--radius);"><span style="color:var(--text-muted);">Team</span> <span style="font-weight:500;">Engineering</span></span>
+        <span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:6px 10px;border-radius:var(--radius);">3 awaiting you</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Exiting reports <span style="font-size:20px;font-weight:500;display:block;color:var(--text-primary);">2</span></span>
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">KT to review <span style="font-size:20px;font-weight:500;display:block;color:var(--text-warning);">1</span></span>
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Clearances to sign <span style="font-size:20px;font-weight:500;display:block;color:var(--text-accent);">3</span></span>
+    </div>
+
+    <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:12px;">
+      <p style="font-size:16px;font-weight:500;margin:0 0 10px;">My team's exits</p>
+      <div style="font-size:13px;">
+        <div style="display:flex;gap:8px;padding:0 0 6px;font-size:11px;color:var(--text-muted);"><span style="flex:1.4;">Employee</span><span style="flex:1.2;">Role</span><span style="flex:1;">Department</span><span style="width:70px;text-align:right;">Last day</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.4;">Rahul Sharma</span><span style="flex:1.2;color:var(--text-secondary);">Senior Engineer</span><span style="flex:1;color:var(--text-secondary);">Engineering</span><span style="width:70px;text-align:right;"><span style="font-size:11px;background:var(--bg-accent);color:var(--text-accent);padding:2px 7px;border-radius:var(--radius);">25 Sep</span></span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.4;">Arun Prakash</span><span style="flex:1.2;color:var(--text-secondary);">QA Engineer</span><span style="flex:1;color:var(--text-secondary);">Engineering</span><span style="width:70px;text-align:right;"><span style="font-size:11px;background:var(--surface-1);color:var(--text-secondary);padding:2px 7px;border-radius:var(--radius);">02 Oct</span></span></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px;">
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+        <p style="font-size:16px;font-weight:500;margin:0 0 10px;">KT approvals</p>
+        <div style="font-size:13px;">
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Rahul Sharma</p><p style="margin:0;font-size:11px;color:var(--text-muted);">KT document · submitted 15 Sep</p></div><button style="font-size:11px;padding:4px 9px;">Review</button></div>
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Rahul Sharma</p><p style="margin:0;font-size:11px;color:var(--text-muted);">KT session · 22 Sep, 3:00 pm</p></div><span style="font-size:11px;background:var(--bg-success);color:var(--text-success);padding:2px 7px;border-radius:var(--radius);">Approved</span></div>
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Arun Prakash</p><p style="margin:0;font-size:11px;color:var(--text-muted);">KT document · not submitted</p></div><span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:2px 7px;border-radius:var(--radius);">Waiting</span></div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+        <p style="font-size:16px;font-weight:500;margin:0 0 10px;">Clearances to sign</p>
+        <div style="font-size:13px;">
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Project handover sign-off</p><p style="margin:0;font-size:11px;color:var(--text-muted);">Rahul Sharma</p></div><button style="font-size:11px;padding:4px 9px;">Sign</button></div>
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Repository access review</p><p style="margin:0;font-size:11px;color:var(--text-muted);">Rahul Sharma</p></div><button style="font-size:11px;padding:4px 9px;">Sign</button></div>
+          <div style="padding:7px 0;border-top:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;"><div><p style="margin:0;">Team reassignment plan</p><p style="margin:0;font-size:11px;color:var(--text-muted);">Arun Prakash</p></div><button style="font-size:11px;padding:4px 9px;">Sign</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface-1);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;">
+      <span style="width:32px;height:32px;border-radius:50%;background:var(--fill-success);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="ti ti-file-search" style="font-size:17px;color:var(--on-success);" aria-hidden="true"></i></span>
+      <div style="flex:1;"><p style="font-size:13px;font-weight:500;margin:0;">KT review summary</p><p style="font-size:12px;color:var(--text-secondary);margin:0;">Rahul's handover covers the billing service and deploy runbook. Two gaps: no owner named for the nightly reconciliation job, and the on-call escalation path is undocumented.</p></div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ================= IT — DRAFT ================= -->
+<!-- SECURITY: IT sees only stage='it' exit_tasks (0002_rls.sql). No risk columns. -->
+<section id="it" hidden>
+<h2 class="sr-only">IT dashboard with a sidebar nav, deprovisioning queue awaiting approval, asset recovery list, and access revocation summary.</h2>
+<div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding:1rem 0;">
+
+  <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:14px 10px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="width:22px;height:22px;border-radius:50%;background:var(--fill-success);display:inline-flex;align-items:center;justify-content:center;"><i class="ti ti-check" style="font-size:13px;color:var(--on-success);" aria-hidden="true"></i></span>
+      <span style="font-size:15px;font-weight:500;">ExitAI</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;font-size:13px;">
+      <span style="background:var(--bg-success);color:var(--text-success);padding:6px 8px;border-radius:var(--radius);">Dashboard</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Deprovisioning</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Asset recovery</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Access reviews</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Approvals</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Audit log</span>
+      <span style="color:var(--text-secondary);padding:6px 8px;">Help and support</span>
+    </div>
+    <div style="border-top:0.5px solid var(--border);margin-top:14px;padding-top:12px;display:flex;align-items:center;gap:8px;">
+      <span style="width:28px;height:28px;border-radius:50%;background:var(--fill-control);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;">AS</span>
+      <div style="line-height:1.2;"><p style="font-size:12px;font-weight:500;margin:0;">Aswin</p><p style="font-size:11px;color:var(--text-muted);margin:0;">IT</p></div>
+    </div>
+  </div>
+
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div>
+        <p style="font-size:18px;font-weight:500;margin:0;">Good morning, Aswin</p>
+        <p style="font-size:13px;color:var(--text-secondary);margin:2px 0 0;">Nine deprovisioning items are waiting for your approval.</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span style="font-size:11px;background:var(--surface-1);padding:6px 10px;border-radius:var(--radius);"><span style="color:var(--text-muted);">Queue</span> <span style="font-weight:500;">IT stage</span></span>
+        <span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:6px 10px;border-radius:var(--radius);">Nothing runs until approved</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Pending approval <span style="font-size:20px;font-weight:500;display:block;color:var(--text-warning);">9</span></span>
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Approved today <span style="font-size:20px;font-weight:500;display:block;color:var(--text-success);">4</span></span>
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Assets to collect <span style="font-size:20px;font-weight:500;display:block;color:var(--text-primary);">5</span></span>
+      <span style="flex:1;background:var(--surface-2);border:0.5px solid var(--border);padding:12px 14px;border-radius:12px;font-size:12px;color:var(--text-secondary);">Overdue <span style="font-size:20px;font-weight:500;display:block;color:var(--text-danger);">2</span></span>
+    </div>
+
+    <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:12px;">
+      <p style="font-size:16px;font-weight:500;margin:0 0 10px;">Deprovisioning queue</p>
+      <div style="font-size:13px;">
+        <div style="display:flex;gap:8px;padding:0 0 6px;font-size:11px;color:var(--text-muted);"><span style="flex:1.2;">Employee</span><span style="flex:1.6;">Task</span><span style="width:52px;">Due</span><span style="width:64px;">Status</span><span style="width:62px;text-align:right;">Action</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.2;">Rahul Sharma</span><span style="flex:1.6;color:var(--text-secondary);">Disable SSO account</span><span style="width:52px;color:var(--text-secondary);">25 Sep</span><span style="width:64px;"><span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:2px 7px;border-radius:var(--radius);">Pending</span></span><span style="width:62px;text-align:right;"><button style="font-size:11px;padding:4px 9px;">Approve</button></span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.2;">Rahul Sharma</span><span style="flex:1.6;color:var(--text-secondary);">Revoke repository access</span><span style="width:52px;color:var(--text-secondary);">25 Sep</span><span style="width:64px;"><span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:2px 7px;border-radius:var(--radius);">Pending</span></span><span style="width:62px;text-align:right;"><button style="font-size:11px;padding:4px 9px;">Approve</button></span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.2;">Rahul Sharma</span><span style="flex:1.6;color:var(--text-secondary);">Collect laptop and access card</span><span style="width:52px;color:var(--text-secondary);">23 Sep</span><span style="width:64px;"><span style="font-size:11px;background:var(--bg-danger);color:var(--text-danger);padding:2px 7px;border-radius:var(--radius);">Overdue</span></span><span style="width:62px;text-align:right;"><button style="font-size:11px;padding:4px 9px;">Approve</button></span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.2;">Meera Nair</span><span style="flex:1.6;color:var(--text-secondary);">Revoke CRM access</span><span style="width:52px;color:var(--text-secondary);">30 Sep</span><span style="width:64px;"><span style="font-size:11px;background:var(--bg-warning);color:var(--text-warning);padding:2px 7px;border-radius:var(--radius);">Pending</span></span><span style="width:62px;text-align:right;"><button style="font-size:11px;padding:4px 9px;">Approve</button></span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><span style="flex:1.2;">Karthik Iyer</span><span style="flex:1.6;color:var(--text-secondary);">Archive mailbox</span><span style="width:52px;color:var(--text-secondary);">12 Sep</span><span style="width:64px;"><span style="font-size:11px;background:var(--bg-success);color:var(--text-success);padding:2px 7px;border-radius:var(--radius);">Done</span></span><span style="width:62px;text-align:right;"><span style="font-size:11px;color:var(--text-muted);">—</span></span></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px;">
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+        <p style="font-size:16px;font-weight:500;margin:0 0 10px;">Asset recovery</p>
+        <div style="font-size:13px;">
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><i class="ti ti-device-laptop" style="color:var(--text-muted);font-size:17px;" aria-hidden="true"></i><span style="flex:1;">MacBook Pro · RS-4412</span><span style="font-size:11px;color:var(--text-danger);">Overdue</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><i class="ti ti-id" style="color:var(--text-muted);font-size:17px;" aria-hidden="true"></i><span style="flex:1;">Access card · 8871</span><span style="font-size:11px;color:var(--text-warning);">Pending</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:0.5px solid var(--border);"><i class="ti ti-headphones" style="color:var(--text-muted);font-size:17px;" aria-hidden="true"></i><span style="flex:1;">Headset · HS-220</span><span style="font-size:11px;color:var(--text-success);">Collected</span></div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;">
+        <p style="font-size:16px;font-weight:500;margin:0 0 10px;">Access revocation</p>
+        <div style="font-size:12px;display:flex;flex-direction:column;gap:9px;">
+          <div><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Identity and SSO</span><span style="color:var(--text-muted);">2 of 3</span></div><div style="height:6px;background:var(--surface-1);border-radius:99px;"><div style="width:66%;height:6px;background:var(--fill-success);border-radius:99px;"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Source control</span><span style="color:var(--text-muted);">1 of 4</span></div><div style="height:6px;background:var(--surface-1);border-radius:99px;"><div style="width:25%;height:6px;background:var(--fill-info);border-radius:99px;"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>SaaS applications</span><span style="color:var(--text-muted);">0 of 5</span></div><div style="height:6px;background:var(--surface-1);border-radius:99px;"><div style="width:0%;height:6px;background:var(--fill-info);border-radius:99px;"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface-1);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;">
+      <span style="width:32px;height:32px;border-radius:50%;background:var(--fill-success);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="ti ti-shield-lock" style="font-size:17px;color:var(--on-success);" aria-hidden="true"></i></span>
+      <div style="flex:1;"><p style="font-size:13px;font-weight:500;margin:0;">Deprovisioning plan (agent)</p><p style="font-size:12px;color:var(--text-secondary);margin:0;">Nine items generated for three exits. Every item stays pending until you approve it — nothing is executed automatically.</p></div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+</div>
+
+<script>
+function sendPrompt(q) { alert('Mockup only — no backend yet.\n\nWould ask: ' + q); }
+
+const views = ['employee','hr','manager','it'];
+document.querySelectorAll('.switcher button').forEach(b => {
+  b.addEventListener('click', () => {
+    const go = b.dataset.go;
+    views.forEach(v => document.getElementById(v).hidden = (v !== go));
+    document.querySelectorAll('.switcher button').forEach(x => x.classList.toggle('on', x === b));
+    window.scrollTo(0, 0);
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+/* ============================================================
+   tokens.css — the design tokens the mockups reference.
+
+   The mockups use var(--surface-2), var(--fill-success) etc. but carried no
+   definitions (they came from the page they were embedded in). These values
+   are the reconstruction approved in mockups/dashboards_preview.html. If the
+   original palette is ever recovered, change ONLY this file — no component
+   hardcodes a color.
+   ============================================================ */
+
+:root {
+  --radius: 6px;
+
+  --bg-page: #faf9f7;
+  --surface-1: #f0eeea;
+  --surface-2: #ffffff;
+  --border: #dfdcd6;
+  --border-warning: #e0b263;
+
+  --text-primary: #1a1a18;
+  --text-secondary: #5c5a54;
+  --text-muted: #8b8880;
+  --text-accent: #2563eb;
+  --text-success: #17683a;
+  --text-warning: #8a5a00;
+  --text-danger: #b3261e;
+
+  --bg-accent: #e8f0fe;
+  --bg-success: #e6f4ea;
+  --bg-warning: #fdf3e0;
+  --bg-danger: #fce8e6;
+
+  --fill-success: #1f9254;
+  --fill-info: #2563eb;
+  --fill-control: #e3e1dc;
+  --on-success: #ffffff;
+
+  /* Perficient brand identity (login split panel) — fixed, not theme-dependent. */
+  --brand-green-deep: #04342c;
+  --brand-green-accent: #0f6e56;
+  --brand-on-green: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page: #1a1917;
+    --surface-1: #211f1d;
+    --surface-2: #262421;
+    --border: #3a3833;
+    --border-warning: #7a5a1e;
+
+    --text-primary: #f0efea;
+    --text-secondary: #b5b2a9;
+    --text-muted: #8b8880;
+    --text-accent: #7aa7ff;
+    --text-success: #6fd48f;
+    --text-warning: #e6b566;
+    --text-danger: #f08a80;
+
+    --bg-accent: #1c2b45;
+    --bg-success: #163020;
+    --bg-warning: #38290f;
+    --bg-danger: #3a1b18;
+
+    --fill-success: #2e9c5a;
+    --fill-info: #5a8cff;
+    --fill-control: #3a3833;
+    --on-success: #08160d;
+  }
+}

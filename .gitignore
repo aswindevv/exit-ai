@@ -1,0 +1,12 @@
+@"
+.env
+.env.*
+.mcp.json
+*.key
+.venv/
+node_modules/
+dist/
+graphify-out/
+__pycache__/
+*.pyc
+"@ | Out-File -FilePath .gitignore -Encoding utf8

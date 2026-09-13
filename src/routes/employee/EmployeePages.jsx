@@ -1,0 +1,458 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useOutletContext } from 'react-router-dom'
+import PageHead from '../../components/PageHead'
+import Placeholder from '../shared/Placeholder'
+import { supabase } from '../../lib/supabase'
+import { fmtDate, daysUntil } from '../../lib/format'
+import perficientLogo from '../../assets/perficient-logo.png'
+
+const STAGE_LABELS = { hr: 'Resignation', manager: 'Manager & KT', it: 'IT clearance', finance: 'Finance clearance' }
+const STAGE_ORDER = ['hr', 'manager', 'it', 'finance']
+const CIRCUMFERENCE = 201
+const DOCS_RE = /document|form|handover|id card|badge|laptop|asset/i
+
+function deadlineTag(days) {
+  if (days <= 0) return { tag: 'Due', tone: 't-danger' }
+  if (days <= 3) return { tag: `${days} day${days === 1 ? '' : 's'}`, tone: 't-danger' }
+  if (days <= 7) return { tag: `${days} days`, tone: 't-warning' }
+  return { tag: `${days} days`, tone: 't-neutral' }
+}
+
+export function Dashboard() {
+  const { profile, exitCase, tasks } = useOutletContext()
+  const [question, setQuestion] = useState('')
+  const [asking, setAsking] = useState(false)
+  const [askResult, setAskResult] = useState(null)
+  const [forwarding, setForwarding] = useState(false)
+  const [forwardResult, setForwardResult] = useState(null)
+
+  async function handleAsk() {
+    if (!question.trim() || asking) return
+    setAsking(true)
+    setAskResult(null)
+    setForwardResult(null)
+    const { data: result, error } = await supabase.functions.invoke('ask', { body: { question } })
+    setAsking(false)
+    setAskResult(error ? { error: error.message } : result)
+  }
+
+  async function handleForward() {
+    setForwarding(true)
+    setForwardResult(null)
+    const { data: result, error } = await supabase.functions.invoke('forward-to-hr', { body: { question } })
+    setForwarding(false)
+    setForwardResult(error ? { error: error.message } : result)
+  }
+
+  const done = tasks.filter((t) => t.status === 'done').length
+  const total = tasks.length
+  const percent = total ? Math.round((done / total) * 100) : 0
+  const offset = Math.round(CIRCUMFERENCE * (1 - percent / 100))
+  const firstName = profile?.full_name?.split(' ')[0] ?? ''
+
+  const CHIPS = [
+    { tone: 't-plain', k: 'Exit ID', v: profile?.employee_id ?? '—' },
+    exitCase && { tone: 't-accent', text: `Last day · ${fmtDate(exitCase.last_working_day)}` },
+  ].filter(Boolean)
+
+  const STATS = [
+    { tone: 't-warning', label: 'Pending', value: String(total - done) },
+    { tone: 't-success', label: 'Done', value: String(done) },
+  ]
+
+  const DEADLINES = tasks
+    .filter((t) => t.status !== 'done' && t.due_date)
+    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+    .slice(0, 3)
+    .map((t) => {
+      const { tag, tone } = deadlineTag(daysUntil(t.due_date))
+      return { label: t.title, date: fmtDate(t.due_date), tag, tone }
+    })
+
+  const tasksByStage = {}
+  for (const t of tasks) (tasksByStage[t.stage] ??= []).push(t)
+
+  const TIMELINE = [
+    ...STAGE_ORDER.filter((s) => tasksByStage[s]).map((s) => {
+      const stageTasks = tasksByStage[s]
+      const dueDates = stageTasks.map((t) => t.due_date).filter(Boolean).sort()
+      return { label: STAGE_LABELS[s], date: fmtDate(dueDates[0]), open: !stageTasks.every((t) => t.status === 'done') }
+    }),
+    exitCase && { label: 'Relieving', date: fmtDate(exitCase.last_working_day), open: percent < 100 },
+  ].filter(Boolean)
+
+  return (
+    <>
+      <h2 className="sr-only">
+        Employee exit dashboard with a sidebar nav, exit progress gauge, checklist, upcoming deadlines, exit timeline, and an assistant prompt.
+      </h2>
+
+      <PageHead
+        greeting={`Good morning, ${firstName}`}
+        subtitle="Complete your pending tasks for a smooth exit."
+        chips={CHIPS}
+      />
+
+      <div className="card card--pad mb gauge-card">
+        <div className="gauge">
+          <svg viewBox="0 0 80 80" width="76" height="76">
+            <circle cx="40" cy="40" r="32" fill="none" stroke="var(--border)" strokeWidth="7" />
+            <circle
+              cx="40"
+              cy="40"
+              r="32"
+              fill="none"
+              stroke="var(--fill-success)"
+              strokeWidth="7"
+              strokeLinecap="round"
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={offset}
+              transform="rotate(-90 40 40)"
+            />
+          </svg>
+          <span>{percent}%</span>
+        </div>
+        <div className="grow">
+          <p className="card-title card-title--tight">Exit progress</p>
+          <div className="stat-row">
+            {STATS.map((s) => (
+              <span key={s.label} className={`stat ${s.tone}`}>
+                {s.label} <b>{s.value}</b>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="two-col mb">
+        <div className="card card--pad">
+          <p className="card-title">My checklist</p>
+          <div className="list list--col">
+            {tasks.map((t) => (
+              <div key={t.id} className="row">
+                <i
+                  className={`ti ${t.status === 'done' ? 'ti-circle-check c-success' : 'ti-circle c-muted'}`}
+                  aria-hidden="true"
+                />
+                <span className="grow">{t.title}</span>
+                <span className={`status ${t.status === 'done' ? 'c-success' : 'c-warning'}`}>
+                  {t.status === 'done' ? 'Done' : 'Pending'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card card--pad">
+          <p className="card-title">Upcoming deadlines</p>
+          <div className="list">
+            {DEADLINES.map((d) => (
+              <div key={d.label} className="row row--split">
+                <div>
+                  <p>{d.label}</p>
+                  <p className="sub">{d.date}</p>
+                </div>
+                <span className={`tag ${d.tone}`}>{d.tag}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card card--pad mb">
+        <p className="card-title card-title--loose">Exit timeline</p>
+        <div className="timeline">
+          <div className="tl-track"></div>
+          <div className="tl-done" style={{ width: `${percent}%` }}></div>
+          {TIMELINE.map((n) => (
+            <div key={n.label} className="tl-node">
+              <span className={n.open ? 'tl-dot tl-dot--open' : 'tl-dot'}></span>
+              <p className={n.open ? 'tl-label c-secondary' : 'tl-label'}>{n.label}</p>
+              <p className="tl-date">{n.date}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="strip strip--top">
+        <span className="strip-icon">
+          <i className="ti ti-message-chatbot" aria-hidden="true" />
+        </span>
+        <div className="grow">
+          <p className="strip-title">ExitAI assistant</p>
+          {askResult?.answer ? (
+            <>
+              {askResult.refused ? (
+                <p className="strip-body">I don't have that in our docs — I can forward your question to HR.</p>
+              ) : (
+                <>
+                  <p className="strip-body">{askResult.answer}</p>
+                  {askResult.sources?.length > 0 && (
+                    <p className="strip-body c-muted">
+                      Source: {askResult.sources.map((s) => s.section || s.source).join(', ')}
+                    </p>
+                  )}
+                </>
+              )}
+              {askResult.refused && (
+                forwardResult?.ok ? (
+                  <p className="strip-body c-success">Forwarded to HR — they'll get back to you.</p>
+                ) : forwardResult?.error ? (
+                  <p className="strip-body c-danger">{forwardResult.error}</p>
+                ) : (
+                  <button onClick={handleForward} disabled={forwarding} style={{ fontSize: 12, marginTop: 4 }}>
+                    {forwarding ? 'Forwarding…' : 'Forward to HR'}
+                  </button>
+                )
+              )}
+            </>
+          ) : askResult?.error ? (
+            <p className="strip-body c-danger">{askResult.error}</p>
+          ) : (
+            <p className="strip-body">Ask me anything about your exit process.</p>
+          )}
+          <input
+            className="ask-input"
+            type="text"
+            placeholder="e.g. When do I get my final settlement?"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAsk() }}
+          />
+        </div>
+        <button onClick={handleAsk} disabled={asking} style={{ fontSize: 12 }}>
+          {asking ? 'Asking…' : 'Ask ↗'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+export function MyExit() {
+  const { profile, exitCase, tasks } = useOutletContext()
+  if (!exitCase) return <Placeholder title="My exit" body="No exit case found on your profile yet." />
+  const done = tasks.filter((t) => t.status === 'done').length
+  const percent = tasks.length ? Math.round((done / tasks.length) * 100) : 0
+  return (
+    <div className="card card--pad">
+      <p className="card-title">My exit</p>
+      <div className="list list--col">
+        <div className="row row--split"><span>Employee ID</span><span className="c-secondary">{profile?.employee_id ?? '—'}</span></div>
+        <div className="row row--split"><span>Department</span><span className="c-secondary">{exitCase.department}</span></div>
+        <div className="row row--split"><span>Role</span><span className="c-secondary">{exitCase.role_title}</span></div>
+        <div className="row row--split"><span>Last working day</span><span className="c-secondary">{fmtDate(exitCase.last_working_day)}</span></div>
+        <div className="row row--split"><span>Progress</span><span className="tag t-success">{percent}% done</span></div>
+      </div>
+    </div>
+  )
+}
+
+export function Tasks() {
+  const { tasks } = useOutletContext()
+  return (
+    <div className="card card--pad">
+      <p className="card-title">My tasks</p>
+      <div className="list list--col">
+        {tasks.map((t) => (
+          <div key={t.id} className="row">
+            <i
+              className={`ti ${t.status === 'done' ? 'ti-circle-check c-success' : 'ti-circle c-muted'}`}
+              aria-hidden="true"
+            />
+            <span className="grow">{t.title}</span>
+            {t.due_date && <span className="sub c-muted">{fmtDate(t.due_date)}</span>}
+            <span className={`status ${t.status === 'done' ? 'c-success' : 'c-warning'}`}>
+              {t.status === 'done' ? 'Done' : 'Pending'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function Documents() {
+  const { tasks } = useOutletContext()
+  const docs = tasks.filter((t) => DOCS_RE.test(t.title))
+  if (!docs.length) return <Placeholder title="Documents" body="No document-related tasks on your checklist yet." />
+  return (
+    <div className="card card--pad">
+      <p className="card-title">Documents</p>
+      <div className="list list--col">
+        {docs.map((t) => (
+          <div key={t.id} className="row">
+            <i className="ti ti-file c-muted" aria-hidden="true" />
+            <span className="grow">{t.title}</span>
+            <span className={`status ${t.status === 'done' ? 'c-success' : 'c-warning'}`}>
+              {t.status === 'done' ? 'Done' : 'Pending'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function KnowledgeTransfer() {
+  const { tasks } = useOutletContext()
+  const kt = tasks.filter((t) => t.stage === 'manager')
+  if (!kt.length) return <Placeholder title="Knowledge transfer" body="No knowledge-transfer tasks assigned yet." />
+  return (
+    <div className="card card--pad">
+      <p className="card-title">Knowledge transfer</p>
+      <div className="list list--col">
+        {kt.map((t) => (
+          <div key={t.id} className="row row--split">
+            <div>
+              <p>{t.title}</p>
+              {t.due_date && <p className="sub">{fmtDate(t.due_date)}</p>}
+            </div>
+            <span className={`tag ${t.status === 'done' ? 't-success' : 't-warning'}`}>
+              {t.status === 'done' ? 'Approved' : 'Pending review'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function ExitInterview() {
+  return (
+    <Placeholder
+      title="Exit interview"
+      body="Your exit interview will be scheduled by HR once your KT stage is complete. There's nothing to show here yet."
+    />
+  )
+}
+
+export function Timeline() {
+  const { exitCase, tasks } = useOutletContext()
+  const done = tasks.filter((t) => t.status === 'done').length
+  const percent = tasks.length ? Math.round((done / tasks.length) * 100) : 0
+
+  const tasksByStage = {}
+  for (const t of tasks) (tasksByStage[t.stage] ??= []).push(t)
+
+  const TIMELINE = [
+    ...STAGE_ORDER.filter((s) => tasksByStage[s]).map((s) => {
+      const stageTasks = tasksByStage[s]
+      const dueDates = stageTasks.map((t) => t.due_date).filter(Boolean).sort()
+      return { label: STAGE_LABELS[s], date: fmtDate(dueDates[0]), open: !stageTasks.every((t) => t.status === 'done') }
+    }),
+    exitCase && { label: 'Relieving', date: fmtDate(exitCase.last_working_day), open: percent < 100 },
+  ].filter(Boolean)
+
+  return (
+    <div className="card card--pad">
+      <p className="card-title card-title--loose">Exit timeline</p>
+      <div className="timeline">
+        <div className="tl-track"></div>
+        <div className="tl-done" style={{ width: `${percent}%` }}></div>
+        {TIMELINE.map((n) => (
+          <div key={n.label} className="tl-node">
+            <span className={n.open ? 'tl-dot tl-dot--open' : 'tl-dot'}></span>
+            <p className={n.open ? 'tl-label c-secondary' : 'tl-label'}>{n.label}</p>
+            <p className="tl-date">{n.date}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function Resignation({ session }) {
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [lastDay, setLastDay] = useState('')
+  const [reason, setReason] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    supabase.from('profiles').select('full_name').eq('id', session.user.id).single()
+      .then(({ data }) => setName(data?.full_name?.split(' ')[0] ?? ''))
+  }, [session])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!lastDay || busy) return
+    setBusy(true)
+    setError('')
+    const { data, error } = await supabase.functions.invoke('submit-resignation', {
+      body: { last_working_day: lastDay, reason },
+    })
+    if (error || data?.error) {
+      setBusy(false)
+      setError(data?.error ?? error.message)
+      return
+    }
+    // Trigger the exit pipeline: agents/service.py is a local-only bridge
+    // (the submit-resignation Edge Function runs in Supabase's cloud and
+    // can't reach it). If it's not running, the case still exists — the
+    // checklist/manager email just won't have fired yet.
+    try {
+      await fetch('http://localhost:8787/activate-exit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: data.case.id }),
+      })
+    } catch {
+      // agent service unreachable — non-fatal, see comment above
+    }
+    setBusy(false)
+    navigate('/employee', { replace: true })
+  }
+
+  return (
+    <div className="login-shell">
+      <div className="login-brand-panel">
+        <div className="login-brand-mark">
+          <img src={perficientLogo} alt="Perficient" className="login-brand-logo" />
+          <span className="login-brand-co">Perficient</span>
+        </div>
+        <div className="login-brand-copy">
+          <h1>ExitAI</h1>
+          <p>Before you can see your exit dashboard, tell us when you're leaving.</p>
+        </div>
+      </div>
+
+      <div className="login-form-panel">
+        <form className="login-card" onSubmit={handleSubmit}>
+          <div className="brand mb">
+            <img src={perficientLogo} alt="Perficient" className="brand-logo" />
+            <span className="brand-name">ExitAI</span>
+          </div>
+
+          <h2 style={{ margin: '0 0 4px' }}>Submit your resignation{name ? `, ${name}` : ''}</h2>
+          <p className="c-secondary" style={{ margin: '0 0 8px', fontSize: 13 }}>
+            This starts your exit case. Your checklist, IT, and manager steps follow once HR reviews it.
+          </p>
+
+          <label className="login-label" htmlFor="resign-last-day">Last working day</label>
+          <input
+            id="resign-last-day"
+            type="date"
+            value={lastDay}
+            onChange={(e) => setLastDay(e.target.value)}
+            required
+          />
+
+          <label className="login-label" htmlFor="resign-reason">Reason (optional)</label>
+          <textarea
+            id="resign-reason"
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+
+          {error && <p className="login-error">{error}</p>}
+
+          <button type="submit" disabled={busy || !lastDay} className="login-submit">
+            {busy ? 'Submitting…' : 'Confirm resignation'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}

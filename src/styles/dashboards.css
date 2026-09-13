@@ -1,0 +1,365 @@
+/* ============================================================
+   dashboards.css — the mockups' repeated visual patterns, lifted out of the
+   inline styles they were authored with. Every value here is transcribed from
+   mockups/dashboards_preview.html; nothing is invented and nothing is
+   "improved". Per-element one-offs (flex ratios, column widths, gauge dash
+   offsets) stay inline in the components, where they belong.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Fluid full-viewport root: fills the window at any size, no dead-space cap. */
+.frame {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 16px clamp(16px, 4vw, 32px);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0;
+  margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+
+button {
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+button:hover { background: var(--surface-1); }
+
+/* ---------- shell ---------- */
+/* Mobile-first: single column below 768px (sidebar stacks above content);
+   the 150px sidebar + content grid returns at tablet width and up. */
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 1rem 0;
+}
+@media (min-width: 768px) {
+  /* sticky's own engagement lag (it must scroll past .frame + .shell's top
+     padding before it "sticks") always let the sidebar move a few px first.
+     Root fix: the grid itself is exactly one viewport tall (100vh minus
+     .frame's own vertical padding), so the row — sidebar and content column
+     alike — never grows past the viewport; the content column scrolls
+     internally instead of the page, so the sidebar simply never moves. */
+  .shell { grid-template-columns: 150px minmax(0, 1fr); height: calc(100vh - 32px); }
+  .sidebar { overflow: hidden; }
+  .shell > .sidebar + div { overflow-y: auto; }
+}
+
+/* ---------- cards ---------- */
+.card {
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+}
+.card--pad { padding: 1rem 1.25rem; }
+.card--warned { border-color: var(--border-warning); }
+.mb { margin-bottom: 12px; }
+
+.card-title { font-size: 16px; font-weight: 500; margin: 0 0 10px; }
+.card-title--tight { margin-bottom: 8px; }
+.card-title--loose { margin-bottom: 16px; }
+
+/* ---------- sidebar ---------- */
+.sidebar { padding: 14px 10px; }
+
+.brand { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.brand-logo {
+  height: 22px; width: auto; border-radius: 5px;
+  display: block; flex-shrink: 0;
+}
+.brand-name { font-size: 15px; font-weight: 500; }
+
+.nav { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.nav a { color: var(--text-secondary); padding: 6px 8px; text-decoration: none; cursor: pointer; }
+.nav a.is-active {
+  background: var(--bg-success);
+  color: var(--text-success);
+  border-radius: var(--radius);
+}
+
+.user {
+  border-top: 0.5px solid var(--border);
+  margin-top: 14px; padding-top: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--fill-control);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 500;
+}
+.user-meta { line-height: 1.2; min-width: 0; }
+.user-meta p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-meta .name { font-size: 12px; font-weight: 500; }
+.user-meta .role { font-size: 11px; color: var(--text-muted); }
+
+.logout-btn {
+  margin-left: auto; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  background: transparent; border: 0;
+}
+.logout-btn:hover { background: var(--surface-1); border-radius: var(--radius); }
+.logout-btn i { font-size: 15px; color: var(--text-muted); }
+
+/* ---------- page header ---------- */
+.page-head {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px;
+  margin-bottom: 1rem;
+}
+.greeting { font-size: 18px; font-weight: 500; margin: 0; }
+.subtitle { font-size: 13px; color: var(--text-secondary); margin: 2px 0 0; }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { font-size: 11px; padding: 6px 10px; border-radius: var(--radius); }
+.chip .k { color: var(--text-muted); }
+.chip .v { font-weight: 500; }
+
+/* ---------- tone utilities (background + text) ---------- */
+.t-plain   { background: var(--surface-1); }
+.t-neutral { background: var(--surface-1); color: var(--text-secondary); }
+.t-accent  { background: var(--bg-accent);  color: var(--text-accent); }
+.t-success { background: var(--bg-success); color: var(--text-success); }
+.t-warning { background: var(--bg-warning); color: var(--text-warning); }
+.t-danger  { background: var(--bg-danger);  color: var(--text-danger); }
+
+/* ---------- text-colour utilities ---------- */
+.c-muted     { color: var(--text-muted); }
+.c-secondary { color: var(--text-secondary); }
+.c-accent    { color: var(--text-accent); }
+.c-success   { color: var(--text-success); }
+.c-warning   { color: var(--text-warning); }
+.c-danger    { color: var(--text-danger); }
+
+/* ---------- progress gauge ---------- */
+.gauge-card { display: flex; align-items: center; gap: 20px; }
+.gauge { position: relative; width: 76px; height: 76px; flex-shrink: 0; }
+.gauge > span {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 500;
+}
+
+/* ---------- stat pills / KPI cards ---------- */
+/* Mobile-first: stacked single column below 1024px; the side-by-side row
+   returns at desktop width, matching the current approved look exactly. */
+.stat-row { display: flex; flex-direction: column; gap: 10px; }
+.stat {
+  flex: 1; padding: 8px 10px; border-radius: var(--radius); font-size: 12px;
+}
+.stat b { font-size: 16px; font-weight: 500; display: block; }
+
+.kpi-row { display: flex; flex-direction: column; gap: 10px; }
+.kpi {
+  flex: 1;
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.kpi b { font-size: 20px; font-weight: 500; display: block; color: var(--text-primary); }
+
+@media (min-width: 1024px) {
+  .stat-row, .kpi-row { flex-direction: row; }
+}
+
+/* ---------- column grids ---------- */
+/* Mobile-first: single column below 1024px; the two-up grid returns at
+   desktop width, matching the current approved look exactly. */
+.two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.two-col--even { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) {
+  .two-col { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+  .two-col--even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.stack { display: flex; flex-direction: column; gap: 12px; }
+
+/* ---------- lists and tables ---------- */
+.list { font-size: 13px; }
+.list--col { display: flex; flex-direction: column; }
+
+.thead {
+  display: flex; gap: 8px; padding: 0 0 6px;
+  font-size: 11px; color: var(--text-muted);
+}
+.row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-top: 0.5px solid var(--border);
+}
+.row--split { justify-content: space-between; }
+.row i { font-size: 17px; }
+.row p { margin: 0; }
+.row .sub { font-size: 11px; color: var(--text-muted); }
+.grow { flex: 1; min-width: 0; }
+
+/* The mockups' fixed-width table columns (inline styles) are flex children,
+   so they already shrink; on narrow phones let a row wrap onto two lines
+   instead of forcing a horizontal scrollbar. */
+.thead > span, .row > span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .thead, .row { flex-wrap: wrap; }
+}
+
+.tag { font-size: 11px; padding: 2px 7px; border-radius: var(--radius); }
+.status { font-size: 11px; }
+
+/* ---------- exit timeline ---------- */
+.timeline { display: flex; justify-content: space-between; position: relative; }
+.tl-track {
+  position: absolute; top: 7px; left: 5%; right: 5%;
+  height: 2px; background: var(--border);
+}
+.tl-done {
+  position: absolute; top: 7px; left: 5%;
+  height: 2px; background: var(--fill-success);
+}
+.tl-node { position: relative; text-align: center; flex: 1; }
+.tl-dot {
+  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--fill-success);
+}
+.tl-dot--open { background: var(--surface-2); border: 2px solid var(--border); }
+.tl-label { font-size: 11px; margin: 6px 0 0; }
+.tl-date { font-size: 10px; color: var(--text-muted); margin: 0; }
+
+/* ---------- horizontal bars ---------- */
+.bars { font-size: 12px; display: flex; flex-direction: column; gap: 9px; }
+.bar-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.bar-track { height: 6px; background: var(--surface-1); border-radius: 99px; }
+.bar-fill { height: 6px; background: var(--fill-info); border-radius: 99px; }
+.bar-fill--success { background: var(--fill-success); }
+
+/* ---------- bottom strip (assistant / agent output) ---------- */
+.strip {
+  background: var(--surface-1); border-radius: 12px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.strip--top { align-items: flex-start; }
+.strip-icon {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--fill-success);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.strip-icon i { font-size: 17px; color: var(--on-success); }
+.strip-title { font-size: 13px; font-weight: 500; margin: 0; }
+.strip-body { font-size: 12px; color: var(--text-secondary); margin: 0; }
+.strip-body + .strip-body { margin-top: 4px; }
+
+.ask-input {
+  width: 100%; margin-top: 8px; font-size: 12px; padding: 6px 8px;
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); color: var(--text-primary);
+}
+
+/* ---------- dev-only role switcher (removed from prod in Phase 3) ---------- */
+.role-switcher {
+  position: fixed; top: 12px; right: 12px; z-index: 10;
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;
+  max-width: calc(100vw - 24px);
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+}
+.role-switcher button { font-size: 11px; padding: 4px 9px; }
+.role-switcher button.is-on {
+  background: var(--bg-success); color: var(--text-success);
+  border-color: transparent;
+}
+
+/* ---------- login (Phase 3; two-column Perficient brand split) ---------- */
+.login-shell {
+  min-height: 100vh;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  .login-shell { grid-template-columns: 1fr 1fr; }
+}
+
+.login-brand-panel {
+  min-height: 220px;
+  background: var(--brand-green-deep);
+  color: var(--brand-on-green);
+  display: flex; flex-direction: column;
+  padding: 40px;
+}
+@media (min-width: 768px) {
+  .login-brand-panel { min-height: 100vh; }
+}
+
+.login-brand-mark { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.login-brand-logo {
+  height: 32px; width: auto; border-radius: 8px; flex-shrink: 0; display: block;
+}
+.login-brand-co { font-size: 15px; font-weight: 500; letter-spacing: 0.02em; }
+
+.login-brand-copy { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.login-brand-copy h1 { font-size: clamp(24px, 4vw, 34px); font-weight: 600; margin: 0 0 8px; }
+.login-brand-copy p {
+  font-size: 13px; color: rgba(255, 255, 255, 0.72); margin: 0; max-width: 340px;
+}
+
+.login-form-panel {
+  min-width: 0;
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px;
+  background: var(--bg-page);
+}
+
+.login-card { width: 100%; max-width: 360px; display: flex; flex-direction: column; }
+.login-label { font-size: 12px; color: var(--text-secondary); margin: 10px 0 4px; }
+.login-card input, .login-card textarea {
+  font-size: 13px; padding: 8px 10px;
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); color: var(--text-primary);
+  font-family: inherit; resize: vertical;
+}
+.login-error { font-size: 12px; color: var(--text-danger); margin: 10px 0 0; }
+
+.login-submit {
+  margin-top: 16px;
+  background: var(--brand-green-accent); color: var(--brand-on-green);
+  border-color: transparent; font-weight: 500;
+}
+.login-submit:hover { background: var(--brand-green-deep); }
+.login-submit:disabled { opacity: 0.6; cursor: default; }
+
+.login-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 18px 0; font-size: 11px; color: var(--text-muted);
+}
+.login-divider::before, .login-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.login-ms-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+.login-ms-btn i { font-size: 15px; }
+.ms-logo { width: 15px; height: 15px; flex-shrink: 0; }
