@@ -6,7 +6,7 @@ finance_agent). Holds one case state and walks it through the four stages in
 order, with a conditional branch at the manager gate so a rejection routes to
 escalation instead of crashing the run.
 
-    entry -> hr -> manager_gate --[approved]--> it -> finance -> assess -> END
+    entry -> hr -> manager_gate --[approved]--> it -> compliance -> finance -> assess -> END
                               `--[rejected]--> escalate -> END
 
 `manager_gate` stands in for the frontend's (no-op, Phase 6b out of scope)
@@ -26,7 +26,8 @@ import sys
 from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
 
-from . import finance_agent, hr_agent, it_agent, risk_agent
+from . import checklist_generator_agent, compliance_agent, finance_agent, it_deprovisioning_agent, kt_document_reviewer_agent, risk_agent
+from . import multi_system_clearance, smart_routing
 from .config import db
 from .exit_intel_agent import run_per_case
 from .trace import log_db, traced_node
@@ -51,15 +52,19 @@ def _record(state: SupervisorState, stage: str, detail: str) -> None:
 
 @traced_node("Supervisor -- HR stage")
 def _hr_stage(state: SupervisorState) -> SupervisorState:
-    hr_agent.generate_checklist(state["case_id"])
+    checklist_generator_agent.generate(state["case_id"])
     if state.get("kt_text"):
-        hr_agent.review_kt_document(state["case_id"], state["kt_text"])
+        kt_document_reviewer_agent.review(state["case_id"], state["kt_text"])
+    routing = smart_routing.pick_approver(state["case_id"], "hr")
     _record(state, "hr", "hr: checklist + kt-review done")
+    _record(state, "hr", f"smart routing: {routing['reason']}")
     return state
 
 
 @traced_node("Supervisor -- manager gate")
 def _manager_gate(state: SupervisorState) -> SupervisorState:
+    routing = smart_routing.pick_approver(state["case_id"], "manager")
+    _record(state, "manager", f"smart routing: {routing['reason']}")
     _record(state, "manager", "rejected" if state["simulate_rejection"] else "approved")
     return state
 
@@ -81,8 +86,22 @@ def _escalate(state: SupervisorState) -> SupervisorState:
 
 @traced_node("Supervisor -- IT stage")
 def _it_stage(state: SupervisorState) -> SupervisorState:
-    it_agent.generate_plan(state["case_id"])
+    it_deprovisioning_agent.generate(state["case_id"])
+    routing = smart_routing.pick_approver(state["case_id"], "it")
     _record(state, "it", "it: deprovisioning plan done")
+    _record(state, "it", f"smart routing: {routing['reason']}")
+    return state
+
+
+@traced_node("Supervisor -- compliance stage")
+def _compliance_stage(state: SupervisorState) -> SupervisorState:
+    result = compliance_agent.run_for_case(state["case_id"])["result"]
+    detail = "compliance: cleared" if result["cleared"] else f"compliance: blocked -- {result['blocking_reasons']}"
+    _record(state, "compliance", detail)
+    status = multi_system_clearance.consolidate(state["case_id"])
+    _record(state, "compliance", f"multi-system clearance: {status['overall']} "
+                                  f"(it={status['it_asset_management']['status']}, hrms={status['hrms']['status']}, "
+                                  f"finance={status['finance']['status']})")
     return state
 
 
@@ -107,13 +126,15 @@ _graph.add_node("hr", _hr_stage)
 _graph.add_node("manager_gate", _manager_gate)
 _graph.add_node("escalate", _escalate)
 _graph.add_node("it", _it_stage)
+_graph.add_node("compliance", _compliance_stage)
 _graph.add_node("finance", _finance_stage)
 _graph.add_node("assess", _assess_stage)
 
 _graph.set_entry_point("hr")
 _graph.add_edge("hr", "manager_gate")
 _graph.add_conditional_edges("manager_gate", _route_after_manager, {"approved": "it", "rejected": "escalate"})
-_graph.add_edge("it", "finance")
+_graph.add_edge("it", "compliance")
+_graph.add_edge("compliance", "finance")
 _graph.add_edge("finance", "assess")
 _graph.set_finish_point("assess")
 _graph.add_edge("escalate", END)

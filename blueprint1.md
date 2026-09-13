@@ -23,17 +23,17 @@ confirms review in a real browser — a script passing once is not "done".
   duplicating agents.
 
 ### 24 capabilities → agents (mapping)
-- HR agent ← #2, #5 checklist, #10 KT review, #16 doc collection
+- HR agent ← #2, #5 checklist, #10 KT review, #16 doc collection (doc_collection.py, required-vs-submitted tracking + reminders via notifications._compose/_send, real OCR validation via pytesseract + Tesseract binary)
 - IT agent ← #3, #18 deprovisioning
 - Finance agent ← #4
-- Notification agent ← #6 email drafting, #9 SLA escalation
+- Notification agent ← #6 email drafting, #9 SLA escalation (sla_escalation.py, reuses notifications._compose/_send, >5-day threshold, escalates to the real blocker)
 - FAQ chatbot ← #7 (built as RAG)
 - Exit-Interview agent ← #8, #19 trend analyst (longitudinal mode)
-- Risk agent ← #12, part of #21 rehire
-- Compliance agent ← #13, #22 policy auditor (scheduled)
-- Analytics agent ← #14, #17 optimizer, #23 attrition
+- Risk agent ← #12; #21 rehire is its own thin-wrapper module (rehire_agent.py)
+- Compliance agent ← #13 (compliance_agent.py, real blocking logic), #22 policy auditor (policy_auditor.py, scheduled -- reuses sla_escalation.find_breaches plus its own missing_approval/skipped_step checks)
+- Analytics agent ← #14 (analytics_agent.py), #17 optimizer (workflow_optimizer.py, reuses analytics_agent's aggregate node), #23 attrition (attrition_agent.py, department-level proxy -- see its ponytail comment)
 - Supervisor ← #20 orchestrator, #24 end-to-end capstone
-- Tool-nodes (not standalone agents): #11 smart routing, #15 multi-system clearance
+- Tool-nodes (not standalone agents, called from existing supervisor.py stage nodes): #11 smart routing (smart_routing.py, real department + out_of_office routing over profiles, routes to a real delegate profile via scripts/seed_delegates.js — called from the hr/manager/it stage nodes), #15 multi-system clearance (multi_system_clearance.py, consolidates exit_tasks/case_documents as a labeled demo stand-in for IT asset mgmt/HRMS/finance — called from the compliance stage node)
 - #1 Manager = a human role in the dashboard, not an agent
 
 ---
