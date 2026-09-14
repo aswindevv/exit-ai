@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import PageHead from '../../components/PageHead'
+import { withEmployeeHeaders, tieredByCompletion, caseTaskSummary, completionChip, CASE_GATE_STAGES } from '../../components/EmployeeGroup'
 import { supabase } from '../../lib/supabase'
 import { fmtDate, daysUntil } from '../../lib/format'
 
@@ -12,6 +13,20 @@ function dayTone(dateStr) {
   if (d <= 10) return 't-accent'
   return 't-neutral'
 }
+
+const mgrGroupKey = (t) => t.case_id
+// allTasks is the manager's full accessible task set for the case (every
+// stage) -- "all done" must reflect the whole case, not just this list.
+const mgrGroupHeader = (reportsById, allTasks) => (t) => {
+  const r = reportsById[t.case_id]
+  return {
+    name: r?.employee_name,
+    subtitle: r ? `${r.department} · Last day ${fmtDate(r.last_working_day)}` : undefined,
+    chip: completionChip(t.case_id, allTasks, CASE_GATE_STAGES),
+  }
+}
+const mgrAllDone = (allTasks) => (t) => caseTaskSummary(t.case_id, allTasks, CASE_GATE_STAGES).allDone
+const mgrCreatedAt = (reportsById) => (t) => new Date(reportsById[t.case_id]?.created_at ?? 0)
 
 // KT approval (manager "Review") and clearance sign-off (manager "Sign") are
 // both just approving a task -- mark it done. RLS (0008) only lets a manager
@@ -104,56 +119,64 @@ export function Dashboard() {
         <div className="card card--pad">
           <p className="card-title">KT approvals</p>
           <div className="list">
-            {ktTasks.map((t) => (
-              <div className="row row--split" key={t.id}>
-                <div>
-                  <p>{reportsById[t.case_id]?.employee_name}</p>
-                  <p className="sub">{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
-                </div>
-                {t.status === 'done' ? (
-                  <span className="tag t-success">Approved</span>
-                ) : (
-                  <div style={{ textAlign: 'right' }}>
-                    <button
-                      style={BTN}
-                      onClick={() => approveTask(t.id)}
-                      disabled={actioning[t.id] === 'pending'}
-                    >
-                      {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
-                    </button>
-                    {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                      <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
-                    )}
+            {withEmployeeHeaders(
+              tieredByCompletion([...ktTasks], mgrAllDone(tasks), mgrCreatedAt(reportsById)),
+              mgrGroupKey,
+              mgrGroupHeader(reportsById, tasks),
+              (t) => (
+                <div className="row row--split" key={t.id}>
+                  <div>
+                    <p className="sub">{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
                   </div>
-                )}
-              </div>
-            ))}
+                  {t.status === 'done' ? (
+                    <span className="tag t-success">Approved</span>
+                  ) : (
+                    <div style={{ textAlign: 'right' }}>
+                      <button
+                        style={BTN}
+                        onClick={() => approveTask(t.id)}
+                        disabled={actioning[t.id] === 'pending'}
+                      >
+                        {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
+                      </button>
+                      {actioning[t.id] && actioning[t.id] !== 'pending' && (
+                        <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
           </div>
         </div>
 
         <div className="card card--pad">
           <p className="card-title">Clearances to sign</p>
           <div className="list">
-            {financeTasks.map((t) => (
-              <div className="row row--split" key={t.id}>
-                <div>
-                  <p>{t.title}</p>
-                  <p className="sub">{reportsById[t.case_id]?.employee_name}</p>
+            {withEmployeeHeaders(
+              tieredByCompletion([...financeTasks], mgrAllDone(tasks), mgrCreatedAt(reportsById)),
+              mgrGroupKey,
+              mgrGroupHeader(reportsById, tasks),
+              (t) => (
+                <div className="row row--split" key={t.id}>
+                  <div>
+                    <p>{t.title}</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <button
+                      style={BTN}
+                      onClick={() => approveTask(t.id)}
+                      disabled={actioning[t.id] === 'pending'}
+                    >
+                      {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
+                    </button>
+                    {actioning[t.id] && actioning[t.id] !== 'pending' && (
+                      <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
+                    )}
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <button
-                    style={BTN}
-                    onClick={() => approveTask(t.id)}
-                    disabled={actioning[t.id] === 'pending'}
-                  >
-                    {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
-                  </button>
-                  {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                    <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         </div>
       </div>
@@ -242,26 +265,30 @@ export function KtApprovals() {
     <div className="card card--pad">
       <p className="card-title">KT approvals</p>
       <div className="list">
-        {ktTasks.map((t) => (
-          <div className="row row--split" key={t.id}>
-            <div>
-              <p>{reportsById[t.case_id]?.employee_name}</p>
-              <p className="sub">{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
-            </div>
-            {t.status === 'done' ? (
-              <span className="tag t-success">Approved</span>
-            ) : (
-              <div style={{ textAlign: 'right' }}>
-                <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending'}>
-                  {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
-                </button>
-                {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                  <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
-                )}
+        {withEmployeeHeaders(
+          tieredByCompletion([...ktTasks], mgrAllDone(tasks), mgrCreatedAt(reportsById)),
+          mgrGroupKey,
+          mgrGroupHeader(reportsById, tasks),
+          (t) => (
+            <div className="row row--split" key={t.id}>
+              <div>
+                <p>{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
               </div>
-            )}
-          </div>
-        ))}
+              {t.status === 'done' ? (
+                <span className="tag t-success">Approved</span>
+              ) : (
+                <div style={{ textAlign: 'right' }}>
+                  <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending'}>
+                    {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
+                  </button>
+                  {actioning[t.id] && actioning[t.id] !== 'pending' && (
+                    <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        )}
       </div>
     </div>
   )
@@ -276,26 +303,30 @@ export function Clearances() {
     <div className="card card--pad">
       <p className="card-title">Clearances to sign</p>
       <div className="list">
-        {financeTasks.map((t) => (
-          <div className="row row--split" key={t.id}>
-            <div>
-              <p>{t.title}</p>
-              <p className="sub">{reportsById[t.case_id]?.employee_name}</p>
-            </div>
-            {t.status === 'done' ? (
-              <span className="tag t-success">Signed</span>
-            ) : (
-              <div style={{ textAlign: 'right' }}>
-                <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending'}>
-                  {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
-                </button>
-                {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                  <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
-                )}
+        {withEmployeeHeaders(
+          tieredByCompletion([...financeTasks], mgrAllDone(tasks), mgrCreatedAt(reportsById)),
+          mgrGroupKey,
+          mgrGroupHeader(reportsById, tasks),
+          (t) => (
+            <div className="row row--split" key={t.id}>
+              <div>
+                <p>{t.title}</p>
               </div>
-            )}
-          </div>
-        ))}
+              {t.status === 'done' ? (
+                <span className="tag t-success">Signed</span>
+              ) : (
+                <div style={{ textAlign: 'right' }}>
+                  <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending'}>
+                    {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
+                  </button>
+                  {actioning[t.id] && actioning[t.id] !== 'pending' && (
+                    <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        )}
       </div>
     </div>
   )

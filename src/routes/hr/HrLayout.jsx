@@ -38,6 +38,7 @@ export default function HrLayout({ session }) {
         interviews: interviews ?? [],
         insight: insights?.[0] ?? null,
         runs: runs ?? [],
+        userId: session.user.id,
         reload: load,
       })
     }

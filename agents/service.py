@@ -10,9 +10,12 @@ this local service directly to run the pipeline. CLAUDE.md's own NON-NEGOTIABLES
 already name "the Python agent service" as a thing with its own env, separate
 from the Edge Functions; this is that service, made reachable.
 
-One endpoint, one job -- generate the HR checklist (which is what actually
-turns "case created" into "checklist populated from last_working_day", see
-hr_agent._persist_checklist) and notify the manager. Deliberately NOT the
+Three endpoints, three jobs: /activate-exit generates the HR checklist (which
+is what actually turns "case created" into "checklist populated from
+last_working_day", see hr_agent._persist_checklist) and notifies the manager;
+/submit-exit-interview runs the Exit-Interview agent; /issue-relieving-letter
+sends the closing notice once HR has issued the letter. /activate-exit is
+deliberately NOT the
 full supervisor_graph: that graph auto-approves the manager gate and runs
 IT/finance/risk assessment unconditionally, which would finish an exit case
 the moment it's opened -- wrong for a resignation that was just submitted
@@ -31,7 +34,7 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import hr_agent, notifications
+from . import exit_intel_agent, hr_agent, notifications
 from .config import db
 from .trace import log_db
 
@@ -51,6 +54,37 @@ def activate_case(case_id: str) -> dict:
 
     manager_notice = notifications.send_resignation_notice(case)
     return {"ok": True, "checklist": checklist_result, "manager_notice": manager_notice}
+
+
+def issue_relieving_letter(case_id: str) -> dict:
+    # The frontend already flipped relieving_letter_issued/status via its own
+    # anon-key UPDATE (RLS-gated by exit_cases_hr_relieving_letter, 0017) --
+    # this just sends the completion-style notice. Non-fatal if this service
+    # isn't running, same posture as every other call in this file.
+    case = db.table("exit_cases").select("*").eq("id", case_id).single().execute().data
+    if not case:
+        return {"error": "case not found"}
+    result = notifications.send_relieving_letter_notice(case)
+    return {"ok": True, "notice": result}
+
+
+def submit_exit_interview(case_id: str) -> dict:
+    # The frontend already INSERTed the raw fields directly (anon key + RLS,
+    # per CLAUDE.md) -- this just reads them back with the service key and
+    # runs the Exit-Interview agent (exit_intel_agent.run_per_case), which
+    # UPDATEs the same row's summary/sentiment/themes/rehire_* in place.
+    row = db.table("exit_interviews").select("*").eq("case_id", case_id).single().execute().data
+    if not row:
+        return {"error": "no exit interview found for case"}
+    lines = [f"Reason for leaving: {row.get('reason_for_leaving') or '(not given)'}"]
+    if row.get("would_recommend") is not None:
+        lines.append(f"Would recommend the company to a friend: {'Yes' if row['would_recommend'] else 'No'}")
+    if row.get("feedback"):
+        lines.append(f"Feedback: {row['feedback']}")
+    if row.get("comments"):
+        lines.append(f"Additional comments: {row['comments']}")
+    result = exit_intel_agent.run_per_case(case_id, "\n".join(lines))
+    return {"ok": True, "analysis": result["result"]}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -73,7 +107,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path != "/activate-exit":
+        routes = {
+            "/activate-exit": activate_case,
+            "/submit-exit-interview": submit_exit_interview,
+            "/issue-relieving-letter": issue_relieving_letter,
+        }
+        if self.path not in routes:
             self._json(404, {"error": "not found"})
             return
         length = int(self.headers.get("Content-Length", 0))
@@ -86,8 +125,9 @@ class Handler(BaseHTTPRequestHandler):
         if not case_id:
             self._json(400, {"error": "case_id required"})
             return
+        handler = routes[self.path]
         try:
-            result = activate_case(case_id)
+            result = handler(case_id)
         except Exception as exc:  # pipeline/LLM/DB failure -- report, don't crash the service
             self._json(500, {"error": str(exc)})
             return

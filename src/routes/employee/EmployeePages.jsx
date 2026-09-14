@@ -6,10 +6,39 @@ import { supabase } from '../../lib/supabase'
 import { fmtDate, daysUntil } from '../../lib/format'
 import perficientLogo from '../../assets/perficient-logo.png'
 
-const STAGE_LABELS = { hr: 'Resignation', manager: 'Manager & KT', it: 'IT clearance', finance: 'Finance clearance' }
+const STAGE_LABELS = { hr: 'Resignation', manager: 'Manager & KT', it: 'IT clearance', compliance: 'Compliance clearance', finance: 'Finance clearance' }
 const STAGE_ORDER = ['hr', 'manager', 'it', 'finance']
+// Broader than STAGE_ORDER/exit_case_cleared_for_relieving() (0017, which
+// excludes compliance because it's agent-only with no manual UI toggle) --
+// this is the employee-facing "is my exit actually, fully done" gate, and
+// the user asked for compliance included.
+const REQUIRED_STAGES = ['hr', 'manager', 'it', 'compliance', 'finance']
 const CIRCUMFERENCE = 201
 const DOCS_RE = /document|form|handover|id card|badge|laptop|asset/i
+const BTN = { fontSize: 11, padding: '4px 9px' }
+
+// "Mark done" -- same shape as manager's approveTask (ManagerPages.jsx). RLS
+// (0015) only lets an employee do this for their own case's 'hr'-stage
+// tasks, and only to 'done', so this can't touch manager/it/finance rows or
+// un-complete anything.
+function useMarkDone(reload) {
+  const [actioning, setActioning] = useState({})
+  async function markDone(taskId) {
+    setActioning((a) => ({ ...a, [taskId]: 'pending' }))
+    const { error } = await supabase.from('exit_tasks').update({ status: 'done' }).eq('id', taskId)
+    if (error) {
+      setActioning((a) => ({ ...a, [taskId]: error.message }))
+      return
+    }
+    await reload()
+    setActioning((a) => {
+      const next = { ...a }
+      delete next[taskId]
+      return next
+    })
+  }
+  return [actioning, markDone]
+}
 
 function deadlineTag(days) {
   if (days <= 0) return { tag: 'Due', tone: 't-danger' }
@@ -72,6 +101,11 @@ export function Dashboard() {
   const tasksByStage = {}
   for (const t of tasks) (tasksByStage[t.stage] ??= []).push(t)
 
+  const allStagesCleared = REQUIRED_STAGES.every(
+    (s) => tasksByStage[s]?.length && tasksByStage[s].every((t) => t.status === 'done')
+  )
+  const isExitComplete = allStagesCleared && exitCase?.relieving_letter_issued === true
+
   const TIMELINE = [
     ...STAGE_ORDER.filter((s) => tasksByStage[s]).map((s) => {
       const stageTasks = tasksByStage[s]
@@ -80,6 +114,8 @@ export function Dashboard() {
     }),
     exitCase && { label: 'Relieving', date: fmtDate(exitCase.last_working_day), open: percent < 100 },
   ].filter(Boolean)
+
+  if (isExitComplete) return <ExitComplete profile={profile} exitCase={exitCase} />
 
   return (
     <>
@@ -228,6 +264,100 @@ export function Dashboard() {
   )
 }
 
+// Letterhead-style HTML, not a real PDF -- no PDF library exists in this
+// codebase (package.json has none) and adding one for a single download
+// button isn't worth the new dependency. The employee can open this and
+// print-to-PDF themselves if they want one.
+function buildRelievingLetterHtml(profile, exitCase) {
+  const issueDate = exitCase.issued_at
+    ? new Date(exitCase.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+    : ''
+  const lastDay = exitCase.last_working_day
+    ? new Date(exitCase.last_working_day).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+    : ''
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>Relieving letter — ${exitCase.employee_name}</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; color: #1a1a18; background: #faf9f7; padding: 48px; }
+  .letter { max-width: 640px; margin: 0 auto; background: #fff; border: 0.5px solid #dfdcd6; border-radius: 12px; padding: 40px; }
+  .co { font-size: 15px; font-weight: 600; color: #04342c; margin-bottom: 24px; }
+  h1 { font-size: 18px; font-weight: 500; margin: 0 0 4px; }
+  .date { font-size: 12px; color: #8b8880; margin: 0 0 24px; }
+  p { font-size: 14px; line-height: 1.6; }
+  .sign { margin-top: 32px; }
+</style></head>
+<body>
+  <div class="letter">
+    <p class="co">Perficient</p>
+    <h1>Relieving Letter</h1>
+    <p class="date">Issued ${issueDate}</p>
+    <p>This is to confirm that <b>${exitCase.employee_name}</b> (${profile?.employee_id ?? '—'}), who held the
+    position of <b>${exitCase.role_title}</b> in the <b>${exitCase.department}</b> department, has completed all
+    exit formalities with Perficient as of their last working day, <b>${lastDay}</b>.</p>
+    <p>All clearances — HR, manager/knowledge-transfer, IT, compliance, and finance — have been completed, and
+    this relieving letter is issued in confirmation that the employee's exit process is fully closed.</p>
+    <p>We thank ${exitCase.employee_name} for their contributions and wish them well in their future endeavours.</p>
+    <p class="sign">Regards,<br>Perficient HR</p>
+  </div>
+</body></html>`
+}
+
+function downloadRelievingLetter(profile, exitCase) {
+  const html = buildRelievingLetterHtml(profile, exitCase)
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `relieving-letter-${profile?.employee_id ?? 'exit'}.html`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+function ExitComplete({ profile, exitCase }) {
+  const firstName = profile?.full_name?.split(' ')[0] ?? ''
+  return (
+    <>
+      <h2 className="sr-only">Exit complete — all clearances done and relieving letter issued.</h2>
+
+      <div className="card card--pad mb" style={{ textAlign: 'center', padding: '2.5rem 1.25rem' }}>
+        <i className="ti ti-circle-check c-success" style={{ fontSize: 48 }} aria-hidden="true" />
+        <p className="card-title" style={{ margin: '12px 0 4px', fontSize: 20 }}>
+          Thank you, {firstName} — your exit is complete.
+        </p>
+        <p className="c-secondary" style={{ margin: 0, fontSize: 13 }}>
+          Every stage of your offboarding has been cleared and your relieving letter has been issued.
+        </p>
+      </div>
+
+      <div className="card card--pad mb">
+        <p className="card-title">Exit summary</p>
+        <div className="list list--col">
+          {REQUIRED_STAGES.map((s) => (
+            <div key={s} className="row row--split">
+              <span>{STAGE_LABELS[s]}</span>
+              <span className="tag t-success">Done</span>
+            </div>
+          ))}
+          <div className="row row--split">
+            <span>Relieving letter</span>
+            <span className="tag t-success">
+              Issued{exitCase.issued_at ? ` · ${fmtDate(exitCase.issued_at)}` : ''}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="card card--pad">
+        <button onClick={() => downloadRelievingLetter(profile, exitCase)}>
+          <i className="ti ti-download" aria-hidden="true" /> Download relieving letter
+        </button>
+      </div>
+    </>
+  )
+}
+
 export function MyExit() {
   const { profile, exitCase, tasks } = useOutletContext()
   if (!exitCase) return <Placeholder title="My exit" body="No exit case found on your profile yet." />
@@ -248,7 +378,8 @@ export function MyExit() {
 }
 
 export function Tasks() {
-  const { tasks } = useOutletContext()
+  const { tasks, reload } = useOutletContext()
+  const [actioning, markDone] = useMarkDone(reload)
   return (
     <div className="card card--pad">
       <p className="card-title">My tasks</p>
@@ -261,9 +392,25 @@ export function Tasks() {
             />
             <span className="grow">{t.title}</span>
             {t.due_date && <span className="sub c-muted">{fmtDate(t.due_date)}</span>}
-            <span className={`status ${t.status === 'done' ? 'c-success' : 'c-warning'}`}>
-              {t.status === 'done' ? 'Done' : 'Pending'}
-            </span>
+            {t.status === 'done' ? (
+              <span className="status c-success">Done</span>
+            ) : t.stage === 'hr' ? (
+              <>
+                <button
+                  className="mark-done"
+                  style={BTN}
+                  onClick={() => markDone(t.id)}
+                  disabled={actioning[t.id] === 'pending'}
+                >
+                  {actioning[t.id] === 'pending' ? 'Saving…' : 'Mark done'}
+                </button>
+                {actioning[t.id] && actioning[t.id] !== 'pending' && (
+                  <span className="sub c-danger">{actioning[t.id]}</span>
+                )}
+              </>
+            ) : (
+              <span className="status c-warning">Pending</span>
+            )}
           </div>
         ))}
       </div>
@@ -318,11 +465,94 @@ export function KnowledgeTransfer() {
 }
 
 export function ExitInterview() {
+  const { exitCase } = useOutletContext()
+  const [status, setStatus] = useState('loading') // loading | form | submitted
+  const [reason, setReason] = useState('')
+  const [feedback, setFeedback] = useState('')
+  const [wouldRecommend, setWouldRecommend] = useState('')
+  const [comments, setComments] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!exitCase) return
+    supabase.from('employee_interview_status_view').select('case_id').maybeSingle()
+      .then(({ data }) => setStatus(data ? 'submitted' : 'form'))
+  }, [exitCase])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (busy || !reason || !wouldRecommend) return
+    setBusy(true)
+    setError('')
+    const { error } = await supabase.from('exit_interviews').insert({
+      case_id: exitCase.id,
+      reason_for_leaving: reason,
+      feedback,
+      would_recommend: wouldRecommend === 'yes',
+      comments,
+    })
+    if (error) {
+      setBusy(false)
+      setError(error.message)
+      return
+    }
+    // Trigger the Exit-Interview agent: agents/service.py is a local-only
+    // bridge (see Resignation's /activate-exit call above). If it's not
+    // running, the row is still written -- HR's analysis just won't have
+    // populated yet.
+    try {
+      await fetch('http://localhost:8787/submit-exit-interview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: exitCase.id }),
+      })
+    } catch {
+      // agent service unreachable — non-fatal, see comment above
+    }
+    setBusy(false)
+    setStatus('submitted')
+  }
+
+  if (!exitCase) return <Placeholder title="Exit interview" body="No exit case found on your profile yet." />
+  if (status === 'loading') return null
+
+  if (status === 'submitted') {
+    return (
+      <div className="card card--pad">
+        <p className="card-title">Exit interview</p>
+        <p className="c-secondary">Thanks — your exit interview has been submitted.</p>
+      </div>
+    )
+  }
+
   return (
-    <Placeholder
-      title="Exit interview"
-      body="Your exit interview will be scheduled by HR once your KT stage is complete. There's nothing to show here yet."
-    />
+    <div className="card card--pad">
+      <p className="card-title">Exit interview</p>
+      <form onSubmit={handleSubmit} className="list list--col">
+        <label className="login-label" htmlFor="ei-reason">Reason for leaving</label>
+        <input id="ei-reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
+
+        <label className="login-label" htmlFor="ei-feedback">Feedback</label>
+        <textarea id="ei-feedback" rows={3} value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+
+        <label className="login-label" htmlFor="ei-recommend">Would you recommend this company to a friend?</label>
+        <select id="ei-recommend" value={wouldRecommend} onChange={(e) => setWouldRecommend(e.target.value)} required>
+          <option value="" disabled>Select one</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+
+        <label className="login-label" htmlFor="ei-comments">Additional comments</label>
+        <textarea id="ei-comments" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} />
+
+        {error && <p className="login-error">{error}</p>}
+
+        <button type="submit" disabled={busy || !reason || !wouldRecommend} style={BTN}>
+          {busy ? 'Submitting…' : 'Submit'}
+        </button>
+      </form>
+    </div>
   )
 }
 

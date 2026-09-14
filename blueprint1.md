@@ -51,6 +51,8 @@ confirms review in a real browser — a script passing once is not "done".
 - [~] Phase 7 — Email notifications ................ PARTIAL (dev-logged, not delivered)
 - [x] Phase 8 — KT calendar ........................ BUILT (real event + id saved)
 - [x] Phase 9 — Final integration / review ......... NOT CONFIRMED (needs browser review)
+- [x] Phase 10 — Finance clearance role ............ BUILT (real dues check, browser-verified)
+- [x] Phase 11 — End-to-end automation capstone .... BUILT (composition, trace-verified)
 
 Legend: [x] built  ·  [~] partial  ·  [ ] not done/unconfirmed
 
@@ -140,6 +142,70 @@ Legend: [x] built  ·  [~] partial  ·  [ ] not done/unconfirmed
       project: 10/10 low, 0/90 high. Confirmed via real browser: Emp001 (has a
       case) lands on the dashboard directly; Emp011 (no case) is redirected to
       /employee/resignation.
+
+---
+
+## Phase 10 — Finance clearance role (built after Phase 8/9, on top of the working system)
+
+Adds `finance` as a real fifth role, not a mock:
+- `profiles.role` gains `'finance'`; demo account Anfia (anfiacj@gmail.com) seeded with it.
+- `/finance` dashboard (`FinanceLayout.jsx`/`FinancePages.jsx`, mirrors ManagerLayout's
+  two-step fetch): a work queue of exit cases where hr/manager/it are done but dues
+  aren't settled, with a "Mark dues settled" action — same design tokens as the other
+  four dashboards.
+- `exit_cases.finance_cleared` (bool, default false) + `dues_note` (text), via
+  `0013_finance_role.sql`; `finance_agent.py` now gates on hr/manager/it done AND
+  `finance_cleared = true`, blocking with reason "dues/settlement not confirmed"
+  otherwise. Completion email still fires on the pending→done transition.
+- RLS: finance reads case basics only through `finance_case_view` (never the base
+  `exit_cases` table), so risk_score/risk_level/rehire_eligible/interview
+  sentiment stay HR-only — same rule as every other non-HR role.
+- Write path is the `public.finance_mark_dues_settled` RPC
+  (`0014_finance_dues_rpc.sql`), not a base-table UPDATE policy: `exit_cases` has no
+  SELECT policy for finance by design (a SELECT policy would have to expose the
+  HR-only columns), and Postgres can't apply an UPDATE's `WHERE` clause to a row with
+  no SELECT-policy visibility — a bare RLS UPDATE policy on `exit_cases` silently
+  matches zero rows. The RPC is `SECURITY DEFINER`, checks the caller's role itself,
+  and is forward-only (always sets `finance_cleared = true`).
+- Verified in a real browser (Playwright): Anfia logs in → lands on `/finance` → sees
+  the queue → clicks "Mark dues settled" → write lands in Supabase → `finance_agent.py`
+  clears the case and fires the completion email → Anfia's risk-field read against the
+  base `exit_cases` table returns zero rows (denied).
+
+---
+
+## Phase 11 — End-to-end automation capstone (agent #24, built on top of the working pipeline)
+
+`agents/e2e_automation.py` — REUSE-only capstone, composes the existing hub + agents into
+one autonomous start→finish run. No new agent logic, no new LLM calls, no new
+escalation/notification code:
+- `service.activate_case(case_id)` — real initiation (checklist + resignation notice +
+  `status → in_progress`), the same entry the frontend resignation flow uses.
+- `supervisor.run_case(...)` — hr→manager gate→it→compliance→finance→assess, unchanged.
+  Its existing `_route_after_manager`/`_escalate` branch (not new code) handles a rejected
+  manager gate by re-routing to escalation instead of continuing/crashing.
+- SLA breach check scoped to just this one case (fetches only its own pending
+  `exit_tasks` + its case/profile rows, calls `sla_escalation.find_breaches` — a pure
+  function — then reuses `sla_escalation`'s own `_escalate` node for compose/send/DB-write),
+  rather than `sla_escalation.run()`'s global scan across every case.
+- Finalize step reads back the persisted compliance/finance `exit_tasks` rows those agents
+  actually wrote: `exit_cases.status → 'completed'` only when both read back `done`;
+  otherwise a clear `{"status": "blocked", "reason": ...}` naming the blocking task(s) —
+  never a crash, never a silent success.
+
+Verified live (two real runs, full trace, real DB writes, real LLM calls):
+- `python -m agents.e2e_automation <case_id>` (happy path): initiate (resignation-notice
+  email fired) → hr→manager approved→it→compliance→finance→assess → SLA check (0 breaches)
+  → finalize. Ended `{"status": "blocked", "reason": "Final clearance blocked: NDA:
+  pending; ..."}` — compliance/finance genuinely hadn't cleared for that case, a valid
+  terminal state per the task's own spec ("completed, or clearly-blocked with reason").
+- `python -m agents.e2e_automation <case_id> --reject` (simulated rejection, different
+  case): hr ran, manager gate recorded "rejected", the existing escalate branch fired
+  (`exit_tasks` + `agent_runs` inserted, graph ended via `END`, IT/compliance/finance/assess
+  never reached) → finalize short-circuited to `{"status": "blocked", "reason": "manager
+  rejected KT plan -- escalated to HR"}`. Re-route/escalation, not a crash.
+- Regression check: `python -m agents.run_case <case_id>` run directly afterward
+  (bypassing the capstone) — full hub→spoke trace, no change in behavior.
 
 ---
 

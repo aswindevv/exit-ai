@@ -153,6 +153,18 @@ def send_completion_notice(case: dict) -> dict:
     return {"results": results}
 
 
+def send_relieving_letter_notice(case: dict) -> dict:
+    subject = f"Relieving letter issued: {case['employee_name']}"
+    intro = (
+        f"HR has issued the relieving letter for {case['employee_name']}'s exit "
+        f"({case['role_title']}, {case['department']}). The exit case is now closed."
+    )
+    body = _compose(case.get("employee_name"), intro, [], "")
+    result = _send(case["email"], subject, body) if case.get("email") else {"sent": False, "logged": False, "to": None}
+    log_db("send", "notifications", rows=1 if case.get("email") else 0, detail="relieving_letter_notice")
+    return result
+
+
 def check_overdue_and_notify() -> dict:
     """Scans every pending task past its due_date and sends one warning each.
     Run manually/on a schedule -- same posture as analytics_agent.run(), no

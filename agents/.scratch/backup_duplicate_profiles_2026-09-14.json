@@ -1,0 +1,61 @@
+{
+  "purpose": "Backup of duplicate profile rows (profiles + auth.users) before deletion, per Task 1 instruction 'Back up / confirm before deleting anything'.",
+  "taken_at": "2026-09-14",
+  "finding": "Both @gmail.com duplicates were created 2026-09-13 (a day after seed on 2026-09-12), own 0 exit_cases as manager_id/hr_id, and are the accounts documented in CLAUDE.md as the demo logins. The @company.com profiles (created at seed time, 2026-09-12) own all 15 exit_cases and are undocumented.",
+  "rows_to_be_deleted": [
+    {
+      "profiles": {
+        "id": "9c11cefb-5a3a-4da4-aa60-7a4d4aeb2560",
+        "role": "manager",
+        "full_name": "Aravidhan",
+        "email": "aravidhan@gmail.com",
+        "employee_id": null,
+        "department": null,
+        "created_at": "2026-09-13 17:07:41.456861+00",
+        "out_of_office": false
+      },
+      "auth_users": {
+        "id": "9c11cefb-5a3a-4da4-aa60-7a4d4aeb2560",
+        "email": "aravidhan@gmail.com",
+        "created_at": "2026-09-13 17:07:41.181124+00",
+        "last_sign_in_at": "2026-09-13 19:41:53.539539+00"
+      },
+      "exit_cases_owned_as_manager_id": 0
+    },
+    {
+      "profiles": {
+        "id": "284cb0f0-62ee-4b2f-9ada-0261a601ce8e",
+        "role": "hr",
+        "full_name": "Siva",
+        "email": "siva@gmail.com",
+        "employee_id": null,
+        "department": null,
+        "created_at": "2026-09-13 17:07:41.825511+00",
+        "out_of_office": false
+      },
+      "auth_users": {
+        "id": "284cb0f0-62ee-4b2f-9ada-0261a601ce8e",
+        "email": "siva@gmail.com",
+        "created_at": "2026-09-13 17:07:41.69952+00",
+        "last_sign_in_at": "2026-09-13 19:38:27.003061+00"
+      },
+      "exit_cases_owned_as_hr_id": 0
+    }
+  ],
+  "rows_kept": [
+    {
+      "id": "7a43e75e-7b0e-46ad-8d6e-f278e9b3f81e",
+      "full_name": "Aravidhan",
+      "email": "aravidhan@company.com",
+      "role": "manager",
+      "exit_cases_owned_as_manager_id": 15
+    },
+    {
+      "id": "24774c6e-bf6b-430f-8ba6-621fe8a5c78c",
+      "full_name": "Siva",
+      "email": "siva@company.com",
+      "role": "hr",
+      "exit_cases_owned_as_hr_id": 15
+    }
+  ]
+}

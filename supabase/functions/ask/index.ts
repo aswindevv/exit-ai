@@ -82,7 +82,9 @@ async function askClaude(context: string, question: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`messages ${res.status}: ${await res.text()}`)
   const json = await res.json()
-  return json.content[0].text
+  const textBlock = json.content.find((block: { type: string }) => block.type === 'text')
+  if (!textBlock) throw new Error(`messages: no text block in content: ${JSON.stringify(json.content)}`)
+  return textBlock.text
 }
 
 Deno.serve(async (req) => {

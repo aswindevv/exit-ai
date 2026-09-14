@@ -1,0 +1,41 @@
+﻿┌─ Document Collection -- gather required vs submitted  ▸ start
+│  inputs: {"case_id": "3582dd2c-9bd7-4978-b57b-e7df5487b669", "classification": {}, "reminders_sent": 0, "validations": []}
+│  output: {"case_id": "3582dd2c-9bd7-4978-b57b-e7df5487b669", "classification": {"required": ["NDA", "Asset Return Form"], "submitted": ["NDA"], "miss…
+└─ Document Collection -- gather required vs submitted  ✓ done  1.41s
+┌─ Document Collection -- remind missing  ▸ start
+│  inputs: {"case_id": "3582dd2c-9bd7-4978-b57b-e7df5487b669", "classification": {"required": ["NDA", "Asset Return Form"], "submitted": ["NDA"], "miss…
+│  ┌─ Notification agent -- send email  ▸ start
+│  │  inputs: "emp015@gmail.com"
+[email:dev-log] to=emp015@gmail.com
+subject=Documents needed to complete your exit: Noah Patel
+Hi Noah Patel,
+
+The following documents are still required to complete your offboarding:
+
+  - Asset Return Form
+
+Please upload these as soon as possible.
+
+Regards,
+The ExitAI Team
+Perficient
+
+│  │  output: {"sent": false, "logged": true, "to": "emp015@gmail.com"}
+│  └─ Notification agent -- send email  ✓ done  0.00s
+│  ↳ db   insert agent_runs  (1 rows)  doc_collection reminders
+│  output: {"case_id": "3582dd2c-9bd7-4978-b57b-e7df5487b669", "classification": {"required": ["NDA", "Asset Return Form"], "submitted": ["NDA"], "miss…
+└─ Document Collection -- remind missing  ✓ done  0.18s
+┌─ Document Collection -- OCR validate uploads  ▸ start
+│  inputs: {"case_id": "3582dd2c-9bd7-4978-b57b-e7df5487b669", "classification": {"required": ["NDA", "Asset Return Form"], "submitted": ["NDA"], "miss…
+[doc_collection] OCR output for NDA (agents/.scratch/test_nda.png):
+NON-DISCLOSURE AGREEMENT
+
+This confidential agreement is entered into by the employee
+to protect company trade secrets after departure.
+
+Signature: Date: 13-Sep-2026
+
+│  ↳ db   update case_documents  (1 rows)  OCR validation
+│  output: {"case_id": "3582dd2c-9bd7-4978-b57b-e7df5487b669", "classification": {"required": ["NDA", "Asset Return Form"], "submitted": ["NDA"], "miss…
+└─ Document Collection -- OCR validate uploads  ✓ done  0.96s
+{'case_id': '3582dd2c-9bd7-4978-b57b-e7df5487b669', 'classification': {'required': ['NDA', 'Asset Return Form'], 'submitted': ['NDA'], 'missing': ['Asset Return Form']}, 'reminders_sent': 1, 'validations': [{'doc_type': 'NDA', 'status': 'validated', 'ocr_text': 'NON-DISCLOSURE AGREEMENT\n\nThis confidential agreement is entered into by the employee\nto protect company trade secrets after departure.\n\nSignature: Date: 13-Sep-2026\n', 'ok': True, 'matched': ['non-disclosure', 'signature'], 'missing': []}], '_case': {'id': '3582dd2c-9bd7-4978-b57b-e7df5487b669', 'employee_name': 'Noah Patel', 'email': 'emp015@gmail.com', 'department': 'Operations'}, '_submitted_rows': [{'id': '2732320f-ee76-48d3-956c-ddac071fde1f', 'case_id': '3582dd2c-9bd7-4978-b57b-e7df5487b669', 'doc_type': 'NDA', 'file_path': 'agents/.scratch/test_nda.png', 'status': 'submitted', 'validation_detail': None, 'created_at': '2026-09-14T14:18:54.034128+00:00'}]}

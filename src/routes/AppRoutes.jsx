@@ -13,6 +13,9 @@ import * as It from './it/ItPages'
 import HrLayout from './hr/HrLayout'
 import * as Hr from './hr/HrPages'
 
+import FinanceLayout from './finance/FinanceLayout'
+import * as Finance from './finance/FinancePages'
+
 export default function AppRoutes({ role, session }) {
   return (
     <Routes>
@@ -76,6 +79,15 @@ export default function AppRoutes({ role, session }) {
         <Route path="clearances" element={<Hr.Clearances />} />
         <Route path="reports" element={<Hr.Reports />} />
         <Route path="settings" element={<Hr.Settings />} />
+        <Route path="*" element={<Navigate to="" replace />} />
+      </Route>
+
+      <Route
+        path="/finance"
+        element={role === 'finance' ? <FinanceLayout session={session} /> : <Navigate to={`/${role}`} replace />}
+      >
+        <Route index element={<Finance.Dashboard />} />
+        <Route path="help" element={<HelpPage role="Finance" />} />
         <Route path="*" element={<Navigate to="" replace />} />
       </Route>
 
