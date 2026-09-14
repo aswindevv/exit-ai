@@ -1,0 +1,261 @@
+﻿┌─ E2E Automation -- run case start to finish  ▸ start
+│  inputs: "40c9690c-8df9-4738-9959-d7344ff6236d"
+│  ┌─ E2E -- initiate  ▸ start
+│  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  ┌─ HR agent -- generate checklist  ▸ start
+│  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  │  ↳ llm  @aws-bedrock-use2/us.anthropic.claude-sonnet-5  5.55s  in=146 out=303 tok
+│  │  │     ⤷ ```json {   "hr_tasks": [     "Complete exit interview questionnaire",     "Return company laptop an…
+│  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  └─ HR agent -- generate checklist  ✓ done  5.55s
+│  │  ┌─ HR agent -- persist checklist  ▸ start
+│  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  │  ↳ db   insert exit_tasks  (8 rows)
+│  │  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  │  inputs: "emp019@gmail.com"
+[email:dev-log] to=emp019@gmail.com
+subject=KT reminder: Mason Patel's handover
+Hi Mason Patel,
+
+The following knowledge-transfer items are due ahead of Mason Patel's exit (Marketing Specialist, Marketing):
+
+  - Hand over active campaign files and content calendars (due 2026-10-19)
+  - Document login credentials for marketing tools and platforms (due 2026-10-19)
+  - Brief team on status of ongoing projects and deadlines (due 2026-10-19)
+  - Archive social media and email marketing assets (due 2026-10-19)
+
+Please complete these items before the due date.
+
+Regards,
+The ExitAI Team
+Perficient
+
+│  │  │  │  output: {"sent": false, "logged": true, "to": "emp019@gmail.com"}
+│  │  │  └─ Notification agent -- send email  ✓ done  0.00s
+│  │  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  │  inputs: "aravidhan@company.com"
+[email:dev-log] to=aravidhan@company.com
+subject=KT reminder: Mason Patel's handover
+Hi Aravidhan,
+
+The following knowledge-transfer items are due ahead of Mason Patel's exit (Marketing Specialist, Marketing):
+
+  - Hand over active campaign files and content calendars (due 2026-10-19)
+  - Document login credentials for marketing tools and platforms (due 2026-10-19)
+  - Brief team on status of ongoing projects and deadlines (due 2026-10-19)
+  - Archive social media and email marketing assets (due 2026-10-19)
+
+Please complete these items before the due date.
+
+Regards,
+The ExitAI Team
+Perficient
+
+│  │  │  │  output: {"sent": false, "logged": true, "to": "aravidhan@company.com"}
+│  │  │  └─ Notification agent -- send email  ✓ done  0.00s
+│  │  │  ↳ db   send notifications  (2 rows)  kt_reminder
+│  │  │  ┌─ Calendar -- book KT event  ▸ start
+│  │  │  │  inputs: {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employee_name": "Mason Patel", "email": "***", "department": "Marke…
+│  │  │  │  output: {"booked": true, "event_id": "99cn3gr46fv3fad5mt4mjfigl4"}
+│  │  │  └─ Calendar -- book KT event  ✓ done  2.60s
+│  │  │  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  │  │  ┌─ Calendar -- book KT event  ▸ start
+│  │  │  │  inputs: {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employee_name": "Mason Patel", "email": "***", "department": "Marke…
+│  │  │  │  output: {"booked": true, "event_id": "602g9r04ngrcokdulh5o0mnmcg"}
+│  │  │  └─ Calendar -- book KT event  ✓ done  2.37s
+│  │  │  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  │  │  ┌─ Calendar -- book KT event  ▸ start
+│  │  │  │  inputs: {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employee_name": "Mason Patel", "email": "***", "department": "Marke…
+│  │  │  │  output: {"booked": true, "event_id": "ig6dvrftlp8fk1inf13gkao23o"}
+│  │  │  └─ Calendar -- book KT event  ✓ done  2.37s
+│  │  │  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  │  │  ┌─ Calendar -- book KT event  ▸ start
+│  │  │  │  inputs: {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employee_name": "Mason Patel", "email": "***", "department": "Marke…
+│  │  │  │  output: {"booked": true, "event_id": "g23iahdn72t7mbt8r7g5hs2i54"}
+│  │  │  └─ Calendar -- book KT event  ✓ done  2.08s
+│  │  │  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  └─ HR agent -- persist checklist  ✓ done  10.69s
+│  │  ↳ db   update exit_cases  (1 rows)  status -> in_progress
+│  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  inputs: "aravidhan@company.com"
+[email:dev-log] to=aravidhan@company.com
+subject=Resignation submitted: Mason Patel
+Hi Aravidhan,
+
+Mason Patel (Marketing Specialist, Marketing) has submitted their resignation.
+
+  - Last working day: 2026-10-20
+
+Please review their exit case in the ExitAI manager dashboard.
+
+Regards,
+The ExitAI Team
+Perficient
+
+│  │  │  output: {"sent": false, "logged": true, "to": "aravidhan@company.com"}
+│  │  └─ Notification agent -- send email  ✓ done  0.00s
+│  │  ↳ db   send notifications  (1 rows)  resignation_notice
+│  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  └─ E2E -- initiate  ✓ done  18.31s
+│  ┌─ E2E -- coordinate stages  ▸ start
+│  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  ┌─ Supervisor -- HR stage  ▸ start
+│  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  ┌─ Checklist Generator agent (#5)  ▸ start
+│  │  │  │  inputs: "40c9690c-8df9-4738-9959-d7344ff6236d"
+│  │  │  │  output: {"skipped": true, "reason": "hr/manager tasks already exist"}
+│  │  │  └─ Checklist Generator agent (#5)  ✓ done  0.16s
+│  │  │  ┌─ KT Document Reviewer agent (#10)  ▸ start
+│  │  │  │  inputs: "40c9690c-8df9-4738-9959-d7344ff6236d"
+│  │  │  │  ┌─ HR agent -- review KT document  ▸ start
+│  │  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  │  │  ↳ llm  @aws-bedrock-use2/us.anthropic.claude-sonnet-5  4.40s  in=158 out=218 tok
+│  │  │  │  │     ⤷ ```json {   "complete": false,   "gaps": [     {       "topic": "Payments vendor integration",      …
+│  │  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  │  └─ HR agent -- review KT document  ✓ done  4.40s
+│  │  │  │  ┌─ HR agent -- persist KT review  ▸ start
+│  │  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  │  │  ↳ db   insert exit_tasks  (1 rows)
+│  │  │  │  │  ↳ db   insert kt_reviews  (1 rows)
+│  │  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  │  └─ HR agent -- persist KT review  ✓ done  0.33s
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  └─ KT Document Reviewer agent (#10)  ✓ done  4.73s
+│  │  │  ┌─ Smart Routing -- fetch case + candidate approvers  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "hr", "department": null, "_candidates": [], "decision": {}}
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "hr", "department": "Marketing", "_candidates": [{"id": "24774c6e-bf6b-430f-8ba…
+│  │  │  └─ Smart Routing -- fetch case + candidate approvers  ✓ done  0.31s
+│  │  │  ┌─ Smart Routing -- select approver  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "hr", "department": "Marketing", "_candidates": [{"id": "24774c6e-bf6b-430f-8ba…
+│  │  │  │  ↳ db   insert agent_runs  (1 rows)  stage=hr approver=Siva is_delegate=False reason=primary approver available
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "hr", "department": "Marketing", "_candidates": [{"id": "24774c6e-bf6b-430f-8ba…
+│  │  │  └─ Smart Routing -- select approver  ✓ done  0.17s
+│  │  │  ↳ db   insert agent_runs  (1 rows)  hr: checklist + kt-review done
+│  │  │  ↳ db   insert agent_runs  (1 rows)  smart routing: primary approver available
+│  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  └─ Supervisor -- HR stage  ✓ done  5.68s
+│  │  ┌─ Supervisor -- manager gate  ▸ start
+│  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  ┌─ Smart Routing -- fetch case + candidate approvers  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "manager", "department": null, "_candidates": [], "decision": {}}
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "manager", "department": "Marketing", "_candidates": [{"id": "7a43e75e-7b0e-46a…
+│  │  │  └─ Smart Routing -- fetch case + candidate approvers  ✓ done  0.31s
+│  │  │  ┌─ Smart Routing -- select approver  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "manager", "department": "Marketing", "_candidates": [{"id": "7a43e75e-7b0e-46a…
+│  │  │  │  ↳ db   insert agent_runs  (1 rows)  stage=manager approver=Aravidhan is_delegate=False reason=primary approver available
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "manager", "department": "Marketing", "_candidates": [{"id": "7a43e75e-7b0e-46a…
+│  │  │  └─ Smart Routing -- select approver  ✓ done  0.16s
+│  │  │  ↳ db   insert agent_runs  (1 rows)  smart routing: primary approver available
+│  │  │  ↳ db   insert agent_runs  (1 rows)  approved
+│  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  └─ Supervisor -- manager gate  ✓ done  0.77s
+│  │  ┌─ Supervisor -- IT stage  ▸ start
+│  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  ┌─ Automated IT Deprovisioning agent (#18)  ▸ start
+│  │  │  │  inputs: "40c9690c-8df9-4738-9959-d7344ff6236d"
+│  │  │  │  ┌─ IT agent -- generate deprovisioning plan  ▸ start
+│  │  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  │  │  │  ↳ llm  @aws-bedrock-use2/us.anthropic.claude-sonnet-5  6.00s  in=199 out=401 tok
+│  │  │  │  │     ⤷ ```json {"tasks": [   "Disable SSO account for exiting employee",   "Revoke access to HubSpot market…
+│  │  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  │  │  └─ IT agent -- generate deprovisioning plan  ✓ done  6.00s
+│  │  │  │  ┌─ IT agent -- persist deprovisioning plan  ▸ start
+│  │  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  │  │  │  ↳ db   insert exit_tasks  (6 rows)
+│  │  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  │  │  └─ IT agent -- persist deprovisioning plan  ✓ done  0.24s
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "case": {"id": "40c9690c-8df9-4738-9959-d7344ff6236d", "employee_id": "Emp019", "employe…
+│  │  │  └─ Automated IT Deprovisioning agent (#18)  ✓ done  6.55s
+│  │  │  ┌─ Smart Routing -- fetch case + candidate approvers  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "it", "department": null, "_candidates": [], "decision": {}}
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "it", "department": "Marketing", "_candidates": [{"id": "a878a642-cf10-4712-af7…
+│  │  │  └─ Smart Routing -- fetch case + candidate approvers  ✓ done  0.31s
+│  │  │  ┌─ Smart Routing -- select approver  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "it", "department": "Marketing", "_candidates": [{"id": "a878a642-cf10-4712-af7…
+│  │  │  │  ↳ db   insert agent_runs  (1 rows)  stage=it approver=Aswin is_delegate=False reason=primary approver available
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "stage": "it", "department": "Marketing", "_candidates": [{"id": "a878a642-cf10-4712-af7…
+│  │  │  └─ Smart Routing -- select approver  ✓ done  0.16s
+│  │  │  ↳ db   insert agent_runs  (1 rows)  it: deprovisioning plan done
+│  │  │  ↳ db   insert agent_runs  (1 rows)  smart routing: primary approver available
+│  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  └─ Supervisor -- IT stage  ✓ done  7.34s
+│  │  ┌─ Supervisor -- compliance stage  ▸ start
+│  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  ┌─ Compliance Verification -- check  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {}}
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "NDA: no task…
+│  │  │  └─ Compliance Verification -- check  ✓ done  0.15s
+│  │  │  ┌─ Compliance Verification -- persist  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "NDA: no task…
+│  │  │  │  ↳ db   insert exit_tasks  (1 rows)  Final clearance blocked: asset return: pending; NDA: no task found; access revoked: pending
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "NDA: no task…
+│  │  │  └─ Compliance Verification -- persist  ✓ done  0.30s
+│  │  │  ↳ db   insert agent_runs  (1 rows)  compliance: blocked -- ['asset return: pending', 'NDA: no task found', 'access revoked: pending']
+│  │  │  ┌─ Multi-System Clearance -- fetch stand-in systems  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "_tasks_by_stage": {}, "_doc_rows": [], "status": {}}
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "_tasks_by_stage": {"hr": [{"stage": "hr", "title": "Complete exit interview questionnai…
+│  │  │  └─ Multi-System Clearance -- fetch stand-in systems  ✓ done  0.31s
+│  │  │  ┌─ Multi-System Clearance -- consolidate  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "_tasks_by_stage": {"hr": [{"stage": "hr", "title": "Complete exit interview questionnai…
+│  │  │  │  ↳ db   insert agent_runs  (1 rows)  overall=pending it=pending hrms=pending finance=pending
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "_tasks_by_stage": {"hr": [{"stage": "hr", "title": "Complete exit interview questionnai…
+│  │  │  └─ Multi-System Clearance -- consolidate  ✓ done  0.16s
+│  │  │  ↳ db   insert agent_runs  (1 rows)  multi-system clearance: pending (it=pending, hrms=pending, finance=pending)
+│  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  └─ Supervisor -- compliance stage  ✓ done  1.24s
+│  │  ┌─ Supervisor -- finance stage  ▸ start
+│  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  ┌─ Finance agent -- check clearance  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {}}
+│  │  │  │  ↳ db   insert exit_tasks  (1 rows)
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {"cleared": false, "reason": "prior stages not complete"}}
+│  │  │  └─ Finance agent -- check clearance  ✓ done  0.61s
+│  │  │  ↳ db   insert agent_runs  (1 rows)  finance: clearance checked
+│  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  └─ Supervisor -- finance stage  ✓ done  0.76s
+│  │  ┌─ Supervisor -- assess  ▸ start
+│  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  ┌─ Exit-Interview Intelligence -- analyze  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "interview_text": "The employee said the main reason for leaving was better compensation…
+│  │  │  │  ↳ llm  @aws-bedrock-use2/us.anthropic.claude-sonnet-5  4.10s  in=182 out=174 tok
+│  │  │  │     ⤷ ```json {   "summary": "The employee left primarily due to a better compensation offer elsewhere. De…
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "interview_text": "The employee said the main reason for leaving was better compensation…
+│  │  │  └─ Exit-Interview Intelligence -- analyze  ✓ done  4.10s
+│  │  │  ┌─ Exit-Interview Intelligence -- persist  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "interview_text": "The employee said the main reason for leaving was better compensation…
+│  │  │  │  ↳ db   insert exit_interviews  (1 rows)
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "interview_text": "The employee said the main reason for leaving was better compensation…
+│  │  │  └─ Exit-Interview Intelligence -- persist  ✓ done  0.31s
+│  │  │  ┌─ Compliance & Risk -- score  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {}}
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {"risk_score": 0.56, "risk_level": "medium", "rehire_eligible": true}}
+│  │  │  └─ Compliance & Risk -- score  ✓ done  0.62s
+│  │  │  ┌─ Compliance & Risk -- persist  ▸ start
+│  │  │  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {"risk_score": 0.56, "risk_level": "medium", "rehire_eligible": true}}
+│  │  │  │  ↳ db   update exit_cases  (1 rows)  {'risk_score': 0.56, 'risk_level': 'medium', 'rehire_eligible': True}
+│  │  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "result": {"risk_score": 0.56, "risk_level": "medium", "rehire_eligible": true}}
+│  │  │  └─ Compliance & Risk -- persist  ✓ done  0.16s
+│  │  │  ↳ db   insert agent_runs  (1 rows)  assess: risk scored
+│  │  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  └─ Supervisor -- assess  ✓ done  5.36s
+│  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  └─ E2E -- coordinate stages  ✓ done  21.16s
+│  ┌─ E2E -- SLA breach check (this case only)  ▸ start
+│  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  ┌─ SLA Escalation -- compose & send  ▸ start
+│  │  │  inputs: {"breaches": [], "escalated": 0}
+│  │  │  ↳ db   insert agent_runs  (0 rows)  sla_escalation
+│  │  │  output: {"breaches": [], "escalated": 0}
+│  │  └─ SLA Escalation -- compose & send  ✓ done  0.00s
+│  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  └─ E2E -- SLA breach check (this case only)  ✓ done  0.47s
+│  ┌─ E2E -- finalize  ▸ start
+│  │  inputs: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  ↳ db   insert agent_runs  (1 rows)  {'status': 'blocked', 'reason': 'Final clearance blocked: asset return: pending; NDA: no task found; access revoked: pending; Clear final settlement dues -- blocked: prior stages not complete'}
+│  │  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  └─ E2E -- finalize  ✓ done  0.45s
+│  output: {"case_id": "40c9690c-8df9-4738-9959-d7344ff6236d", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+└─ E2E Automation -- run case start to finish  ✓ done  40.40s
+
+final outcome: {'status': 'blocked', 'reason': 'Final clearance blocked: asset return: pending; NDA: no task found; access revoked: pending; Clear final settlement dues -- blocked: prior stages not complete'}

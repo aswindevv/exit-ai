@@ -1,6 +1,10 @@
+import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import PageHead from '../../components/PageHead'
 import Placeholder from '../shared/Placeholder'
+import { withEmployeeHeaders, tieredByCompletion, caseTaskSummary, completionChip, CASE_GATE_STAGES } from '../../components/EmployeeGroup'
+import { financeStatus, FINANCE_STATUS_TAG } from '../../lib/financeStatus'
+import { supabase } from '../../lib/supabase'
 import { fmtDate } from '../../lib/format'
 
 const STATUS_LABEL = { open: 'Open', in_progress: 'In progress', completed: 'Completed' }
@@ -305,32 +309,140 @@ export function Trends() {
   )
 }
 
+// hr/manager/it/finance done + finance_cleared -- mirrors the SQL gate in
+// public.exit_case_cleared_for_relieving() (0017), enforced server-side by
+// exit_cases_hr_relieving_letter; this is just the UI's copy of that check so
+// the button isn't shown for a case the write would be rejected for anyway.
+// 'compliance' is excluded on purpose -- see 0017's comment.
+const RELIEVING_LETTER_STAGES = ['hr', 'manager', 'it', 'finance']
+function readyForRelievingLetter(c, tasks) {
+  if (!c.finance_cleared || c.relieving_letter_issued) return false
+  const relevant = tasks.filter((t) => t.case_id === c.id && RELIEVING_LETTER_STAGES.includes(t.stage))
+  const stagesPresent = new Set(relevant.map((t) => t.stage))
+  return stagesPresent.size === RELIEVING_LETTER_STAGES.length && relevant.every((t) => t.status === 'done')
+}
+
+function useIssueRelievingLetter(userId, reload) {
+  const [actioning, setActioning] = useState({})
+  async function issue(caseId) {
+    setActioning((a) => ({ ...a, [caseId]: 'pending' }))
+    const { error } = await supabase
+      .from('exit_cases')
+      .update({
+        relieving_letter_issued: true,
+        issued_at: new Date().toISOString(),
+        issued_by: userId,
+        status: 'completed',
+      })
+      .eq('id', caseId)
+    if (error) {
+      setActioning((a) => ({ ...a, [caseId]: error.message }))
+      return
+    }
+    try {
+      await fetch('http://localhost:8787/issue-relieving-letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: caseId }),
+      })
+    } catch {
+      // agent service unreachable -- non-fatal, same posture as other calls
+    }
+    await reload()
+    setActioning((a) => {
+      const next = { ...a }
+      delete next[caseId]
+      return next
+    })
+  }
+  return [actioning, issue]
+}
+
 export function Clearances() {
-  const { cases, tasks } = useOutletContext()
+  const { cases, tasks, userId, reload } = useOutletContext()
   const casesById = Object.fromEntries(cases.map((c) => [c.id, c]))
   const financeTasks = tasks.filter((t) => t.stage === 'finance')
+  const [actioning, issue] = useIssueRelievingLetter(userId, reload)
+  const ready = cases.filter((c) => readyForRelievingLetter(c, tasks))
+
   return (
-    <div className="card card--pad">
-      <p className="card-title">Clearances</p>
-      <div className="list">
-        <div className="thead">
-          <span style={{ flex: 1.4 }}>Employee</span>
-          <span style={{ flex: 1.4 }}>Task</span>
-          <span style={{ width: 70, textAlign: 'right' }}>Status</span>
-        </div>
-        {financeTasks.map((t) => (
-          <div className="row" key={t.id}>
-            <span style={{ flex: 1.4 }}>{casesById[t.case_id]?.employee_name ?? '—'}</span>
-            <span className="c-secondary" style={{ flex: 1.4 }}>{t.title}</span>
-            <span style={{ width: 70, textAlign: 'right' }}>
-              <span className={`tag ${t.status === 'done' ? 't-success' : 't-warning'}`}>
-                {t.status === 'done' ? 'Signed' : 'Pending'}
-              </span>
-            </span>
+    <>
+      <div className="card card--pad mb">
+        <p className="card-title">Clearances</p>
+        <div className="list">
+          <div className="thead">
+            <span style={{ flex: 1.4 }}>Task</span>
+            <span style={{ width: 70, textAlign: 'right' }}>Status</span>
           </div>
-        ))}
+          {withEmployeeHeaders(
+            tieredByCompletion(
+              [...financeTasks],
+              (t) => caseTaskSummary(t.case_id, tasks, CASE_GATE_STAGES).allDone,
+              (t) => new Date(casesById[t.case_id]?.created_at ?? 0)
+            ),
+            (t) => t.case_id,
+            (t) => {
+              const c = casesById[t.case_id]
+              return {
+                name: c?.employee_name ?? '—',
+                subtitle: c ? `${c.department} · Last day ${fmtDate(c.last_working_day)}` : undefined,
+                chip: completionChip(t.case_id, tasks, CASE_GATE_STAGES),
+              }
+            },
+            (t) => {
+              const c = casesById[t.case_id]
+              const tag = FINANCE_STATUS_TAG[c ? financeStatus(c, tasks) : 'ready']
+              return (
+                <div className="row" key={t.id}>
+                  <span className="c-secondary" style={{ flex: 1.4 }}>{t.title}</span>
+                  <span style={{ width: 70, textAlign: 'right' }}>
+                    <span className={`tag ${tag.tone}`}>{tag.label}</span>
+                  </span>
+                </div>
+              )
+            }
+          )}
+        </div>
       </div>
-    </div>
+
+      <div className="card card--pad">
+        <p className="card-title">Ready to close</p>
+        <div className="list">
+          {ready.map((c) => (
+            <div className="row row--split" key={c.id}>
+              <div>
+                <p>{c.employee_name}</p>
+                <p className="sub">All stages cleared · Last day {fmtDate(c.last_working_day)}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <button
+                  style={{ fontSize: 11, padding: '4px 9px' }}
+                  onClick={() => issue(c.id)}
+                  disabled={actioning[c.id] === 'pending'}
+                >
+                  {actioning[c.id] === 'pending' ? 'Issuing…' : 'Issue relieving letter'}
+                </button>
+                {actioning[c.id] && actioning[c.id] !== 'pending' && (
+                  <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[c.id]}</p>
+                )}
+              </div>
+            </div>
+          ))}
+          {cases.filter((c) => c.relieving_letter_issued).map((c) => (
+            <div className="row row--split" key={c.id}>
+              <div>
+                <p>{c.employee_name}</p>
+                <p className="sub">Issued {fmtDate(c.issued_at)}</p>
+              </div>
+              <span className="tag t-success">Issued</span>
+            </div>
+          ))}
+          {!ready.length && !cases.some((c) => c.relieving_letter_issued) && (
+            <p className="sub">No cases ready to close yet.</p>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 

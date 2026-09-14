@@ -59,6 +59,7 @@ async function main() {
     { full_name: 'Aravidhan', email: `aravidhan@${domain}`, role: 'manager', password: 'aravidhan@' },
     { full_name: 'Siva', email: `siva@${domain}`, role: 'hr', password: 'siva@1' },
     { full_name: 'Aswin', email: `aswin@${domain}`, role: 'it', password: 'aswin@' },
+    { full_name: 'Anfia', email: 'anfiacj@gmail.com', role: 'finance', password: 'anfiacj@' },
   ]
   for (const p of named) {
     if (doneEmails.has(p.email)) {

@@ -18,7 +18,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+# override=True: a stale Windows User-level ANTHROPIC_BASE_URL
+# (https://portkey.ai/, wrong host) was shadowing this file's correct value
+# and load_dotenv() never overrides pre-existing env vars by default.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=True)
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]

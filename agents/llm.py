@@ -20,7 +20,7 @@ from .trace import log_llm
 
 def _post(system: str, user: str, max_tokens: int) -> SimpleNamespace:
     resp = requests.post(
-        f"{ANTHROPIC_BASE_URL}/v1/messages",
+        f"{ANTHROPIC_BASE_URL.rstrip('/')}/v1/messages",
         headers={
             "Authorization": f"Bearer {ANTHROPIC_API_KEY}",
             "anthropic-version": "2023-06-01",

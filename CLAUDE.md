@@ -61,6 +61,14 @@ agent "works" unless its trace and written output were actually seen.
   its own env. Same secret often must be set in more than one place.
 - **Arithmetic in code, not the LLM.** Analytics/aggregations compute counts in
   SQL/Python; the LLM only writes narrative.
+- **Never "fix" the Supabase Advisor's "Security Definer View" ERROR for
+  `employee_exit_view`, `manager_case_view`, `it_task_view`, `finance_case_view`,
+  `employee_interview_status_view`.** All five intentionally run with
+  `security_invoker = false` so they can see past their base tables' HR-only RLS and
+  expose only their own safe columns — the Advisor's suggested remediation
+  (`security_invoker = on`) is exactly what has broken each dashboard 3 times so far.
+  If one reports 0 rows, re-run `supabase/migrations/0020_role_views_security_invoker.sql`
+  first.
 
 ## ENV / SECRETS (names only; never print values)
 Supabase: SUPABASE_URL, SUPABASE_ANON_KEY (frontend), SUPABASE_SERVICE_KEY (server).
@@ -83,8 +91,15 @@ consistency, missing it_task_view migration) → E1 real-browser end-to-end revi
 then tick Phase 9.
 
 ## Demo accounts
-Manager Aravidhan · HR Siva · IT Aswin · Employees Emp001–100 (login by email,
-password `<EmpId>@`). Deterministic passwords are DEMO-ONLY (fake data); never in prod.
+Manager Aravidhan (aravidhan@company.com / aravidhan@) · HR Siva
+(siva@company.com / siva@1) · IT Aswin · Finance Anfia (anfiacj@gmail.com /
+anfiacj@) · Employees Emp001–100 (login by email, password `<EmpId>@`).
+Deterministic passwords are DEMO-ONLY (fake data); never in prod.
+Note: a duplicate `aravidhan@comany.com` / `siva@comany.com` pair was created by
+an accidental second `seed.js` run (script defaults to `DEMO_EMAIL_DOMAIN=
+gmail.com` when unset). Those owned zero cases and were deleted 2026-09-14;
+`@company.com` is the real seed data (all 15 exit_cases). Always pass
+`DEMO_EMAIL_DOMAIN=company.com` when re-running seed.js's named-account step.
 
 ## Run
 - Frontend: `npm install` && `npm run dev`.

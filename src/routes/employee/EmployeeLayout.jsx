@@ -28,7 +28,7 @@ export default function EmployeeLayout({ session }) {
     const { data: tasks } = exitCase
       ? await supabase.from('exit_tasks').select('*').eq('case_id', exitCase.id)
       : { data: [] }
-    if (mountedRef.current) setData({ profile, exitCase, tasks: tasks ?? [] })
+    if (mountedRef.current) setData({ profile, exitCase, tasks: tasks ?? [], reload: load })
   }
 
   useEffect(() => {

@@ -6,15 +6,16 @@ invokes." So no LLM here, just a deterministic check wrapped in the same
 compiled-subgraph shape as the others (one node) so the supervisor can invoke
 it uniformly.
 
-# ponytail: no dues/reimbursements ledger table exists in the schema (checked
-# exit_cases, exit_tasks -- no finance-specific columns). Proxying "financial
-# clearance" by whether every other stage (hr, manager, it) is done for the
-# case -- reasonable for a demo where settlement follows clearance elsewhere.
-# Upgrade: real dues/reimbursements table once one exists.
+Real dues check (0013_finance_role.sql): clearance now requires BOTH every
+other stage (hr, manager, it) done AND exit_cases.finance_cleared = true --
+the real flag the Finance dashboard's "Mark dues settled" button writes
+(FinanceLayout.jsx). Prior stages done but dues not yet confirmed blocks with
+reason "dues/settlement not confirmed", same "block with the specific reason
+named" posture as compliance_agent.
 
 Ensures a stage='finance' task exists (creating the seed-style
 "Clear final settlement dues" task if missing), then marks it done once
-hr/manager/it are all done, pending otherwise.
+hr/manager/it are all done AND finance_cleared is true, pending otherwise.
 
 Run (from repo root, with agents/.venv active):
     python -m agents.finance_agent <case_id>
@@ -42,32 +43,35 @@ def _check_clearance(state: FinanceState) -> FinanceState:
     other_tasks = db.table("exit_tasks").select("status, stage").eq("case_id", case_id).in_(
         "stage", ["hr", "manager", "it"]
     ).execute().data or []
-    cleared = bool(other_tasks) and all(t["status"] == "done" for t in other_tasks)
+    stages_done = bool(other_tasks) and all(t["status"] == "done" for t in other_tasks)
+
+    case = db.table("exit_cases").select("*").eq("id", case_id).single().execute().data or {}
+    dues_settled = bool(case.get("finance_cleared"))
+    cleared = stages_done and dues_settled
+    reason = None if cleared else ("dues/settlement not confirmed" if stages_done else "prior stages not complete")
+    title = "Clear final settlement dues" if cleared else f"Clear final settlement dues -- blocked: {reason}"
 
     finance_tasks = db.table("exit_tasks").select("id, status").eq("case_id", case_id).eq("stage", "finance").execute().data or []
     if not finance_tasks:
-        row = db.table("exit_tasks").insert({
-            "case_id": case_id, "stage": "finance", "title": "Clear final settlement dues",
+        db.table("exit_tasks").insert({
+            "case_id": case_id, "stage": "finance", "title": title,
             "status": "done" if cleared else "pending",
-        }).execute().data
+        }).execute()
         log_db("insert", "exit_tasks", rows=1)
         newly_cleared = cleared
     else:
         new_status = "done" if cleared else "pending"
         newly_cleared = cleared and any(t["status"] != new_status for t in finance_tasks)
         for t in finance_tasks:
-            if t["status"] != new_status:
-                db.table("exit_tasks").update({"status": new_status}).eq("id", t["id"]).execute()
+            db.table("exit_tasks").update({"status": new_status, "title": title}).eq("id", t["id"]).execute()
         log_db("update", "exit_tasks", rows=len(finance_tasks), detail=f"status={new_status}")
 
     # Clearance completes: notify only on the pending -> done transition, not
     # on every re-run once it's already settled.
-    if newly_cleared:
-        case = db.table("exit_cases").select("*").eq("id", case_id).single().execute().data
-        if case:
-            notifications.send_completion_notice(case)
+    if newly_cleared and case:
+        notifications.send_completion_notice(case)
 
-    state["result"] = {"cleared": cleared}
+    state["result"] = {"cleared": cleared, "reason": reason}
     return state
 
 

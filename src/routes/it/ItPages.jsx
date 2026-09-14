@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import PageHead from '../../components/PageHead'
+import { withEmployeeHeaders, tieredByCompletion, caseTaskSummary, completionChip } from '../../components/EmployeeGroup'
 import { supabase } from '../../lib/supabase'
 import { fmtDate, daysUntil } from '../../lib/format'
 
@@ -20,6 +21,14 @@ const ACCESS_CATEGORIES = [
   { label: 'Source control', re: /repo|repository|source|git/i },
   { label: 'SaaS applications', re: /.*/ },
 ]
+
+const itGroupKey = (t) => t.case_id
+// allTasks is the full (unfiltered) IT task list -- "all done" must reflect
+// the employee's complete IT task set, not whatever filtered view (pending,
+// done, ...) is being rendered.
+const itGroupHeader = (allTasks) => (t) => ({ name: t.employee_name, subtitle: t.department, chip: completionChip(t.case_id, allTasks) })
+const itAllDone = (allTasks) => (t) => caseTaskSummary(t.case_id, allTasks).allDone
+const itCreatedAt = (t) => new Date(t.created_at)
 
 function rowStatus(t) {
   if (t.status === 'done') return { label: 'Done', tone: 't-success' }
@@ -50,7 +59,6 @@ function TaskRow({ t, actioning, approveTask }) {
   const s = rowStatus(t)
   return (
     <div className="row" key={t.id}>
-      <span style={{ flex: 1.2 }}>{t.employee_name}</span>
       <span className="c-secondary" style={{ flex: 1.6 }}>{t.title}</span>
       <span className="c-secondary" style={{ width: 52 }}>{fmtDate(t.due_date)}</span>
       <span style={{ width: 64 }}>
@@ -133,15 +141,17 @@ export function Dashboard() {
         <p className="card-title">Deprovisioning queue</p>
         <div className="list">
           <div className="thead">
-            <span style={{ flex: 1.2 }}>Employee</span>
             <span style={{ flex: 1.6 }}>Task</span>
             <span style={{ width: 52 }}>Due</span>
             <span style={{ width: 64 }}>Status</span>
             <span style={{ width: 62, textAlign: 'right' }}>Action</span>
           </div>
-          {tasks.map((t) => (
-            <TaskRow key={t.id} t={t} actioning={actioning} approveTask={approveTask} />
-          ))}
+          {withEmployeeHeaders(
+            tieredByCompletion([...tasks], itAllDone(tasks), itCreatedAt),
+            itGroupKey,
+            itGroupHeader(tasks),
+            (t) => <TaskRow key={t.id} t={t} actioning={actioning} approveTask={approveTask} />
+          )}
         </div>
       </div>
 
@@ -149,18 +159,23 @@ export function Dashboard() {
         <div className="card card--pad">
           <p className="card-title">Asset recovery</p>
           <div className="list">
-            {assetTasks.map((t) => {
-              const s = rowStatus(t)
-              return (
-                <div className="row" key={t.id}>
-                  <i className={`ti ${ASSET_ICON(t.title)} c-muted`} aria-hidden="true" />
-                  <span className="grow">{t.title} · {t.employee_name}</span>
-                  <span className={`status ${s.tone === 't-danger' ? 'c-danger' : s.tone === 't-success' ? 'c-success' : 'c-warning'}`}>
-                    {s.label === 'Done' ? 'Collected' : s.label}
-                  </span>
-                </div>
-              )
-            })}
+            {withEmployeeHeaders(
+              tieredByCompletion([...assetTasks], itAllDone(tasks), itCreatedAt),
+              itGroupKey,
+              itGroupHeader(tasks),
+              (t) => {
+                const s = rowStatus(t)
+                return (
+                  <div className="row" key={t.id}>
+                    <i className={`ti ${ASSET_ICON(t.title)} c-muted`} aria-hidden="true" />
+                    <span className="grow">{t.title}</span>
+                    <span className={`status ${s.tone === 't-danger' ? 'c-danger' : s.tone === 't-success' ? 'c-success' : 'c-warning'}`}>
+                      {s.label === 'Done' ? 'Collected' : s.label}
+                    </span>
+                  </div>
+                )
+              }
+            )}
           </div>
         </div>
 
@@ -206,15 +221,17 @@ export function Deprovisioning() {
       <p className="card-title">Deprovisioning queue</p>
       <div className="list">
         <div className="thead">
-          <span style={{ flex: 1.2 }}>Employee</span>
           <span style={{ flex: 1.6 }}>Task</span>
           <span style={{ width: 52 }}>Due</span>
           <span style={{ width: 64 }}>Status</span>
           <span style={{ width: 62, textAlign: 'right' }}>Action</span>
         </div>
-        {tasks.map((t) => (
-          <TaskRow key={t.id} t={t} actioning={actioning} approveTask={approveTask} />
-        ))}
+        {withEmployeeHeaders(
+          tieredByCompletion([...tasks], itAllDone(tasks), itCreatedAt),
+          itGroupKey,
+          itGroupHeader(tasks),
+          (t) => <TaskRow key={t.id} t={t} actioning={actioning} approveTask={approveTask} />
+        )}
       </div>
     </div>
   )
@@ -227,18 +244,23 @@ export function AssetRecovery() {
     <div className="card card--pad">
       <p className="card-title">Asset recovery</p>
       <div className="list">
-        {assetTasks.map((t) => {
-          const s = rowStatus(t)
-          return (
-            <div className="row" key={t.id}>
-              <i className={`ti ${ASSET_ICON(t.title)} c-muted`} aria-hidden="true" />
-              <span className="grow">{t.title} · {t.employee_name}</span>
-              <span className={`status ${s.tone === 't-danger' ? 'c-danger' : s.tone === 't-success' ? 'c-success' : 'c-warning'}`}>
-                {s.label === 'Done' ? 'Collected' : s.label}
-              </span>
-            </div>
-          )
-        })}
+        {withEmployeeHeaders(
+          tieredByCompletion([...assetTasks], itAllDone(tasks), itCreatedAt),
+          itGroupKey,
+          itGroupHeader(tasks),
+          (t) => {
+            const s = rowStatus(t)
+            return (
+              <div className="row" key={t.id}>
+                <i className={`ti ${ASSET_ICON(t.title)} c-muted`} aria-hidden="true" />
+                <span className="grow">{t.title}</span>
+                <span className={`status ${s.tone === 't-danger' ? 'c-danger' : s.tone === 't-success' ? 'c-success' : 'c-warning'}`}>
+                  {s.label === 'Done' ? 'Collected' : s.label}
+                </span>
+              </div>
+            )
+          }
+        )}
       </div>
     </div>
   )
@@ -287,15 +309,17 @@ export function Approvals() {
       <p className="card-title">Approvals</p>
       <div className="list">
         <div className="thead">
-          <span style={{ flex: 1.2 }}>Employee</span>
           <span style={{ flex: 1.6 }}>Task</span>
           <span style={{ width: 52 }}>Due</span>
           <span style={{ width: 64 }}>Status</span>
           <span style={{ width: 62, textAlign: 'right' }}>Action</span>
         </div>
-        {pending.map((t) => (
-          <TaskRow key={t.id} t={t} actioning={actioning} approveTask={approveTask} />
-        ))}
+        {withEmployeeHeaders(
+          tieredByCompletion([...pending], itAllDone(tasks), itCreatedAt),
+          itGroupKey,
+          itGroupHeader(tasks),
+          (t) => <TaskRow key={t.id} t={t} actioning={actioning} approveTask={approveTask} />
+        )}
       </div>
     </div>
   )
@@ -309,17 +333,20 @@ export function AuditLog() {
       <p className="card-title">Audit log</p>
       <div className="list">
         <div className="thead">
-          <span style={{ flex: 1.2 }}>Employee</span>
           <span style={{ flex: 1.6 }}>Task</span>
           <span style={{ width: 70, textAlign: 'right' }}>Completed</span>
         </div>
-        {done.map((t) => (
-          <div className="row" key={t.id}>
-            <span style={{ flex: 1.2 }}>{t.employee_name}</span>
-            <span className="c-secondary" style={{ flex: 1.6 }}>{t.title}</span>
-            <span className="c-secondary" style={{ width: 70, textAlign: 'right' }}>{fmtDate(t.due_date)}</span>
-          </div>
-        ))}
+        {withEmployeeHeaders(
+          tieredByCompletion([...done], itAllDone(tasks), itCreatedAt),
+          itGroupKey,
+          itGroupHeader(tasks),
+          (t) => (
+            <div className="row" key={t.id}>
+              <span className="c-secondary" style={{ flex: 1.6 }}>{t.title}</span>
+              <span className="c-secondary" style={{ width: 70, textAlign: 'right' }}>{fmtDate(t.due_date)}</span>
+            </div>
+          )
+        )}
       </div>
     </div>
   )
