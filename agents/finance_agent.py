@@ -27,7 +27,7 @@ import sys
 from langgraph.graph import StateGraph
 from typing_extensions import TypedDict
 
-from . import notifications
+from . import email_drafting_agent
 from .config import db
 from .trace import log_db, traced_node
 
@@ -69,7 +69,7 @@ def _check_clearance(state: FinanceState) -> FinanceState:
     # Clearance completes: notify only on the pending -> done transition, not
     # on every re-run once it's already settled.
     if newly_cleared and case:
-        notifications.send_completion_notice(case)
+        email_drafting_agent.completion_notice(case)
 
     state["result"] = {"cleared": cleared, "reason": reason}
     return state

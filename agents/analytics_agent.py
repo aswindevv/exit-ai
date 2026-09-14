@@ -68,6 +68,7 @@ def _persist(state: AnalyticsState) -> AnalyticsState:
     db.table("analytics_insights").insert({
         "narrative": state["narrative"],
         "stats": state["stats"],
+        "agent_type": "dashboard_insights",
     }).execute()
     log_db("insert", "analytics_insights", rows=1)
     return state

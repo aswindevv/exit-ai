@@ -38,12 +38,24 @@ function rowStatus(t) {
 
 function useApprove(reload) {
   const [actioning, setActioning] = useState({})
-  async function approveTask(taskId) {
+  async function approveTask(taskId, caseId) {
     setActioning((a) => ({ ...a, [taskId]: 'pending' }))
     const { error } = await supabase.from('exit_tasks').update({ status: 'done' }).eq('id', taskId)
     if (error) {
       setActioning((a) => ({ ...a, [taskId]: error.message }))
       return
+    }
+    // Trigger real execute/verify/audit (agent #18): agents/service.py is a
+    // local-only bridge (see EmployeePages.jsx's /validate-document call).
+    // Non-fatal if it's not running -- the approval itself already stuck.
+    try {
+      await fetch('http://localhost:8787/execute-deprovisioning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: caseId }),
+      })
+    } catch {
+      // agent service unreachable — non-fatal, see comment above
     }
     await reload()
     setActioning((a) => {
@@ -71,7 +83,7 @@ function TaskRow({ t, actioning, approveTask }) {
           <>
             <button
               style={{ fontSize: 11, padding: '4px 9px' }}
-              onClick={() => approveTask(t.id)}
+              onClick={() => approveTask(t.id, t.case_id)}
               disabled={actioning[t.id] === 'pending'}
             >
               {actioning[t.id] === 'pending' ? 'Approving…' : 'Approve'}

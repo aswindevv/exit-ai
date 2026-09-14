@@ -98,6 +98,7 @@ def _narrate_and_persist(state: AttritionState) -> AttritionState:
     db.table("analytics_insights").insert({
         "narrative": state["narrative"],
         "stats": signals,
+        "agent_type": "predictive_attrition",
     }).execute()
     log_db("insert", "analytics_insights", rows=1)
     return state

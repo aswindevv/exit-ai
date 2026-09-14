@@ -73,6 +73,7 @@ export default function AppRoutes({ role, session }) {
       >
         <Route index element={<Hr.Dashboard />} />
         <Route path="all-exits" element={<Hr.AllExits />} />
+      <Route path="escalations" element={<Hr.Escalations />} />
         <Route path="risk-and-compliance" element={<Hr.RiskAndCompliance />} />
         <Route path="exit-interviews" element={<Hr.ExitInterviews />} />
         <Route path="trends" element={<Hr.Trends />} />

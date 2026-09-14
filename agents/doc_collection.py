@@ -13,6 +13,13 @@ computed at read time, not a stored status. Required docs are a deterministic
 Python list (base + department extras), same shape as checklist_generator's
 role/dept -> tasks logic -- no LLM arithmetic.
 
+case_documents.file_path is a path inside the private 'exit-documents' Storage
+bucket (0024_case_documents_employee_upload.sql), '<case_id>/<doc_type>-
+<timestamp>.<ext>' -- the employee's browser uploads there directly with the
+anon key (RLS-scoped to their own case), then INSERTs the row itself. This
+service downloads the object with the service key (bypasses RLS, same as
+every other table read in this file) to run real OCR against the bytes.
+
 OCR is REAL: pytesseract against an actual Tesseract binary. If `tesseract` is
 not resolvable on PATH (this machine's case), pytesseract.pytesseract.tesseract_cmd
 falls back to the TESSERACT_PATH env var (see .env).
@@ -24,14 +31,16 @@ Run (from repo root, with agents/.venv active):
 """
 from __future__ import annotations
 
+import io
 import os
+import re
 import shutil
 import sys
 
 from langgraph.graph import StateGraph
 from typing_extensions import TypedDict
 
-from . import notifications
+from . import email_drafting_agent
 from .config import db
 from .trace import log_db, traced_node
 
@@ -60,6 +69,13 @@ VALIDATION_RULES = {
     "Company Asset Declaration": [["asset"], ["declar"]],
 }
 
+# Plan's "Employee identity where applicable" + "Dates" checks -- separate
+# from VALIDATION_RULES because they're per-case dynamic (the employee's own
+# name) / pattern-based (any date format), not a fixed keyword list. Applies
+# to all three current doc types: each is a personal attestation the
+# employee signs/declares themselves, so both are always "applicable" today.
+DATE_RE = re.compile(r"\d{1,2}[-/][A-Za-z]{3,9}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}")
+
 
 def required_documents(department: str | None) -> list[str]:
     """Pure function: department in -> required doc-type list out."""
@@ -79,13 +95,20 @@ def classify_documents(required: list[str], submitted_rows: list[dict]) -> dict:
     }
 
 
-def validate_content(doc_type: str, text: str) -> dict:
-    """Pure function: doc type + OCR'd text in -> validation verdict out.
-    No I/O, no LLM -- everything here is a substring check against real text."""
+def validate_content(doc_type: str, text: str, employee_name: str | None = None) -> dict:
+    """Pure function: doc type + OCR'd text (+ the case's employee name, when
+    identity is applicable) in -> validation verdict out. No I/O, no LLM --
+    everything here is a substring/regex check against real text. Caller must
+    confirm doc_type is actually required for this case first -- an
+    unrecognized doc_type has no VALIDATION_RULES entry, so it would
+    otherwise auto-pass with missing=[]."""
     text_lower = text.lower()
     matched, missing = [], []
     for group in VALIDATION_RULES.get(doc_type, []):
         (matched if any(p in text_lower for p in group) else missing).append(group[0])
+    if employee_name:
+        (matched if employee_name.lower() in text_lower else missing).append("employee identity")
+    (matched if DATE_RE.search(text) else missing).append("date")
     return {"ok": not missing, "matched": matched, "missing": missing}
 
 
@@ -116,10 +139,7 @@ def _remind(state: DocState) -> DocState:
     if not missing:
         state["reminders_sent"] = 0
         return state
-    subject = f"Documents needed to complete your exit: {case['employee_name']}"
-    intro = "The following documents are still required to complete your offboarding:"
-    body = notifications._compose(case["employee_name"], intro, missing, "Please upload these as soon as possible.")
-    notifications._send(case["email"], subject, body)
+    email_drafting_agent.doc_reminder(case, missing)
     for doc_type in missing:
         db.table("agent_runs").insert({
             "case_id": state["case_id"], "stage": "doc_collection",
@@ -130,26 +150,59 @@ def _remind(state: DocState) -> DocState:
     return state
 
 
+def _required_type_verdict(doc_type: str, department: str | None, text: str, employee_name: str | None = None) -> dict:
+    """Pure function: guards validate_content with the one check it can't do
+    itself -- is doc_type even required for this department? An unrecognized
+    doc_type has no VALIDATION_RULES entry, so validate_content alone would
+    silently auto-pass it (missing=[])."""
+    if doc_type not in required_documents(department):
+        return {"ok": False, "matched": [], "missing": ["not a required document type for this case"]}
+    return validate_content(doc_type, text, employee_name)
+
+
+def _validate_row(case_id: str, department: str | None, employee_name: str | None, row: dict) -> dict:
+    """Real work behind one case_documents row: download the uploaded object
+    from Storage, OCR it, then _required_type_verdict. Shared by the batch
+    _validate node and the single-document validate_one() entry point below."""
+    required = row["doc_type"] in required_documents(department)
+    if required:
+        file_bytes = db.storage.from_("exit-documents").download(row["file_path"])
+        text = pytesseract.image_to_string(Image.open(io.BytesIO(file_bytes)))
+        print(f"[doc_collection] OCR output for {row['doc_type']} ({row['file_path']}):\n{text}")
+    else:
+        text = ""
+    verdict = _required_type_verdict(row["doc_type"], department, text, employee_name)
+    new_status = "validated" if verdict["ok"] else "rejected"
+    detail = f"matched={verdict['matched']} missing={verdict['missing']}"
+    db.table("case_documents").update({"status": new_status, "validation_detail": detail}).eq("id", row["id"]).execute()
+    db.table("agent_runs").insert({
+        "case_id": case_id, "stage": "doc_collection",
+        "detail": f"OCR-validated {row['doc_type']} -> {new_status} ({detail})",
+    }).execute()
+    return {"doc_type": row["doc_type"], "status": new_status, "ocr_text": text, **verdict}
+
+
 @traced_node("Document Collection -- OCR validate uploads")
 def _validate(state: DocState) -> DocState:
-    validations = []
-    for row in state["_submitted_rows"]:
-        if row["status"] != "submitted":
-            continue
-        text = pytesseract.image_to_string(Image.open(row["file_path"]))
-        print(f"[doc_collection] OCR output for {row['doc_type']} ({row['file_path']}):\n{text}")
-        verdict = validate_content(row["doc_type"], text)
-        new_status = "validated" if verdict["ok"] else "rejected"
-        detail = f"matched={verdict['matched']} missing={verdict['missing']}"
-        db.table("case_documents").update({"status": new_status, "validation_detail": detail}).eq("id", row["id"]).execute()
-        db.table("agent_runs").insert({
-            "case_id": state["case_id"], "stage": "doc_collection",
-            "detail": f"OCR-validated {row['doc_type']} -> {new_status} ({detail})",
-        }).execute()
-        validations.append({"doc_type": row["doc_type"], "status": new_status, "ocr_text": text, **verdict})
+    validations = [
+        _validate_row(state["case_id"], state["_case"].get("department"), state["_case"].get("employee_name"), row)
+        for row in state["_submitted_rows"] if row["status"] == "submitted"
+    ]
     log_db("update", "case_documents", rows=len(validations), detail="OCR validation")
     state["validations"] = validations
     return state
+
+
+def validate_one(case_id: str, document_id: str) -> dict:
+    """Validate a single just-uploaded row without re-running the whole
+    graph -- _remind unconditionally re-sends a reminder email for every
+    still-missing doc type on each run(case_id) call, so re-running the full
+    graph after every upload would spam reminders. Called by
+    agents.service's /validate-document route right after an employee
+    upload."""
+    case = db.table("exit_cases").select("id, department, employee_name").eq("id", case_id).single().execute().data
+    row = db.table("case_documents").select("*").eq("id", document_id).eq("case_id", case_id).single().execute().data
+    return _validate_row(case_id, case.get("department"), case.get("employee_name"), row)
 
 
 _graph = StateGraph(DocState)
@@ -167,18 +220,22 @@ def run(case_id: str) -> dict:
     return doc_collection_graph.invoke({"case_id": case_id, "classification": {}, "reminders_sent": 0, "validations": []})
 
 
-def _make_test_doc(path: str) -> None:
+def _make_test_doc(path: str, employee_name: str = "Test Employee") -> None:
     """Renders a synthetic NDA-like page (real text, real image file) so
     real OCR has something genuine to read -- no scanned NDA is available in
     this demo, but the OCR step itself (pytesseract + Tesseract binary) is
-    100% real, not mocked."""
+    100% real, not mocked. Pass the actual logged-in employee's name (must
+    match exit_cases.employee_name) so the identity check also passes when
+    uploaded via the Employee Documents page -- putting it through the real
+    Storage + case_documents + OCR path end to end."""
     from PIL import ImageDraw, ImageFont
-    img = Image.new("RGB", (900, 400), "white")
+    img = Image.new("RGB", (900, 420), "white")
     draw = ImageDraw.Draw(img)
     font = ImageFont.truetype("arial.ttf", 28)
     lines = [
         "NON-DISCLOSURE AGREEMENT",
         "",
+        f"Employee: {employee_name}",
         "This confidential agreement is entered into by the employee",
         "to protect company trade secrets after departure.",
         "",
@@ -199,19 +256,34 @@ def _demo() -> None:
     c = classify_documents(["NDA", "Asset Return Form", "Company Asset Declaration"], rows)
     assert c["submitted"] == ["NDA", "Asset Return Form"] and c["missing"] == ["Company Asset Declaration"], c
 
-    ok = validate_content("NDA", "This NON-DISCLOSURE agreement... Signature: Jane Doe")
-    assert ok == {"ok": True, "matched": ["non-disclosure", "signature"], "missing": []}, ok
+    ok = validate_content("NDA", "This NON-DISCLOSURE agreement is signed by Jane Doe. Signature: Jane Doe. Date: 13-Sep-2026", employee_name="Jane Doe")
+    assert ok == {"ok": True, "matched": ["non-disclosure", "signature", "employee identity", "date"], "missing": []}, ok
     bad = validate_content("NDA", "This is just a random memo about lunch.")
-    assert bad["ok"] is False and set(bad["missing"]) == {"non-disclosure", "signature"}, bad
+    assert bad["ok"] is False and set(bad["missing"]) == {"non-disclosure", "signature", "date"}, bad
 
-    print("doc_collection self-check passed:", {"required_IT": required_documents("IT"), "classify": c, "validate_ok": ok, "validate_bad": bad})
+    # A document with the right keywords AND a date, but signed by the wrong
+    # person, must still fail -- content alone (or a date alone) isn't proof
+    # of identity, same "done is not proof" gap the plan calls out.
+    wrong_person = validate_content("NDA", "NON-DISCLOSURE... Signature: John Smith. Date: 13-Sep-2026", employee_name="Jane Doe")
+    assert wrong_person["ok"] is False and wrong_person["missing"] == ["employee identity"], wrong_person
+
+    no_date = validate_content("NDA", "NON-DISCLOSURE... Signature: Jane Doe, no date given", employee_name="Jane Doe")
+    assert no_date["ok"] is False and no_date["missing"] == ["date"], no_date
+
+    unrequired = _required_type_verdict("Passport", "Sales", "anything at all, doesn't matter")
+    assert unrequired["ok"] is False and "not a required document type for this case" in unrequired["missing"], unrequired
+
+    print("doc_collection self-check passed:", {
+        "required_IT": required_documents("IT"), "classify": c, "validate_ok": ok, "validate_bad": bad,
+        "wrong_person_missing": wrong_person["missing"], "no_date_missing": no_date["missing"], "unrequired": unrequired,
+    })
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--self-check":
         _demo()
     elif len(sys.argv) > 2 and sys.argv[1] == "--make-test-doc":
-        _make_test_doc(sys.argv[2])
+        _make_test_doc(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "Test Employee")
     elif len(sys.argv) > 1:
         print(run(sys.argv[1]))
     else:

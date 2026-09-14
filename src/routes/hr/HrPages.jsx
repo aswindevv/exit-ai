@@ -89,7 +89,7 @@ export function Dashboard() {
                 <span style={{ width: 72, textAlign: 'right' }}>
                   {c.risk_level ? (
                     <span className={`tag ${RISK_TONE[c.risk_level]}`}>
-                      {c.risk_level[0].toUpperCase() + c.risk_level.slice(1)} {Math.round(c.risk_score)}
+                      {c.risk_level[0].toUpperCase() + c.risk_level.slice(1)} {Math.round(c.risk_score * 100)}%
                     </span>
                   ) : (
                     <span className="tag t-neutral">—</span>
@@ -204,7 +204,7 @@ export function AllExits() {
             <span style={{ width: 72, textAlign: 'right' }}>
               {c.risk_level ? (
                 <span className={`tag ${RISK_TONE[c.risk_level]}`}>
-                  {c.risk_level[0].toUpperCase() + c.risk_level.slice(1)} {Math.round(c.risk_score)}
+                  {c.risk_level[0].toUpperCase() + c.risk_level.slice(1)} {Math.round(c.risk_score * 100)}%
                 </span>
               ) : (
                 <span className="tag t-neutral">—</span>
@@ -213,6 +213,57 @@ export function AllExits() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// Escalations have no dedicated status/reason column anywhere in the schema
+// (agents.supervisor._escalate and agents.service.reject_manager_task both
+// only insert an exit_tasks row) -- the title prefix IS the signal. Reused
+// from the same convention ManagerPages.jsx's isEscalated() already checks.
+const isEscalation = (t) => Boolean(t.title?.startsWith('Escalated'))
+
+export function Escalations() {
+  const { cases, tasks } = useOutletContext()
+  const casesById = Object.fromEntries(cases.map((c) => [c.id, c]))
+  const escalations = tasks
+    .filter(isEscalation)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+  return (
+    <div className="card card--pad">
+      <p className="card-title">Escalations</p>
+      {escalations.length ? (
+        <div className="list">
+          <div className="thead">
+            <span style={{ flex: 1.4 }}>Employee</span>
+            <span style={{ flex: 1 }}>Department</span>
+            <span style={{ flex: 1.6 }}>Reason</span>
+            <span style={{ width: 90 }}>Escalated</span>
+            <span style={{ width: 110, textAlign: 'right' }}>Status</span>
+          </div>
+          {escalations.map((t) => {
+            const c = casesById[t.case_id]
+            return (
+              <div className="row" key={t.id}>
+                <span style={{ flex: 1.4 }}>{c?.employee_name ?? 'Unknown case'}</span>
+                <span className="c-secondary" style={{ flex: 1 }}>{c?.department ?? '—'}</span>
+                <span className="c-muted" style={{ flex: 1.6 }}>Not captured — manager reject has no reason field</span>
+                <span className="c-secondary" style={{ width: 90 }}>{fmtDate(t.created_at)}</span>
+                <span style={{ width: 110, textAlign: 'right' }}>
+                  <span className="tag t-danger">Awaiting HR review</span>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <Placeholder title="No escalations" body="No manager has rejected a KT plan yet." />
+      )}
+      <p className="sub c-muted" style={{ marginTop: 10 }}>
+        Display-only for now — acknowledging or re-routing an escalation back to a manager has no backend
+        path yet (the agent graph's escalate step is terminal); that's a follow-up.
+      </p>
     </div>
   )
 }
@@ -242,7 +293,7 @@ export function RiskAndCompliance() {
                 <span className="tag t-neutral">—</span>
               )}
             </span>
-            <span className="c-secondary" style={{ width: 50 }}>{c.risk_score != null ? Math.round(c.risk_score) : '—'}</span>
+            <span className="c-secondary" style={{ width: 50 }}>{c.risk_score != null ? `${Math.round(c.risk_score * 100)}%` : '—'}</span>
             <span style={{ width: 80, textAlign: 'right' }}>
               {c.rehire_eligible == null ? (
                 <span className="tag t-neutral">—</span>

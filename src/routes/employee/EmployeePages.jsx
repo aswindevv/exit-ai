@@ -14,8 +14,40 @@ const STAGE_ORDER = ['hr', 'manager', 'it', 'finance']
 // the user asked for compliance included.
 const REQUIRED_STAGES = ['hr', 'manager', 'it', 'compliance', 'finance']
 const CIRCUMFERENCE = 201
-const DOCS_RE = /document|form|handover|id card|badge|laptop|asset/i
 const BTN = { fontSize: 11, padding: '4px 9px' }
+const TL_DOT_CLASS = { done: '', current: 'tl-dot--current', blocked: 'tl-dot--blocked', pending: 'tl-dot--open' }
+
+// Always renders all 5 required nodes (Resignation, Manager & KT, IT
+// Clearance, Finance Clearance, Relieving) even when a stage has no tasks
+// yet -- a stage with zero tasks is PENDING, never hidden (Phase 6: the old
+// `STAGE_ORDER.filter(s => tasksByStage[s])` dropped it entirely). `unlocked`
+// tracks whether every earlier stage is DONE, so a stage with real tasks in
+// progress only becomes CURRENT once it's actually its turn; a stage the
+// supervisor escalated (title prefix written by supervisor.py's _escalate)
+// is BLOCKED instead. Relieving uses the real issuance timestamp (issued_at)
+// -- never last_working_day -- and stays blank/PENDING until actually issued.
+function buildTimeline(tasksByStage, exitCase) {
+  let unlocked = true
+  const nodes = STAGE_ORDER.map((s) => {
+    const stageTasks = tasksByStage[s] || []
+    let state = 'pending'
+    if (stageTasks.length) {
+      if (stageTasks.every((t) => t.status === 'done')) state = 'done'
+      else if (stageTasks.some((t) => t.title?.startsWith('Escalated'))) state = 'blocked'
+      else if (unlocked) state = 'current'
+    }
+    if (state !== 'done') unlocked = false
+    const dueDates = stageTasks.map((t) => t.due_date).filter(Boolean).sort()
+    return { label: STAGE_LABELS[s], date: fmtDate(dueDates[0]), state }
+  })
+  const relievingDone = exitCase?.relieving_letter_issued === true
+  nodes.push({
+    label: 'Relieving',
+    date: relievingDone ? fmtDate(exitCase.issued_at) : '',
+    state: relievingDone ? 'done' : unlocked ? 'current' : 'pending',
+  })
+  return nodes
+}
 
 // "Mark done" -- same shape as manager's approveTask (ManagerPages.jsx). RLS
 // (0015) only lets an employee do this for their own case's 'hr'-stage
@@ -79,9 +111,12 @@ export function Dashboard() {
   const offset = Math.round(CIRCUMFERENCE * (1 - percent / 100))
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
 
+  const isOnHold = tasks.some((t) => t.title?.startsWith('Escalated'))
+
   const CHIPS = [
     { tone: 't-plain', k: 'Exit ID', v: profile?.employee_id ?? '—' },
     exitCase && { tone: 't-accent', text: `Last day · ${fmtDate(exitCase.last_working_day)}` },
+    isOnHold && { tone: 't-danger', text: 'On hold · under HR review' },
   ].filter(Boolean)
 
   const STATS = [
@@ -106,14 +141,7 @@ export function Dashboard() {
   )
   const isExitComplete = allStagesCleared && exitCase?.relieving_letter_issued === true
 
-  const TIMELINE = [
-    ...STAGE_ORDER.filter((s) => tasksByStage[s]).map((s) => {
-      const stageTasks = tasksByStage[s]
-      const dueDates = stageTasks.map((t) => t.due_date).filter(Boolean).sort()
-      return { label: STAGE_LABELS[s], date: fmtDate(dueDates[0]), open: !stageTasks.every((t) => t.status === 'done') }
-    }),
-    exitCase && { label: 'Relieving', date: fmtDate(exitCase.last_working_day), open: percent < 100 },
-  ].filter(Boolean)
+  const TIMELINE = buildTimeline(tasksByStage, exitCase)
 
   if (isExitComplete) return <ExitComplete profile={profile} exitCase={exitCase} />
 
@@ -202,8 +230,8 @@ export function Dashboard() {
           <div className="tl-done" style={{ width: `${percent}%` }}></div>
           {TIMELINE.map((n) => (
             <div key={n.label} className="tl-node">
-              <span className={n.open ? 'tl-dot tl-dot--open' : 'tl-dot'}></span>
-              <p className={n.open ? 'tl-label c-secondary' : 'tl-label'}>{n.label}</p>
+              <span className={`tl-dot ${TL_DOT_CLASS[n.state]}`}></span>
+              <p className={n.state === 'done' ? 'tl-label' : 'tl-label c-secondary'}>{n.label}</p>
               <p className="tl-date">{n.date}</p>
             </div>
           ))}
@@ -418,23 +446,111 @@ export function Tasks() {
   )
 }
 
+// Mirrors agents/doc_collection.py's BASE_REQUIRED_DOCS/DEPT_EXTRA_DOCS --
+// same source of truth, kept in sync by hand since the required list is
+// deterministic and rarely changes (see that module's docstring).
+const REQUIRED_DOCS_BASE = ['NDA', 'Asset Return Form']
+const REQUIRED_DOCS_EXTRA = { IT: ['Company Asset Declaration'], Engineering: ['Company Asset Declaration'] }
+function requiredDocuments(department) {
+  return [...REQUIRED_DOCS_BASE, ...(REQUIRED_DOCS_EXTRA[department] ?? [])]
+}
+
 export function Documents() {
-  const { tasks } = useOutletContext()
-  const docs = tasks.filter((t) => DOCS_RE.test(t.title))
-  if (!docs.length) return <Placeholder title="Documents" body="No document-related tasks on your checklist yet." />
+  const { exitCase } = useOutletContext()
+  const [rows, setRows] = useState(null)
+  const [uploading, setUploading] = useState({})
+  const [errors, setErrors] = useState({})
+
+  async function load() {
+    const { data } = await supabase
+      .from('case_documents')
+      .select('*')
+      .eq('case_id', exitCase.id)
+      .order('created_at', { ascending: false })
+    setRows(data ?? [])
+  }
+
+  useEffect(() => {
+    if (exitCase) load()
+  }, [exitCase])
+
+  async function handleUpload(docType, file) {
+    setUploading((u) => ({ ...u, [docType]: true }))
+    setErrors((e) => ({ ...e, [docType]: '' }))
+    const ext = file.name.includes('.') ? file.name.split('.').pop() : 'dat'
+    const path = `${exitCase.id}/${docType}-${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage.from('exit-documents').upload(path, file)
+    if (uploadError) {
+      setUploading((u) => ({ ...u, [docType]: false }))
+      setErrors((e) => ({ ...e, [docType]: uploadError.message }))
+      return
+    }
+    const { data: inserted, error: insertError } = await supabase
+      .from('case_documents')
+      .insert({ case_id: exitCase.id, doc_type: docType, file_path: path })
+      .select('id')
+      .single()
+    if (insertError) {
+      setUploading((u) => ({ ...u, [docType]: false }))
+      setErrors((e) => ({ ...e, [docType]: insertError.message }))
+      return
+    }
+    // Trigger real OCR validation: agents/service.py is a local-only bridge
+    // (see ExitInterview's /submit-exit-interview call above). Non-fatal if
+    // it's not running -- the row just stays 'submitted' until it is.
+    try {
+      await fetch('http://localhost:8787/validate-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: exitCase.id, document_id: inserted.id }),
+      })
+    } catch {
+      // agent service unreachable — non-fatal, see comment above
+    }
+    setUploading((u) => ({ ...u, [docType]: false }))
+    await load()
+  }
+
+  if (!exitCase) return <Placeholder title="Documents" body="No exit case found on your profile yet." />
+  if (rows === null) return null
+
+  const latestByType = {}
+  for (const r of rows) if (!latestByType[r.doc_type]) latestByType[r.doc_type] = r // newest-first order
+
   return (
     <div className="card card--pad">
       <p className="card-title">Documents</p>
       <div className="list list--col">
-        {docs.map((t) => (
-          <div key={t.id} className="row">
-            <i className="ti ti-file c-muted" aria-hidden="true" />
-            <span className="grow">{t.title}</span>
-            <span className={`status ${t.status === 'done' ? 'c-success' : 'c-warning'}`}>
-              {t.status === 'done' ? 'Done' : 'Pending'}
-            </span>
-          </div>
-        ))}
+        {requiredDocuments(exitCase.department).map((docType) => {
+          const row = latestByType[docType]
+          const status = row?.status
+          return (
+            <div key={docType} className="row row--split">
+              <div>
+                <p>{docType}</p>
+                {status === 'rejected' && row.validation_detail && (
+                  <p className="sub c-danger">{row.validation_detail}</p>
+                )}
+                {errors[docType] && <p className="sub c-danger">{errors[docType]}</p>}
+              </div>
+              <div className="row">
+                {status && (
+                  <span className={`status ${status === 'validated' ? 'c-success' : status === 'rejected' ? 'c-danger' : 'c-warning'}`}>
+                    {status === 'validated' ? 'Validated' : status === 'rejected' ? 'Rejected' : 'Pending review'}
+                  </span>
+                )}
+                {status !== 'validated' && (
+                  <input
+                    type="file"
+                    style={{ fontSize: 11, maxWidth: 160 }}
+                    disabled={uploading[docType]}
+                    onChange={(e) => e.target.files[0] && handleUpload(docType, e.target.files[0])}
+                  />
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -564,25 +680,21 @@ export function Timeline() {
   const tasksByStage = {}
   for (const t of tasks) (tasksByStage[t.stage] ??= []).push(t)
 
-  const TIMELINE = [
-    ...STAGE_ORDER.filter((s) => tasksByStage[s]).map((s) => {
-      const stageTasks = tasksByStage[s]
-      const dueDates = stageTasks.map((t) => t.due_date).filter(Boolean).sort()
-      return { label: STAGE_LABELS[s], date: fmtDate(dueDates[0]), open: !stageTasks.every((t) => t.status === 'done') }
-    }),
-    exitCase && { label: 'Relieving', date: fmtDate(exitCase.last_working_day), open: percent < 100 },
-  ].filter(Boolean)
+  const TIMELINE = buildTimeline(tasksByStage, exitCase)
+  const isOnHold = tasks.some((t) => t.title?.startsWith('Escalated'))
 
   return (
     <div className="card card--pad">
-      <p className="card-title card-title--loose">Exit timeline</p>
+      <p className="card-title card-title--loose">
+        Exit timeline{isOnHold && <span className="tag t-danger" style={{ marginLeft: 8 }}>On hold · under HR review</span>}
+      </p>
       <div className="timeline">
         <div className="tl-track"></div>
         <div className="tl-done" style={{ width: `${percent}%` }}></div>
         {TIMELINE.map((n) => (
           <div key={n.label} className="tl-node">
-            <span className={n.open ? 'tl-dot tl-dot--open' : 'tl-dot'}></span>
-            <p className={n.open ? 'tl-label c-secondary' : 'tl-label'}>{n.label}</p>
+            <span className={`tl-dot ${TL_DOT_CLASS[n.state]}`}></span>
+            <p className={n.state === 'done' ? 'tl-label' : 'tl-label c-secondary'}>{n.label}</p>
             <p className="tl-date">{n.date}</p>
           </div>
         ))}

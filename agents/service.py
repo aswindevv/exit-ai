@@ -34,7 +34,7 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import exit_intel_agent, hr_agent, notifications
+from . import doc_collection, email_drafting_agent, exit_intel_agent, hr_agent, it_deprovisioning_agent
 from .config import db
 from .trace import log_db
 
@@ -52,7 +52,7 @@ def activate_case(case_id: str) -> dict:
     db.table("exit_cases").update({"status": "in_progress"}).eq("id", case_id).execute()
     log_db("update", "exit_cases", rows=1, detail="status -> in_progress")
 
-    manager_notice = notifications.send_resignation_notice(case)
+    manager_notice = email_drafting_agent.resignation_notice(case)
     return {"ok": True, "checklist": checklist_result, "manager_notice": manager_notice}
 
 
@@ -64,7 +64,7 @@ def issue_relieving_letter(case_id: str) -> dict:
     case = db.table("exit_cases").select("*").eq("id", case_id).single().execute().data
     if not case:
         return {"error": "case not found"}
-    result = notifications.send_relieving_letter_notice(case)
+    result = email_drafting_agent.relieving_letter_notice(case)
     return {"ok": True, "notice": result}
 
 
@@ -85,6 +85,63 @@ def submit_exit_interview(case_id: str) -> dict:
         lines.append(f"Additional comments: {row['comments']}")
     result = exit_intel_agent.run_per_case(case_id, "\n".join(lines))
     return {"ok": True, "analysis": result["result"]}
+
+
+def validate_document(case_id: str, document_id: str | None) -> dict:
+    # The frontend already uploaded the file to Storage and INSERTed the
+    # case_documents row itself (anon key + RLS, per CLAUDE.md) -- this just
+    # OCR-validates that one row with the service key. Non-fatal if this
+    # service isn't running, same posture as every other call in this file.
+    if not document_id:
+        return {"error": "document_id required"}
+    result = doc_collection.validate_one(case_id, document_id)
+    return {"ok": True, "validation": result}
+
+
+def execute_deprovisioning(case_id: str) -> dict:
+    # The frontend already flipped the task's status to 'done' via its own
+    # anon-key UPDATE (exit_tasks_it_update RLS, ItPages.jsx's Approve button)
+    # -- this just runs Execute/Verify/Audit (agent #18) with the service key.
+    # Non-fatal if this service isn't running, same posture as every other
+    # call in this file.
+    result = it_deprovisioning_agent.execute_approved_tasks(case_id)
+    return {"ok": True, "executed": result}
+
+
+def reject_manager_task(case_id: str, task_id: str | None) -> dict:
+    # Unlike every call above, this one IS the write, not a non-fatal
+    # side-effect: exit_tasks has no INSERT policy for any role (0002/0004)
+    # and its UPDATE policies (0008) pin status to 'done', so a manager's
+    # anon-key client has no RLS path to record a rejection at all. This
+    # mirrors agents.supervisor._escalate's exact insert -- not a second
+    # implementation, just that same DB write made callable for one already
+    # in-progress task instead of only from a full graph run.
+    if not task_id:
+        return {"error": "task_id required"}
+    task = db.table("exit_tasks").select("*").eq("id", task_id).single().execute().data
+    if not task or task["case_id"] != case_id:
+        return {"error": "task not found for this case"}
+    if task["stage"] != "manager" or task["title"].startswith("Escalated"):
+        return {"error": "task is not a pending manager KT task"}
+
+    already = (
+        db.table("exit_tasks").select("id").eq("case_id", case_id)
+        .ilike("title", "Escalated%").execute().data
+    )
+    if already:
+        return {"ok": True, "already_escalated": True}
+
+    db.table("exit_tasks").insert({
+        "case_id": case_id, "stage": "manager", "status": "pending",
+        "title": "Escalated: manager rejected KT plan -- HR review needed",
+    }).execute()
+    log_db("insert", "exit_tasks", rows=1, detail="escalation")
+    db.table("agent_runs").insert({
+        "case_id": case_id, "stage": "escalate",
+        "detail": "escalated to HR, stopping short of IT/finance",
+    }).execute()
+    log_db("insert", "agent_runs", rows=1, detail="escalated to HR, stopping short of IT/finance")
+    return {"ok": True}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -108,9 +165,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         routes = {
-            "/activate-exit": activate_case,
-            "/submit-exit-interview": submit_exit_interview,
-            "/issue-relieving-letter": issue_relieving_letter,
+            "/activate-exit": lambda body: activate_case(body["case_id"]),
+            "/submit-exit-interview": lambda body: submit_exit_interview(body["case_id"]),
+            "/issue-relieving-letter": lambda body: issue_relieving_letter(body["case_id"]),
+            "/validate-document": lambda body: validate_document(body["case_id"], body.get("document_id")),
+            "/execute-deprovisioning": lambda body: execute_deprovisioning(body["case_id"]),
+            "/reject-manager-task": lambda body: reject_manager_task(body["case_id"], body.get("task_id")),
         }
         if self.path not in routes:
             self._json(404, {"error": "not found"})
@@ -121,13 +181,12 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             self._json(400, {"error": "invalid JSON body"})
             return
-        case_id = body.get("case_id")
-        if not case_id:
+        if not body.get("case_id"):
             self._json(400, {"error": "case_id required"})
             return
         handler = routes[self.path]
         try:
-            result = handler(case_id)
+            result = handler(body)
         except Exception as exc:  # pipeline/LLM/DB failure -- report, don't crash the service
             self._json(500, {"error": str(exc)})
             return
