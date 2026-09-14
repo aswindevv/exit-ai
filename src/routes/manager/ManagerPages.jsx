@@ -51,9 +51,46 @@ function useApprove(reload) {
   return [actioning, approveTask]
 }
 
+// Reject has no RLS path of its own (exit_tasks has no INSERT policy and
+// 0008's UPDATE policies pin status to 'done') -- it goes through the local
+// agent service, which mirrors agents.supervisor._escalate's insert. Unlike
+// useApprove's fetch calls elsewhere in this app, this one is NOT non-fatal:
+// there is no other write, so a service failure must surface as a failure.
+function useReject(reload) {
+  const [rejecting, setRejecting] = useState({})
+  async function rejectTask(taskId, caseId) {
+    setRejecting((r) => ({ ...r, [taskId]: 'pending' }))
+    try {
+      const res = await fetch('http://localhost:8787/reject-manager-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: caseId, task_id: taskId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) {
+        setRejecting((r) => ({ ...r, [taskId]: data.error || `Reject failed (HTTP ${res.status})` }))
+        return
+      }
+    } catch (err) {
+      setRejecting((r) => ({ ...r, [taskId]: `Agent service unreachable -- ${err.message}` }))
+      return
+    }
+    await reload()
+    setRejecting((r) => {
+      const next = { ...r }
+      delete next[taskId]
+      return next
+    })
+  }
+  return [rejecting, rejectTask]
+}
+
+const isEscalated = (t) => Boolean(t.title?.startsWith('Escalated'))
+
 export function Dashboard() {
   const { profile, reports, tasks, reload } = useOutletContext()
   const [actioning, approveTask] = useApprove(reload)
+  const [rejecting, rejectTask] = useReject(reload)
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
   const reportsById = Object.fromEntries(reports.map((r) => [r.id, r]))
 
@@ -128,19 +165,34 @@ export function Dashboard() {
                   <div>
                     <p className="sub">{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
                   </div>
-                  {t.status === 'done' ? (
+                  {isEscalated(t) ? (
+                    <span className="tag t-danger">Escalated to HR</span>
+                  ) : t.status === 'done' ? (
                     <span className="tag t-success">Approved</span>
                   ) : (
                     <div style={{ textAlign: 'right' }}>
-                      <button
-                        style={BTN}
-                        onClick={() => approveTask(t.id)}
-                        disabled={actioning[t.id] === 'pending'}
-                      >
-                        {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
-                      </button>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button
+                          style={BTN}
+                          onClick={() => approveTask(t.id)}
+                          disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}
+                        >
+                          {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
+                        </button>
+                        <button
+                          className="c-danger"
+                          style={{ ...BTN, borderColor: 'var(--text-danger)' }}
+                          onClick={() => rejectTask(t.id, t.case_id)}
+                          disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}
+                        >
+                          {rejecting[t.id] === 'pending' ? 'Rejecting…' : 'Reject'}
+                        </button>
+                      </div>
                       {actioning[t.id] && actioning[t.id] !== 'pending' && (
                         <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
+                      )}
+                      {rejecting[t.id] && rejecting[t.id] !== 'pending' && (
+                        <p className="sub c-danger" style={{ marginTop: 2 }}>{rejecting[t.id]}</p>
                       )}
                     </div>
                   )}
@@ -259,6 +311,7 @@ export function ExitingReports() {
 export function KtApprovals() {
   const { reports, tasks, reload } = useOutletContext()
   const [actioning, approveTask] = useApprove(reload)
+  const [rejecting, rejectTask] = useReject(reload)
   const reportsById = Object.fromEntries(reports.map((r) => [r.id, r]))
   const ktTasks = tasks.filter((t) => t.stage === 'manager')
   return (
@@ -274,15 +327,30 @@ export function KtApprovals() {
               <div>
                 <p>{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
               </div>
-              {t.status === 'done' ? (
+              {isEscalated(t) ? (
+                <span className="tag t-danger">Escalated to HR</span>
+              ) : t.status === 'done' ? (
                 <span className="tag t-success">Approved</span>
               ) : (
                 <div style={{ textAlign: 'right' }}>
-                  <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending'}>
-                    {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}>
+                      {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
+                    </button>
+                    <button
+                      className="c-danger"
+                      style={{ ...BTN, borderColor: 'var(--text-danger)' }}
+                      onClick={() => rejectTask(t.id, t.case_id)}
+                      disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}
+                    >
+                      {rejecting[t.id] === 'pending' ? 'Rejecting…' : 'Reject'}
+                    </button>
+                  </div>
                   {actioning[t.id] && actioning[t.id] !== 'pending' && (
                     <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
+                  )}
+                  {rejecting[t.id] && rejecting[t.id] !== 'pending' && (
+                    <p className="sub c-danger" style={{ marginTop: 2 }}>{rejecting[t.id]}</p>
                   )}
                 </div>
               )}

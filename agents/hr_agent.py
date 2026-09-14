@@ -32,7 +32,7 @@ from datetime import date, timedelta
 from langgraph.graph import StateGraph
 from typing_extensions import TypedDict
 
-from . import notifications
+from . import email_drafting_agent
 from .calendar_booking import book_kt_event
 from .config import db
 from .llm import ask_claude_json
@@ -97,7 +97,7 @@ def _persist_checklist(state: ChecklistState) -> ChecklistState:
     # ktTasks = stage 'manager'). Remind employee + manager now that they
     # have a due_date, and book a calendar event per task (Phase 8).
     if manager_rows:
-        notifications.send_kt_reminder(state["case"], manager_rows)
+        email_drafting_agent.kt_reminder(state["case"], manager_rows)
     for t in inserted_manager_rows:
         book_kt_event(state["case"], t)
     return state

@@ -165,6 +165,38 @@ def send_relieving_letter_notice(case: dict) -> dict:
     return result
 
 
+def send_escalation_notice(breach: dict) -> dict:
+    subject = f"SLA escalation: {breach['employee_name']}'s {breach['stage']} task is {breach['days_overdue']}d overdue"
+    intro = (
+        f"\"{breach['title']}\" ({breach['employee_name']}'s {breach['stage']} stage) has been pending "
+        f"{breach['days_overdue']} days past its due date, blocked on {breach['blocker']}."
+    )
+    lines = [f"Impact: {breach['impact']}"]
+    body = _compose(breach["blocker"], intro, lines, "Please resolve or reassign this task.")
+    to = None
+    if breach["stage"] == "hr":
+        to = _profile_email(breach.get("hr_id"))
+    elif breach["stage"] == "manager":
+        to = _profile_email(breach.get("manager_id"))
+    if to:
+        result = _send(to, subject, body)
+    else:
+        print(f"[escalation:dev-log] no resolvable email for {breach['blocker']} -- subject={subject}\n{body}\n")
+        result = {"sent": False, "logged": True, "to": None}
+    log_db("send", "notifications", rows=1 if to else 0, detail="escalation_notice")
+    return result
+
+
+def send_doc_reminder(case: dict, missing: list[str]) -> dict:
+    subject = f"Documents needed to complete your exit: {case['employee_name']}"
+    intro = "The following documents are still required to complete your offboarding:"
+    body = _compose(case["employee_name"], intro, missing, "Please upload these as soon as possible.")
+    to = case.get("email")
+    result = _send(to, subject, body) if to else {"sent": False, "logged": False, "to": None}
+    log_db("send", "notifications", rows=1 if to else 0, detail="doc_reminder")
+    return result
+
+
 def check_overdue_and_notify() -> dict:
     """Scans every pending task past its due_date and sends one warning each.
     Run manually/on a schedule -- same posture as analytics_agent.run(), no

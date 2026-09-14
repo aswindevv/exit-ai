@@ -20,7 +20,7 @@ from datetime import date
 from langgraph.graph import StateGraph
 from typing_extensions import TypedDict
 
-from . import notifications
+from . import email_drafting_agent
 from .config import db
 from .trace import log_db, traced_node
 
@@ -91,22 +91,7 @@ def _gather(state: SLAState) -> SLAState:
 def _escalate(state: SLAState) -> SLAState:
     escalated = 0
     for b in state["breaches"]:
-        subject = f"SLA escalation: {b['employee_name']}'s {b['stage']} task is {b['days_overdue']}d overdue"
-        intro = (
-            f"\"{b['title']}\" ({b['employee_name']}'s {b['stage']} stage) has been pending "
-            f"{b['days_overdue']} days past its due date, blocked on {b['blocker']}."
-        )
-        lines = [f"Impact: {b['impact']}"]
-        body = notifications._compose(b["blocker"], intro, lines, "Please resolve or reassign this task.")
-        to = None
-        if b["stage"] == "hr":
-            to = notifications._profile_email(b.get("hr_id"))
-        elif b["stage"] == "manager":
-            to = notifications._profile_email(b.get("manager_id"))
-        if to:
-            notifications._send(to, subject, body)
-        else:
-            print(f"[escalation:dev-log] no resolvable email for {b['blocker']} -- subject={subject}\n{body}\n")
+        email_drafting_agent.escalation_notice(b)
         db.table("agent_runs").insert({
             "case_id": b["case_id"], "stage": "sla_escalation",
             "detail": f"{b['stage']} task {b['days_overdue']}d overdue, blocked on {b['blocker']}",

@@ -7,6 +7,7 @@ import { initials } from '../../lib/format'
 export const NAV = [
   { label: 'Dashboard', to: '', end: true },
   { label: 'All exits', to: 'all-exits' },
+  { label: 'Escalations', to: 'escalations' },
   { label: 'Risk and compliance', to: 'risk-and-compliance' },
   { label: 'Exit interviews', to: 'exit-interviews' },
   { label: 'Trends', to: 'trends' },
@@ -26,7 +27,7 @@ export default function HrLayout({ session }) {
       supabase.from('trend_alerts').select('*').order('created_at', { ascending: false }),
       supabase.from('exit_tasks').select('*'),
       supabase.from('exit_interviews').select('*').order('created_at', { ascending: false }),
-      supabase.from('analytics_insights').select('*').order('created_at', { ascending: false }).limit(1),
+      supabase.from('analytics_insights').select('*').eq('agent_type', 'dashboard_insights').order('created_at', { ascending: false }).limit(1),
       supabase.from('agent_runs').select('*').order('created_at', { ascending: false }).limit(8),
     ])
     if (mountedRef.current) {

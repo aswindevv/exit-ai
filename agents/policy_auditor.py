@@ -142,7 +142,9 @@ def _report(state: AuditorState) -> AuditorState:
         state["narrative"] = ask_claude(SYSTEM_PROMPT, f"Audit report:\n{report}")
     else:
         state["narrative"] = "No policy breaches found across active cases in this audit."
-    db.table("analytics_insights").insert({"narrative": state["narrative"], "stats": report}).execute()
+    db.table("analytics_insights").insert({
+        "narrative": state["narrative"], "stats": report, "agent_type": "policy_compliance_auditor",
+    }).execute()
     log_db("insert", "analytics_insights", rows=1)
     return state
 

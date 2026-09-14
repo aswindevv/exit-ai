@@ -243,6 +243,8 @@ button:hover { background: var(--surface-1); }
   background: var(--fill-success);
 }
 .tl-dot--open { background: var(--surface-2); border: 2px solid var(--border); }
+.tl-dot--current { background: var(--fill-info); }
+.tl-dot--blocked { background: var(--text-danger); }
 .tl-label { font-size: 11px; margin: 6px 0 0; }
 .tl-date { font-size: 10px; color: var(--text-muted); margin: 0; }
 
