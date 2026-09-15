@@ -504,13 +504,19 @@ export function Clearances() {
             },
             (t) => {
               const c = casesById[t.case_id]
-              const tag = FINANCE_STATUS_TAG[c ? financeStatus(c, tasks) : 'ready']
+              const status = c ? financeStatus(c, tasks) : 'ready'
+              const tag = FINANCE_STATUS_TAG[status]
               return (
-                <div className="row" key={t.id}>
-                  <span className="c-secondary" style={{ flex: 1.4 }}>{t.title}</span>
-                  <span style={{ width: 70, textAlign: 'right' }}>
-                    <span className={`tag ${tag.tone}`}>{tag.label}</span>
-                  </span>
+                <div key={t.id}>
+                  <div className="row">
+                    <span className="c-secondary" style={{ flex: 1.4 }}>{t.title}</span>
+                    <span style={{ width: 70, textAlign: 'right' }}>
+                      <span className={`tag ${tag.tone}`}>{tag.label}</span>
+                    </span>
+                  </div>
+                  {status === 'held' && (
+                    <p className="sub c-danger" style={{ marginTop: -4 }}>Finance hold: {c.dues_note}</p>
+                  )}
                 </div>
               )
             }
