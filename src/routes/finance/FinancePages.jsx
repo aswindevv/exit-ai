@@ -38,13 +38,42 @@ function useSettle(reload) {
   return [actioning, settle]
 }
 
+// Symmetric counterpart to useSettle, same RPC-not-table-update reasoning.
+// Mirrors ManagerPages' useReject UX (window.prompt for a required reason)
+// but calls finance_reject_dues (0027) directly instead of a localhost:8787
+// service -- there's no exit_tasks write here for RLS to block, so no
+// service bypass is needed.
+function useReject(reload) {
+  const [rejecting, setRejecting] = useState({})
+  async function reject(caseId) {
+    const reason = window.prompt('Reason for rejecting (required), e.g. "outstanding advance not repaid":')?.trim()
+    if (!reason) return
+    setRejecting((r) => ({ ...r, [caseId]: 'pending' }))
+    const { error } = await supabase.rpc('finance_reject_dues', {
+      p_case_id: caseId,
+      p_reason: reason,
+    })
+    if (error) {
+      setRejecting((r) => ({ ...r, [caseId]: error.message }))
+      return
+    }
+    await reload()
+    setRejecting((r) => {
+      const next = { ...r }
+      delete next[caseId]
+      return next
+    })
+  }
+  return [rejecting, reject]
+}
+
 // Awaiting finance = hr/manager/it all done, dues not yet settled -- same
 // stages finance_agent.py itself gates on (it ignores compliance/assess).
 // Kept for the KPI/subtitle count -- the case list itself shows every case
 // (blocked/ready/cleared) so a blocked row's real status is visible instead
 // of being silently dropped from the dashboard.
 function useQueue(cases, tasks) {
-  return cases.filter((c) => financeStatus(c, tasks) === 'ready')
+  return cases.filter((c) => ['ready', 'held'].includes(financeStatus(c, tasks)))
 }
 
 const financeGroupKey = (c) => c.id
@@ -59,6 +88,7 @@ const financeGroupHeader = (allTasks) => (c) => ({
 export function Dashboard() {
   const { profile, cases, tasks, reload } = useOutletContext()
   const [actioning, settle] = useSettle(reload)
+  const [rejecting, reject] = useReject(reload)
   const [notes, setNotes] = useState({})
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
   const queue = useQueue(cases, tasks)
@@ -108,13 +138,17 @@ export function Dashboard() {
               const financeTask = tasks.find((t) => t.case_id === c.id && t.stage === 'finance')
               const status = financeStatus(c, tasks)
               const tag = FINANCE_STATUS_TAG[status]
+              const actionable = status === 'ready' || status === 'held'
               return (
                 <div className="row row--split" key={c.id}>
                   <div>
                     <p className="sub">
                       Last day {fmtDate(c.last_working_day)} · {financeTask?.title ?? 'Final settlement dues'}
                     </p>
-                    {status === 'ready' && (
+                    {status === 'held' && (
+                      <p className="sub c-danger" style={{ marginTop: 2 }}>Held: {c.dues_note}</p>
+                    )}
+                    {actionable && (
                       <input
                         type="text"
                         placeholder="Dues note (optional)"
@@ -125,17 +159,29 @@ export function Dashboard() {
                     )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    {status === 'ready' ? (
+                    {actionable ? (
                       <>
                         <button
                           style={BTN}
                           onClick={() => settle(c.id, notes[c.id] ?? c.dues_note)}
-                          disabled={actioning[c.id] === 'pending'}
+                          disabled={actioning[c.id] === 'pending' || rejecting[c.id] === 'pending'}
                         >
                           {actioning[c.id] === 'pending' ? 'Saving…' : 'Mark dues settled'}
                         </button>
+                        {' '}
+                        <button
+                          className="c-danger"
+                          style={{ ...BTN, borderColor: 'var(--text-danger)' }}
+                          onClick={() => reject(c.id)}
+                          disabled={actioning[c.id] === 'pending' || rejecting[c.id] === 'pending'}
+                        >
+                          {rejecting[c.id] === 'pending' ? 'Rejecting…' : 'Reject'}
+                        </button>
                         {actioning[c.id] && actioning[c.id] !== 'pending' && (
                           <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[c.id]}</p>
+                        )}
+                        {rejecting[c.id] && rejecting[c.id] !== 'pending' && (
+                          <p className="sub c-danger" style={{ marginTop: 2 }}>{rejecting[c.id]}</p>
                         )}
                       </>
                     ) : (

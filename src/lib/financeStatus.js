@@ -12,13 +12,15 @@ export function financeStatus(caseRow, tasks) {
   const priors = tasks.filter((t) => t.case_id === caseRow.id && PRIOR_STAGES.includes(t.stage))
   const stagesDone = priors.length > 0 && priors.every((t) => t.status === 'done')
   if (!stagesDone) return 'blocked'
+  if (caseRow.finance_rejected) return 'held'
   return caseRow.finance_cleared ? 'cleared' : 'ready'
 }
 
-// Shared tag styling for the 3 states, reused by the HR and Finance dashboards
-// so a case reads the same way ("Blocked"/"Pending"/"Signed") everywhere.
+// Shared tag styling for the 4 states, reused by the HR and Finance dashboards
+// so a case reads the same way ("Blocked"/"Pending"/"Held"/"Signed") everywhere.
 export const FINANCE_STATUS_TAG = {
   blocked: { tone: 't-danger', label: 'Blocked' },
   ready: { tone: 't-warning', label: 'Pending' },
+  held: { tone: 't-danger', label: 'Held' },
   cleared: { tone: 't-success', label: 'Signed' },
 }
