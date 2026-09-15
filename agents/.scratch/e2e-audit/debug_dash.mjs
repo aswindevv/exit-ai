@@ -1,0 +1,16 @@
+import { chromium } from 'playwright'
+const BASE = 'http://localhost:5173'
+const browser = await chromium.launch({ headless: true })
+const context = await browser.newContext()
+const page = await context.newPage()
+await page.goto(BASE, { waitUntil: 'networkidle' })
+await page.fill('#login-email', 'emp021@gmail.com')
+await page.fill('#login-password', 'Emp021@')
+await page.click('.login-submit')
+await page.waitForURL(/\/employee/, { timeout: 10000 })
+await page.waitForTimeout(1500)
+console.log('url:', page.url())
+const text = await page.locator('body').innerText()
+console.log(text)
+await page.screenshot({ path: 'agents/.scratch/e2e-audit/debug_dash.png', fullPage: true })
+await browser.close()

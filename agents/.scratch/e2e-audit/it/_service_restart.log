@@ -1,0 +1,102 @@
+[agent-service] listening on http://localhost:8787
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "00000000-0000-0000-0000-000000000000"
+│  output: []
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.65s
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 52805)
+Traceback (most recent call last):
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 447, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 435, in handle_one_request
+    method()
+    ~~~~~~^^
+  File "C:\Users\Aswin.v\Desktop\Exit Ai\agents\service.py", line 156, in do_POST
+    self._json(200, result)
+    ~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\Desktop\Exit Ai\agents\service.py", line 123, in _json
+    self.wfile.write(body)
+    ~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+    ~~~~~~~~~~~~~~~~~~^^^
+ConnectionAbortedError: [WinError 10053] An established connection was aborted by the software in your host machine
+----------------------------------------
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for NDA (fc59261c-787f-4d4d-9529-6ca7ece70e02/NDA-1789410442951.png):
+NON-DISCLOSURE AGREEMENT
+Employee: Aiden Sharma
+This confidential agreement is entered into by the employee
+
+to protect company trade secrets after departure.
+
+Signature: Date: 13-Sep-2026
+
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /submit-exit-interview HTTP/1.1" 204 -
+┌─ Exit-Interview Intelligence -- analyze  ▸ start
+│  inputs: {"case_id": "fc59261c-787f-4d4d-9529-6ca7ece70e02", "interview_text": "Reason for leaving: AUDIT-DISPOSABLE: automated test reason\nWould re…
+│  ↳ llm  @aws-bedrock-use2/us.anthropic.claude-sonnet-5  5.41s  in=236 out=269 tok
+│     ⤷ ```json {   "summary": "This exit interview transcript contains only placeholder/test content ('AUDI…
+│  output: {"case_id": "fc59261c-787f-4d4d-9529-6ca7ece70e02", "interview_text": "Reason for leaving: AUDIT-DISPOSABLE: automated test reason\nWould re…
+└─ Exit-Interview Intelligence -- analyze  ✓ done  5.41s
+┌─ Exit-Interview Intelligence -- persist  ▸ start
+│  inputs: {"case_id": "fc59261c-787f-4d4d-9529-6ca7ece70e02", "interview_text": "Reason for leaving: AUDIT-DISPOSABLE: automated test reason\nWould re…
+│  ↳ db   update exit_interviews  (1 rows)
+│  output: {"case_id": "fc59261c-787f-4d4d-9529-6ca7ece70e02", "interview_text": "Reason for leaving: AUDIT-DISPOSABLE: automated test reason\nWould re…
+└─ Exit-Interview Intelligence -- persist  ✓ done  0.39s
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 57852)
+Traceback (most recent call last):
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 447, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 435, in handle_one_request
+    method()
+    ~~~~~~^^
+  File "C:\Users\Aswin.v\Desktop\Exit Ai\agents\service.py", line 156, in do_POST
+    self._json(200, result)
+    ~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\Desktop\Exit Ai\agents\service.py", line 123, in _json
+    self.wfile.write(body)
+    ~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+    ~~~~~~~~~~~~~~~~~~^^^
+ConnectionAbortedError: [WinError 10053] An established connection was aborted by the software in your host machine
+----------------------------------------
+[agent-service] "POST /submit-exit-interview HTTP/1.1" 200 -
+[agent-service] "OPTIONS /execute-deprovisioning HTTP/1.1" 204 -
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "56d0202a-7761-4331-ae22-6dff011d45fc"
+│  ↳ db   insert agent_runs  (2 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "10fe4e6f-c35a-45d1-b78e-7f9cd02b398e", "title": "Disable SSO account access", "execution": {"ok": true, "action_type": "identi…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.65s
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+[agent-service] "OPTIONS /execute-deprovisioning HTTP/1.1" 204 -
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "b9b25bfb-2fd2-403b-8725-a95d58909ac4"
+│  ↳ db   insert agent_runs  (1 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "46fca85e-f97a-4a0a-aafb-2f5a9427841b", "title": "Disable SSO account access", "execution": {"ok": true, "action_type": "identi…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.50s

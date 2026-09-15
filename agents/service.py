@@ -21,6 +21,14 @@ IT/finance/risk assessment unconditionally, which would finish an exit case
 the moment it's opened -- wrong for a resignation that was just submitted
 and hasn't been reviewed by anyone yet.
 
+/validate-document, /execute-deprovisioning, and /finance-settle-check also
+each re-run compliance_agent.run_for_case (and the last also
+finance_agent.check_clearance) for that one case after their own action, so
+compliance/finance status updates automatically instead of only on a manual
+`run_case`. Each is the existing agent's own entry point, invoked, not
+duplicated -- and each is already idempotent (update-or-insert /
+upsert-on-conflict), so re-running on every small event is safe.
+
 ponytail: stdlib http.server, not Flask/FastAPI -- neither is a project
 dependency (see requirements.txt) and this is one route.
 
@@ -34,7 +42,7 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import doc_collection, email_drafting_agent, exit_intel_agent, hr_agent, it_deprovisioning_agent
+from . import compliance_agent, doc_collection, email_drafting_agent, exit_intel_agent, finance_agent, hr_agent, it_deprovisioning_agent
 from .config import db
 from .trace import log_db
 
@@ -95,7 +103,12 @@ def validate_document(case_id: str, document_id: str | None) -> dict:
     if not document_id:
         return {"error": "document_id required"}
     result = doc_collection.validate_one(case_id, document_id)
-    return {"ok": True, "validation": result}
+    # A validated NDA/Asset Return Form can satisfy compliance_agent's
+    # matching item directly (DOC_TYPES) -- re-run its existing, idempotent
+    # single-case check so the compliance dashboard reflects it without a
+    # manual run_case. Scoped to this one case, not the full pipeline.
+    compliance = compliance_agent.run_for_case(case_id)
+    return {"ok": True, "validation": result, "compliance": compliance}
 
 
 def execute_deprovisioning(case_id: str) -> dict:
@@ -105,7 +118,25 @@ def execute_deprovisioning(case_id: str) -> dict:
     # Non-fatal if this service isn't running, same posture as every other
     # call in this file.
     result = it_deprovisioning_agent.execute_approved_tasks(case_id)
-    return {"ok": True, "executed": result}
+    # IT approval can satisfy compliance_agent's "access revoked" item --
+    # re-run the same existing, idempotent single-case check.
+    compliance = compliance_agent.run_for_case(case_id)
+    return {"ok": True, "executed": result, "compliance": compliance}
+
+
+def finance_settle_check(case_id: str) -> dict:
+    # The frontend already set exit_cases.finance_cleared via its own RLS-
+    # scoped RPC (finance_mark_dues_settled, 0014/0027) -- unlike every other
+    # trigger in this file there is no existing service.py hook for this
+    # action, so this is a new one. finance_agent.check_clearance flips the
+    # stage='finance' exit_tasks row to 'done' (HrPages.jsx's
+    # readyForRelievingLetter requires that row, not just the flag, to be
+    # done) and compliance_agent.run_for_case updates its own
+    # finance_approval item. Both are idempotent, single-case re-checks --
+    # not the full pipeline.
+    finance = finance_agent.check_clearance(case_id)
+    compliance = compliance_agent.run_for_case(case_id)
+    return {"ok": True, "finance": finance, "compliance": compliance}
 
 
 def reject_manager_task(case_id: str, task_id: str | None, reason: str | None) -> dict:
@@ -210,6 +241,7 @@ class Handler(BaseHTTPRequestHandler):
             "/issue-relieving-letter": lambda body: issue_relieving_letter(body["case_id"]),
             "/validate-document": lambda body: validate_document(body["case_id"], body.get("document_id")),
             "/execute-deprovisioning": lambda body: execute_deprovisioning(body["case_id"]),
+            "/finance-settle-check": lambda body: finance_settle_check(body["case_id"]),
             "/reject-manager-task": lambda body: reject_manager_task(body["case_id"], body.get("task_id"), body.get("reason")),
             "/escalation-audit": lambda body: log_escalation_transition(
                 body["case_id"], body.get("task_id"), body.get("action"), body.get("actor_name")
