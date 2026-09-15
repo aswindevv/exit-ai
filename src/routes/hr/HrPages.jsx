@@ -217,14 +217,56 @@ export function AllExits() {
   )
 }
 
-// Escalations have no dedicated status/reason column anywhere in the schema
-// (agents.supervisor._escalate and agents.service.reject_manager_task both
-// only insert an exit_tasks row) -- the title prefix IS the signal. Reused
-// from the same convention ManagerPages.jsx's isEscalated() already checks.
+// Escalations are still just a special exit_tasks row (title prefix is the
+// signal, per agents.supervisor._escalate / agents.service.reject_manager_task)
+// -- but 0025 gave that row real reason/escalation_state columns, so the
+// resolution actions below can be genuine RLS-gated writes instead of display-only.
 const isEscalation = (t) => Boolean(t.title?.startsWith('Escalated'))
+const ESCALATION_STATE_LABEL = { open: 'Awaiting HR review', rerouted: 'Sent back to manager', resolved: 'Resolved' }
+const ESCALATION_STATE_TONE = { open: 't-danger', rerouted: 't-accent', resolved: 't-success' }
+
+// Re-route/Resolve write straight to exit_tasks with the anon key -- RLS
+// (0025's exit_tasks_hr_escalation_update) is what actually enforces "only
+// HR, only from open, only to rerouted/resolved, once"; an empty returned
+// row (RLS rejected it, or someone already consumed the transition) is
+// treated as a failure here, never a false success. The audit POST after is
+// non-fatal, matching every other agent-service call in this app.
+function useEscalationAction(reload) {
+  const [acting, setActing] = useState({})
+  async function act(task, action, actorName) {
+    setActing((a) => ({ ...a, [task.id]: 'pending' }))
+    const { data, error } = await supabase
+      .from('exit_tasks')
+      .update({ escalation_state: action })
+      .eq('id', task.id)
+      .eq('escalation_state', 'open')
+      .select()
+    if (error || !data?.length) {
+      setActing((a) => ({ ...a, [task.id]: error?.message || 'Already handled -- refresh to see current status' }))
+      return
+    }
+    try {
+      await fetch('http://localhost:8787/escalation-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: task.case_id, task_id: task.id, action, actor_name: actorName }),
+      })
+    } catch {
+      // audit trail only -- the real transition above already succeeded
+    }
+    await reload()
+    setActing((a) => {
+      const next = { ...a }
+      delete next[task.id]
+      return next
+    })
+  }
+  return [acting, act]
+}
 
 export function Escalations() {
-  const { cases, tasks } = useOutletContext()
+  const { cases, tasks, profile, reload } = useOutletContext()
+  const [acting, act] = useEscalationAction(reload)
   const casesById = Object.fromEntries(cases.map((c) => [c.id, c]))
   const escalations = tasks
     .filter(isEscalation)
@@ -240,18 +282,42 @@ export function Escalations() {
             <span style={{ flex: 1 }}>Department</span>
             <span style={{ flex: 1.6 }}>Reason</span>
             <span style={{ width: 90 }}>Escalated</span>
-            <span style={{ width: 110, textAlign: 'right' }}>Status</span>
+            <span style={{ width: 210, textAlign: 'right' }}>Status</span>
           </div>
           {escalations.map((t) => {
             const c = casesById[t.case_id]
+            const state = t.escalation_state ?? 'open'
             return (
               <div className="row" key={t.id}>
                 <span style={{ flex: 1.4 }}>{c?.employee_name ?? 'Unknown case'}</span>
                 <span className="c-secondary" style={{ flex: 1 }}>{c?.department ?? '—'}</span>
-                <span className="c-muted" style={{ flex: 1.6 }}>Not captured — manager reject has no reason field</span>
+                <span className="c-muted" style={{ flex: 1.6 }}>{t.reason || 'Not captured'}</span>
                 <span className="c-secondary" style={{ width: 90 }}>{fmtDate(t.created_at)}</span>
-                <span style={{ width: 110, textAlign: 'right' }}>
-                  <span className="tag t-danger">Awaiting HR review</span>
+                <span style={{ width: 210, textAlign: 'right' }}>
+                  {state === 'open' ? (
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      <button
+                        style={{ fontSize: 11, padding: '4px 9px' }}
+                        onClick={() => act(t, 'rerouted', profile?.full_name)}
+                        disabled={acting[t.id] === 'pending'}
+                      >
+                        {acting[t.id] === 'pending' ? 'Working…' : 'Re-route to manager'}
+                      </button>
+                      <button
+                        className="c-danger"
+                        style={{ fontSize: 11, padding: '4px 9px', borderColor: 'var(--text-danger)' }}
+                        onClick={() => act(t, 'resolved', profile?.full_name)}
+                        disabled={acting[t.id] === 'pending'}
+                      >
+                        {acting[t.id] === 'pending' ? 'Working…' : 'Resolve/Close'}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className={`tag ${ESCALATION_STATE_TONE[state]}`}>{ESCALATION_STATE_LABEL[state]}</span>
+                  )}
+                  {acting[t.id] && acting[t.id] !== 'pending' && (
+                    <p className="sub c-danger" style={{ marginTop: 2 }}>{acting[t.id]}</p>
+                  )}
                 </span>
               </div>
             )
@@ -260,10 +326,6 @@ export function Escalations() {
       ) : (
         <Placeholder title="No escalations" body="No manager has rejected a KT plan yet." />
       )}
-      <p className="sub c-muted" style={{ marginTop: 10 }}>
-        Display-only for now — acknowledging or re-routing an escalation back to a manager has no backend
-        path yet (the agent graph's escalate step is terminal); that's a follow-up.
-      </p>
     </div>
   )
 }
