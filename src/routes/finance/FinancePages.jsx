@@ -28,6 +28,18 @@ function useSettle(reload) {
       setActioning((a) => ({ ...a, [caseId]: error.message }))
       return
     }
+    // Trigger the finance/compliance re-check: agents/service.py is the
+    // same local-only bridge as every other page's fetch call. Non-fatal
+    // if it's not running -- the settlement itself already stuck.
+    try {
+      await fetch('http://localhost:8787/finance-settle-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: caseId }),
+      })
+    } catch {
+      // agent service unreachable — non-fatal, see comment above
+    }
     await reload()
     setActioning((a) => {
       const next = { ...a }

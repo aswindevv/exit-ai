@@ -1,0 +1,129 @@
+[agent-service] listening on http://localhost:8787
+[agent-service] code 501, message Unsupported method ('GET')
+[agent-service] "GET / HTTP/1.1" 501 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for NDA (f3b2e788-32f2-4d3c-8785-c9121a61b3bd/NDA-1789454050701.png):
+NON-DISCLOSURE AGREEMENT
+
+This agreement is made between the Company and the
+
+departing employee.
+
+The employee agrees to keep confidential information
+
+private after leaving.
+
+[ This copy has NOT been signed or dated ]
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for Asset Return Form (f3b2e788-32f2-4d3c-8785-c9121a61b3bd/Asset Return Form-1789454066420.png):
+ASSET RETURN FORM
+
+Employee: Liam Reddy (Emp053)
+
+Returned items:
+- Company laptop
+- Access card
+
+- Mobile device
+
+Signature: Liam Reddy
+Date: 26-Sep-2026
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for NDA (f3b2e788-32f2-4d3c-8785-c9121a61b3bd/NDA-1789454078625.png):
+NON-DISCLOSURE AGREEMENT
+
+This agreement is made between the Company and the
+
+departing employee, Liam Reddy (Emp053).
+
+The employee agrees to keep all confidential company
+
+information private after leaving employment.
+
+Signature: Liam Reddy
+Date: 26-Sep-2026
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] code 501, message Unsupported method ('GET')
+[agent-service] "GET / HTTP/1.1" 501 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for NDA (fc5cda58-c58b-46cc-8c1b-820206fc7442/NDA-1789454266653.png):
+NON-DISCLOSURE AGREEMENT
+Employee: Priya Nair
+This confidential agreement is entered into by the employee
+
+to protect company trade secrets after departure.
+
+Date: 13-Sep-2026
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[doc_collection] OCR output for NDA (fc5cda58-c58b-46cc-8c1b-820206fc7442/NDA-1789454269315.png):
+NON-DISCLOSURE AGREEMENT
+Employee: Priya Nair
+This confidential agreement is entered into by the employee
+
+to protect company trade secrets after departure.
+
+Signature: Date: 13-Sep-2026
+
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for NDA (fc5cda58-c58b-46cc-8c1b-820206fc7442/NDA-1789454327856.png):
+NON-DISCLOSURE AGREEMENT
+Employee: Priya Nair
+This confidential agreement is entered into by the employee
+
+to protect company trade secrets after departure.
+
+Date: 13-Sep-2026
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[doc_collection] OCR output for NDA (fc5cda58-c58b-46cc-8c1b-820206fc7442/NDA-1789454330336.png):
+NON-DISCLOSURE AGREEMENT
+Employee: Priya Nair
+This confidential agreement is entered into by the employee
+
+to protect company trade secrets after departure.
+
+Signature: Date: 13-Sep-2026
+
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for NDA (fc5cda58-c58b-46cc-8c1b-820206fc7442/NDA-1789454359069.png):
+NON-DISCLOSURE AGREEMENT
+Employee: Priya Nair
+This confidential agreement is entered into by the employee
+
+to protect company trade secrets after departure.
+
+Date: 13-Sep-2026
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[doc_collection] OCR output for NDA (fc5cda58-c58b-46cc-8c1b-820206fc7442/NDA-1789454361670.png):
+NON-DISCLOSURE AGREEMENT
+Employee: Priya Nair
+This confidential agreement is entered into by the employee
+
+to protect company trade secrets after departure.
+
+Signature: Date: 13-Sep-2026
+
+
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /issue-relieving-letter HTTP/1.1" 204 -
+┌─ Email Drafting agent (#6) -- relieving letter notice  ▸ start
+│  inputs: {"id": "f3b2e788-32f2-4d3c-8785-c9121a61b3bd", "employee_id": "Emp053", "employee_name": "Liam Reddy", "email": "***", "department": "Suppor…
+│  ┌─ Notification agent -- send email  ▸ start
+│  │  inputs: "emp053@gmail.com"
+│  │  output: {"sent": true, "to": "emp053@gmail.com"}
+│  └─ Notification agent -- send email  ✓ done  4.06s
+│  ↳ db   send notifications  (1 rows)  relieving_letter_notice
+│  ↳ db   insert agent_runs  (1 rows)  email_drafting:relieving_letter_notice:smtp_accepted
+│  output: {"sent": true, "to": "emp053@gmail.com"}
+└─ Email Drafting agent (#6) -- relieving letter notice  ✓ done  4.25s

@@ -1,0 +1,77 @@
+{
+  "routes": {
+    "(dashboard)": {
+      "url": "http://localhost:5173/employee/",
+      "blank": false,
+      "snippet": "ExitAI Dashboard My exit My tasks Documents Knowledge transfer Exit interview Timeline Help and support PS  Priya Sharma"
+    },
+    "my-exit": {
+      "url": "http://localhost:5173/employee/my-exit",
+      "blank": false,
+      "snippet": "ExitAI Dashboard My exit My tasks Documents Knowledge transfer Exit interview Timeline Help and support PS  Priya Sharma"
+    },
+    "tasks": {
+      "url": "http://localhost:5173/employee/tasks",
+      "blank": false,
+      "snippet": "ExitAI Dashboard My exit My tasks Documents Knowledge transfer Exit interview Timeline Help and support PS  Priya Sharma"
+    },
+    "documents": {
+      "url": "http://localhost:5173/employee/documents",
+      "blank": false,
+      "snippet": "ExitAI Dashboard My exit My tasks Documents Knowledge transfer Exit interview Timeline Help and support PS  Priya Sharma"
+    },
+    "knowledge-transfer": {
+      "url": "http://localhost:5173/employee/knowledge-transfer",
+      "blank": false,
+      "snippet": "ExitAI Dashboard My exit My tasks Documents Knowledge transfer Exit interview Timeline Help and support PS  Priya Sharma"
+    },
+    "exit-interview": {
+      "url": "http://localhost:5173/employee/exit-interview",
+      "blank": false,
+      "snippet": "ExitAI Dashboard My exit My tasks Documents Knowledge transfer Exit interview Timeline Help and support PS  Priya Sharma"
+    },
+    "timeline": {
+      "url": "http://localhost:5173/employee/timeline",
+      "blank": false,
+      "snippet": "ExitAI Dashboard My exit My tasks Documents Knowledge transfer Exit interview Timeline Help and support PS  Priya Sharma"
+    },
+    "help": {
+      "url": "http://localhost:5173/employee/help",
+      "blank": false,
+      "snippet": "ExitAI Dashboard My exit My tasks Documents Knowledge transfer Exit interview Timeline Help and support PS  Priya Sharma"
+    }
+  },
+  "consoleErrors": [],
+  "networkFailures": [],
+  "unauthorizedRedirects": {
+    "hr": "http://localhost:5173/employee",
+    "manager": "http://localhost:5173/employee",
+    "it": "http://localhost:5173/employee",
+    "finance": "http://localhost:5173/employee"
+  },
+  "rlsProbe": {
+    "base_table_exit_cases": {
+      "status": 200,
+      "body": []
+    },
+    "employee_exit_view": {
+      "status": 200,
+      "body": [
+        {
+          "id": "dca02f2d-b0ed-4f3a-ac6b-b14dd755eb77",
+          "employee_name": "Priya Sharma",
+          "department": "Sales",
+          "role_title": "Sales Executive",
+          "last_working_day": "2026-09-26",
+          "status": "in_progress",
+          "relieving_letter_issued": false,
+          "issued_at": null
+        }
+      ]
+    }
+  },
+  "landingUrl": "http://localhost:5173/employee",
+  "logoutButtonVisible": true,
+  "afterLogoutUrl": "http://localhost:5173/employee",
+  "loginFormVisibleAfterLogout": true
+}
