@@ -5,13 +5,13 @@ import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
 
 export const NAV = [
-  { label: 'Dashboard', to: '', end: true },
-  { label: 'My team', to: 'my-team' },
-  { label: 'Exiting reports', to: 'exiting-reports' },
-  { label: 'KT approvals', to: 'kt-approvals' },
-  { label: 'Clearances', to: 'clearances' },
-  { label: 'Timeline', to: 'timeline' },
-  { label: 'Help and support', to: 'help' },
+  { label: 'Dashboard', to: '', end: true, icon: 'ti-layout-dashboard' },
+  { label: 'My team', to: 'my-team', icon: 'ti-users' },
+  { label: 'Exiting reports', to: 'exiting-reports', icon: 'ti-file-text' },
+  { label: 'KT approvals', to: 'kt-approvals', icon: 'ti-file-search' },
+  { label: 'Clearances', to: 'clearances', icon: 'ti-clipboard-check' },
+  { label: 'Timeline', to: 'timeline', icon: 'ti-timeline' },
+  { label: 'Help and support', to: 'help', icon: 'ti-help' },
 ]
 
 export default function ManagerLayout({ session }) {

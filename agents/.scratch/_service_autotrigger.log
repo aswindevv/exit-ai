@@ -1,0 +1,457 @@
+[agent-service] listening on http://localhost:8787
+[agent-service] "OPTIONS /activate-exit HTTP/1.1" 204 -
+[agent-service] "OPTIONS /activate-exit HTTP/1.1" 204 -
+┌─ HR agent -- generate checklist  ▸ start
+│  inputs: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "case": {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employe…
+│  ↳ llm  @aws-bedrock-use2/us.anthropic.claude-sonnet-5  5.19s  in=142 out=246 tok
+│     ⤷ ```json {   "hr_tasks": [     "Complete final payroll and benefits paperwork",     "Return company l…
+│  output: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "case": {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employe…
+└─ HR agent -- generate checklist  ✓ done  5.19s
+┌─ HR agent -- persist checklist  ▸ start
+│  inputs: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "case": {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employe…
+│  ↳ db   insert exit_tasks  (8 rows)
+│  ┌─ Email Drafting agent (#6) -- KT reminder  ▸ start
+│  │  inputs: {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employee_name": "Priya Nair", "email": "***", "department": "Produc…
+│  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  inputs: "emp022@gmail.com"
+│  │  │  output: {"sent": true, "to": "emp022@gmail.com"}
+│  │  └─ Notification agent -- send email  ✓ done  4.39s
+│  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  inputs: "aravidhan@company.com"
+│  │  │  output: {"sent": true, "to": "aravidhan@company.com"}
+│  │  └─ Notification agent -- send email  ✓ done  3.87s
+│  │  ↳ db   send notifications  (2 rows)  kt_reminder
+│  │  ↳ db   insert agent_runs  (1 rows)  email_drafting:kt_reminder:smtp_accepted
+│  │  output: {"results": [{"sent": true, "to": "emp022@gmail.com"}, {"sent": true, "to": "aravidhan@company.com"}]}
+│  └─ Email Drafting agent (#6) -- KT reminder  ✓ done  8.83s
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employee_name": "Priya Nair", "email": "***", "department": "Produc…
+│  │  output: {"booked": true, "event_id": "2u43g9p0ce2iss9o7lic9dua38"}
+│  └─ Calendar -- book KT event  ✓ done  2.71s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employee_name": "Priya Nair", "email": "***", "department": "Produc…
+│  │  output: {"booked": true, "event_id": "u4h33775rp0rsatangp3b4eb9k"}
+│  └─ Calendar -- book KT event  ✓ done  2.98s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employee_name": "Priya Nair", "email": "***", "department": "Produc…
+│  │  output: {"booked": true, "event_id": "nbdr4e4t6rqo6sakq8dm0rf1o8"}
+│  └─ Calendar -- book KT event  ✓ done  2.20s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employee_name": "Priya Nair", "email": "***", "department": "Produc…
+│  │  output: {"booked": true, "event_id": "4cr97tqk573k77fqtisf79itv8"}
+│  └─ Calendar -- book KT event  ✓ done  2.15s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  output: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "case": {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employe…
+└─ HR agent -- persist checklist  ✓ done  19.83s
+↳ db   update exit_cases  (1 rows)  status -> in_progress
+┌─ Email Drafting agent (#6) -- resignation notice  ▸ start
+│  inputs: {"id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "employee_id": "Emp022", "employee_name": "Priya Nair", "email": "***", "department": "Produc…
+│  ┌─ Notification agent -- send email  ▸ start
+│  │  inputs: "aravidhan@company.com"
+│  │  output: {"sent": true, "to": "aravidhan@company.com"}
+│  └─ Notification agent -- send email  ✓ done  4.20s
+│  ↳ db   send notifications  (1 rows)  resignation_notice
+│  ↳ db   insert agent_runs  (1 rows)  email_drafting:resignation_notice:smtp_accepted
+│  output: {"sent": true, "to": "aravidhan@company.com"}
+└─ Email Drafting agent (#6) -- resignation notice  ✓ done  4.68s
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 65512)
+Traceback (most recent call last):
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 447, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 435, in handle_one_request
+    method()
+    ~~~~~~^^
+  File "C:\Users\Aswin.v\Desktop\Exit Ai\agents\service.py", line 268, in do_POST
+    self._json(200, result)
+    ~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\Desktop\Exit Ai\agents\service.py", line 229, in _json
+    self.end_headers()
+    ~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 549, in end_headers
+    self.flush_headers()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 553, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+    ~~~~~~~~~~~~~~~~~~^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+[agent-service] "POST /activate-exit HTTP/1.1" 200 -
+[agent-service] "OPTIONS /activate-exit HTTP/1.1" 204 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for NDA (b0d422b3-a63e-4eec-bd57-867d519784e5/NDA-1789461049294.png):
+NON-DISCLOSURE AGREEMENT
+Employee: Priya Nair
+This confidential agreement is entered into by the employee
+
+to protect company trade secrets after departure.
+
+Signature: Date: 13-Sep-2026
+
+
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {}, "items": []}
+│  output: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "access revok…
+└─ Compliance Verification -- check  ✓ done  0.31s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "access revok…
+│  ↳ db   insert exit_tasks  (1 rows)  Final clearance blocked: asset return: pending; access revoked: pending
+│  output: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "access revok…
+└─ Compliance Verification -- persist  ✓ done  0.31s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "access revok…
+│  ↳ db   upsert compliance_checks  (6 rows)  1/6 done
+│  output: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "access revok…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.60s
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for Asset Return Form (b0d422b3-a63e-4eec-bd57-867d519784e5/Asset Return Form-1789461054595.png):
+ASSET RETURN FORM
+Employee: Priya Nair
+| confirm all company assets (laptop, badge, headset)
+
+have been returned to IT on the date below.
+
+Signature: Date: 13-Sep-2026
+
+
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {}, "items": []}
+│  output: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["access revoked: pending"]}, "items": …
+└─ Compliance Verification -- check  ✓ done  0.30s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["access revoked: pending"]}, "items": …
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: access revoked: pending
+│  output: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["access revoked: pending"]}, "items": …
+└─ Compliance Verification -- persist  ✓ done  0.33s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["access revoked: pending"]}, "items": …
+│  ↳ db   upsert compliance_checks  (6 rows)  2/6 done
+│  output: {"case_id": "b0d422b3-a63e-4eec-bd57-867d519784e5", "result": {"cleared": false, "blocking_reasons": ["access revoked: pending"]}, "items": …
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.65s
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /execute-deprovisioning HTTP/1.1" 204 -
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "56d0202a-7761-4331-ae22-6dff011d45fc"
+│  ↳ db   insert agent_runs  (2 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "10fe4e6f-c35a-45d1-b78e-7f9cd02b398e", "title": "Disable SSO account access", "execution": {"ok": true, "action_type": "identi…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.63s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {}, "items": []}
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "56d0202a-7761-4331-ae22-6dff011d45fc"
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.39s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.30s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   insert agent_runs  (1 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "279f6aef-0ab5-47a3-824a-edf3836dd1b3", "title": "Revoke access to Salesforce application", "execution": {"ok": true, "action_t…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.76s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {}, "items": []}
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "56d0202a-7761-4331-ae22-6dff011d45fc"
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.40s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   insert agent_runs  (1 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "dd78c1d0-442f-4a99-aa92-d11337168b78", "title": "Revoke access to Slack application", "execution": {"ok": true, "action_type":…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.76s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {}, "items": []}
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.46s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "56d0202a-7761-4331-ae22-6dff011d45fc"
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.40s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   insert agent_runs  (1 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "a836d09a-7cb7-41b7-88ed-fe65c9d27dc4", "title": "Deactivate access card", "execution": {"ok": true, "action_type": "asset_reco…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.60s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  3/6 done
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": [{"it…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  2.02s
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.45s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "56d0202a-7761-4331-ae22-6dff011d45fc"
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.32s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.44s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   insert agent_runs  (1 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "166077ce-10f6-4721-8830-36855724466e", "title": "Collect mobile device", "execution": {"ok": true, "action_type": "asset_recov…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.66s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {}, "items": []}
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "8c96524b-2371-4344-a967-ea29043ff649"
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.30s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  3/6 done
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": [{"it…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.90s
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.30s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   insert agent_runs  (2 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "a1d0ad44-14ca-479e-8596-238d36c46867", "title": "Disable SSO account and reset password", "execution": {"ok": true, "action_ty…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.73s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {}, "items": []}
+[agent-service] "OPTIONS /execute-deprovisioning HTTP/1.1" 204 -
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "8c96524b-2371-4344-a967-ea29043ff649"
+│  ↳ db   upsert compliance_checks  (6 rows)  4/6 done
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": [{"it…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.84s
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.40s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  4/6 done
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": [{"it…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.80s
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.32s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   insert agent_runs  (1 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "27d0bc02-4962-47fb-95d6-7b15d151f9dc", "title": "Revoke access to shared finance drives and budgeting spreadsheets", "executio…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.62s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {}, "items": []}
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "8c96524b-2371-4344-a967-ea29043ff649"
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.29s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  4/6 done
+│  output: {"case_id": "56d0202a-7761-4331-ae22-6dff011d45fc", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": [{"it…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.51s
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.44s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   insert agent_runs  (1 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "93df1528-de9a-41c1-90ef-4b50c2423148", "title": "Deactivate access card for office entry", "execution": {"ok": true, "action_t…
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.63s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {}, "items": []}
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "8c96524b-2371-4344-a967-ea29043ff649"
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.45s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   insert agent_runs  (1 rows)  it_deprovisioning_execution
+│  output: [{"task_id": "696bdedc-7556-457e-9277-2fbef221a53e", "title": "Remove access to financial reporting application (e.g., QuickBooks or Oracle …
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✓ done  0.52s
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {}, "items": []}
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.30s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.42s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  3/6 done
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": [{"it…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  2.07s
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+┌─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ▸ start
+│  inputs: "8c96524b-2371-4344-a967-ea29043ff649"
+│  ↳ db   update exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.48s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  3/6 done
+│  output: {"case_id": "8c96524b-2371-4344-a967-ea29043ff649", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": [{"it…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.81s
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 200 -
+└─ Compliance Verification -- item-level trace (#13)  ✗ failed  0.01s  ReadError: [WinError 10035] A non-blocking socket operation could not be completed immediately
+└─ Automated IT Deprovisioning agent (#18) -- execute/verify/audit approved tasks  ✗ failed  0.46s  ReadError: [WinError 10035] A non-blocking socket operation could not be completed immediately
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 500 -
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 500 -
+└─ Compliance Verification -- item-level trace (#13)  ✗ failed  0.91s  ReadError: [WinError 10035] A non-blocking socket operation could not be completed immediately
+[agent-service] "POST /execute-deprovisioning HTTP/1.1" 500 -
+[agent-service] "OPTIONS /issue-relieving-letter HTTP/1.1" 204 -
+┌─ Email Drafting agent (#6) -- relieving letter notice  ▸ start
+│  inputs: {"id": "f3a3667f-c0db-47fe-b440-c3d010214c76", "employee_id": "Emp003", "employee_name": "Liam Sharma", "email": "***", "department": "Marke…
+│  ┌─ Notification agent -- send email  ▸ start
+│  │  inputs: "emp003@gmail.com"
+│  │  output: {"sent": true, "to": "emp003@gmail.com"}
+│  └─ Notification agent -- send email  ✓ done  3.47s
+│  ↳ db   send notifications  (1 rows)  relieving_letter_notice
+│  ↳ db   insert agent_runs  (1 rows)  email_drafting:relieving_letter_notice:smtp_accepted
+│  output: {"sent": true, "to": "emp003@gmail.com"}
+└─ Email Drafting agent (#6) -- relieving letter notice  ✓ done  3.62s
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 62473)
+Traceback (most recent call last):
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 447, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\http\server.py", line 435, in handle_one_request
+    method()
+    ~~~~~~^^
+  File "C:\Users\Aswin.v\Desktop\Exit Ai\agents\service.py", line 268, in do_POST
+    self._json(200, result)
+    ~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Aswin.v\Desktop\Exit Ai\agents\service.py", line 230, in _json
+    self.wfile.write(body)
+    ~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Aswin.v\AppData\Local\Programs\Python\Python313\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+    ~~~~~~~~~~~~~~~~~~^^^
+ConnectionAbortedError: [WinError 10053] An established connection was aborted by the software in your host machine
+----------------------------------------
+[agent-service] "POST /issue-relieving-letter HTTP/1.1" 200 -
+[agent-service] "OPTIONS /activate-exit HTTP/1.1" 204 -
+┌─ HR agent -- generate checklist  ▸ start
+│  inputs: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "case": {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employe…
+│  ↳ llm  @aws-bedrock-use2/us.anthropic.claude-sonnet-5  5.57s  in=142 out=261 tok
+│     ⤷ ```json {   "hr_tasks": [     "Complete exit interview questionnaire",     "Return company equipment…
+│  output: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "case": {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employe…
+└─ HR agent -- generate checklist  ✓ done  5.57s
+┌─ HR agent -- persist checklist  ▸ start
+│  inputs: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "case": {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employe…
+│  ↳ db   insert exit_tasks  (8 rows)
+│  ┌─ Email Drafting agent (#6) -- KT reminder  ▸ start
+│  │  inputs: {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employee_name": "Zoya Reddy", "email": "***", "department": "Produc…
+│  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  inputs: "emp054@gmail.com"
+│  │  │  output: {"sent": true, "to": "emp054@gmail.com"}
+│  │  └─ Notification agent -- send email  ✓ done  3.73s
+│  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  inputs: "aravidhan@company.com"
+│  │  │  output: {"sent": true, "to": "aravidhan@company.com"}
+│  │  └─ Notification agent -- send email  ✓ done  3.36s
+│  │  ↳ db   send notifications  (2 rows)  kt_reminder
+│  │  ↳ db   insert agent_runs  (1 rows)  email_drafting:kt_reminder:smtp_accepted
+│  │  output: {"results": [{"sent": true, "to": "emp054@gmail.com"}, {"sent": true, "to": "aravidhan@company.com"}]}
+│  └─ Email Drafting agent (#6) -- KT reminder  ✓ done  8.15s
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employee_name": "Zoya Reddy", "email": "***", "department": "Produc…
+│  │  output: {"booked": true, "event_id": "6irvn1psarf2sgomsou2k59mvg"}
+│  └─ Calendar -- book KT event  ✓ done  2.96s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employee_name": "Zoya Reddy", "email": "***", "department": "Produc…
+│  │  output: {"booked": true, "event_id": "6v93g1kio53p5q946mm4pegsp8"}
+│  └─ Calendar -- book KT event  ✓ done  2.81s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employee_name": "Zoya Reddy", "email": "***", "department": "Produc…
+│  │  output: {"booked": true, "event_id": "477160ijml17pstp74b963dte8"}
+│  └─ Calendar -- book KT event  ✓ done  2.82s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employee_name": "Zoya Reddy", "email": "***", "department": "Produc…
+│  │  output: {"booked": true, "event_id": "mhah021e7c6rk4ud0qs7na2uc4"}
+│  └─ Calendar -- book KT event  ✓ done  2.96s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  output: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "case": {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employe…
+└─ HR agent -- persist checklist  ✓ done  20.94s
+↳ db   update exit_cases  (1 rows)  status -> in_progress
+┌─ Email Drafting agent (#6) -- resignation notice  ▸ start
+│  inputs: {"id": "0565226b-feae-4c40-bf62-74a73b608040", "employee_id": "Emp054", "employee_name": "Zoya Reddy", "email": "***", "department": "Produc…
+│  ┌─ Notification agent -- send email  ▸ start
+│  │  inputs: "aravidhan@company.com"
+│  │  output: {"sent": true, "to": "aravidhan@company.com"}
+│  └─ Notification agent -- send email  ✓ done  3.26s
+│  ↳ db   send notifications  (1 rows)  resignation_notice
+│  ↳ db   insert agent_runs  (1 rows)  email_drafting:resignation_notice:smtp_accepted
+│  output: {"sent": true, "to": "aravidhan@company.com"}
+└─ Email Drafting agent (#6) -- resignation notice  ✓ done  3.75s
+[agent-service] "POST /activate-exit HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for NDA (0565226b-feae-4c40-bf62-74a73b608040/NDA-1789464701903.png):
+NON-DISCLOSURE AGREEMENT
+
+This agreement is made between the Company and the
+
+departing employee.
+
+The employee agrees to keep confidential information
+
+private after leaving.
+
+[ This copy has NOT been signed or dated ]
+
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "result": {}, "items": []}
+│  output: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "NDA: no task…
+└─ Compliance Verification -- check  ✓ done  0.32s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "NDA: no task…
+│  ↳ db   insert exit_tasks  (1 rows)  Final clearance blocked: asset return: pending; NDA: no task found; access revoked: pending
+│  output: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "NDA: no task…
+└─ Compliance Verification -- persist  ✓ done  0.32s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "NDA: no task…
+│  ↳ db   upsert compliance_checks  (6 rows)  0/6 done
+│  output: {"case_id": "0565226b-feae-4c40-bf62-74a73b608040", "result": {"cleared": false, "blocking_reasons": ["asset return: pending", "NDA: no task…
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.59s

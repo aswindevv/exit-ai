@@ -5,13 +5,13 @@ import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
 
 export const NAV = [
-  { label: 'Dashboard', to: '', end: true },
-  { label: 'Deprovisioning', to: 'deprovisioning' },
-  { label: 'Asset recovery', to: 'asset-recovery' },
-  { label: 'Access reviews', to: 'access-reviews' },
-  { label: 'Approvals', to: 'approvals' },
-  { label: 'Audit log', to: 'audit-log' },
-  { label: 'Help and support', to: 'help' },
+  { label: 'Dashboard', to: '', end: true, icon: 'ti-layout-dashboard' },
+  { label: 'Deprovisioning', to: 'deprovisioning', icon: 'ti-shield-lock' },
+  { label: 'Asset recovery', to: 'asset-recovery', icon: 'ti-device-laptop' },
+  { label: 'Access reviews', to: 'access-reviews', icon: 'ti-key' },
+  { label: 'Approvals', to: 'approvals', icon: 'ti-circle-check' },
+  { label: 'Audit log', to: 'audit-log', icon: 'ti-history' },
+  { label: 'Help and support', to: 'help', icon: 'ti-help' },
 ]
 
 export default function ItLayout({ session }) {

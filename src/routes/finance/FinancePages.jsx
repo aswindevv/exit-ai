@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import PageHead from '../../components/PageHead'
-import { withEmployeeHeaders, tieredByCompletion, caseTaskSummary, completionChip, CASE_GATE_STAGES } from '../../components/EmployeeGroup'
 import { financeStatus, FINANCE_STATUS_TAG } from '../../lib/financeStatus'
 import { supabase } from '../../lib/supabase'
 import { fmtDate } from '../../lib/format'
 
 const BTN = { fontSize: 11, padding: '4px 9px' }
+const PRIOR_STAGES = ['hr', 'manager', 'it']
+const PRIOR_STAGE_LABEL = { hr: 'HR', manager: 'Manager', it: 'IT' }
 
 // Mirrors ManagerPages/ItPages useApprove, but the write goes through the
 // finance_mark_dues_settled RPC (0014_finance_dues_rpc.sql) instead of a
@@ -79,23 +80,33 @@ function useReject(reload) {
   return [rejecting, reject]
 }
 
-// Awaiting finance = hr/manager/it all done, dues not yet settled -- same
-// stages finance_agent.py itself gates on (it ignores compliance/assess).
-// Kept for the KPI/subtitle count -- the case list itself shows every case
-// (blocked/ready/cleared) so a blocked row's real status is visible instead
-// of being silently dropped from the dashboard.
-function useQueue(cases, tasks) {
-  return cases.filter((c) => ['ready', 'held'].includes(financeStatus(c, tasks)))
+// financeStatus returns 4 raw states, but the queue only has 3 visual tiers:
+// 'held' is finance's own hold (still actionable -- settling is the only way
+// to release it, see 0027's comment), so it sorts with 'ready' rather than
+// with 'blocked' (which has no action until an earlier stage clears).
+function rowTier(status) {
+  if (status === 'blocked') return 1
+  if (status === 'cleared') return 2
+  return 0 // ready, held
 }
 
-const financeGroupKey = (c) => c.id
-// allTasks is finance's full accessible task set for this case (hr/manager/
-// it/finance) -- "all done" must reflect the whole case, not just this list.
-const financeGroupHeader = (allTasks) => (c) => ({
-  name: c.employee_name,
-  subtitle: `${c.department} · Last day ${fmtDate(c.last_working_day)}`,
-  chip: completionChip(c.id, allTasks, CASE_GATE_STAGES),
-})
+// Short reason for a 'blocked' pill -- first prior stage (in gate order)
+// that isn't fully done, matching financeStatus.js's own PRIOR_STAGES gate.
+// Kept to one word so "Blocked · <reason>" stays single-line in a fixed
+// column width instead of wrapping the row onto two lines.
+function blockedReason(caseId, tasks) {
+  const stage = PRIOR_STAGES.find((s) => {
+    const stageTasks = tasks.filter((t) => t.case_id === caseId && t.stage === s)
+    return stageTasks.length === 0 || !stageTasks.every((t) => t.status === 'done')
+  })
+  return stage ? PRIOR_STAGE_LABEL[stage] : 'Prior stage'
+}
+
+// Fixed grid-column widths for the clearance queue table -- unlike flex
+// basis/shrink, a grid track's width is set once on the container and can't
+// be squeezed by one row's own content (e.g. an actionable row's buttons),
+// so every row's columns line up regardless of what that row renders.
+const QUEUE_COLS = '1.4fr 1fr 70px 150px 170px'
 
 export function Dashboard() {
   const { profile, cases, tasks, reload } = useOutletContext()
@@ -103,15 +114,24 @@ export function Dashboard() {
   const [rejecting, reject] = useReject(reload)
   const [notes, setNotes] = useState({})
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
-  const queue = useQueue(cases, tasks)
+
+  const rows = cases
+    .map((c) => ({ case: c, status: financeStatus(c, tasks) }))
+    .sort((a, b) => rowTier(a.status) - rowTier(b.status) || new Date(a.case.created_at) - new Date(b.case.created_at))
+
+  const readyCount = rows.filter((r) => r.status === 'ready' || r.status === 'held').length
+  const blockedCount = rows.filter((r) => r.status === 'blocked').length
+  const settledCount = rows.filter((r) => r.status === 'cleared').length
 
   const CHIPS = [
-    { tone: 't-plain', k: 'Queue', v: String(queue.length) },
-    queue.length > 0 && { tone: 't-warning', text: `${queue.length} awaiting you` },
+    { tone: 't-plain', k: 'Queue', v: String(cases.length) },
+    readyCount > 0 && { tone: 't-warning', text: `${readyCount} awaiting you` },
   ].filter(Boolean)
 
   const KPIS = [
-    { label: 'Awaiting finance clearance', value: String(queue.length), valueClass: 'c-warning' },
+    { label: 'Ready', value: String(readyCount), valueClass: 'c-warning' },
+    { label: 'Blocked', value: String(blockedCount), valueClass: 'c-danger' },
+    { label: 'Settled', value: String(settledCount), valueClass: 'c-success' },
   ]
 
   return (
@@ -123,7 +143,7 @@ export function Dashboard() {
 
       <PageHead
         greeting={`Good morning, ${firstName}`}
-        subtitle={`${queue.length} exit case${queue.length === 1 ? '' : 's'} awaiting finance clearance.`}
+        subtitle={`${readyCount} exit case${readyCount === 1 ? '' : 's'} ready for finance clearance.`}
         chips={CHIPS}
       />
 
@@ -138,49 +158,62 @@ export function Dashboard() {
       <div className="card card--pad">
         <p className="card-title">Finance clearance queue</p>
         <div className="list">
-          {withEmployeeHeaders(
-            tieredByCompletion(
-              [...cases],
-              (c) => caseTaskSummary(c.id, tasks, CASE_GATE_STAGES).allDone,
-              (c) => new Date(c.created_at)
-            ),
-            financeGroupKey,
-            financeGroupHeader(tasks),
-            (c) => {
-              const financeTask = tasks.find((t) => t.case_id === c.id && t.stage === 'finance')
-              const status = financeStatus(c, tasks)
-              const tag = FINANCE_STATUS_TAG[status]
-              const actionable = status === 'ready' || status === 'held'
-              return (
-                <div className="row row--split" key={c.id}>
-                  <div>
-                    <p className="sub">
-                      Last day {fmtDate(c.last_working_day)} · {financeTask?.title ?? 'Final settlement dues'}
-                    </p>
-                    {status === 'held' && (
-                      <p className="sub c-danger" style={{ marginTop: 2 }}>Held: {c.dues_note}</p>
-                    )}
-                    {actionable && (
+          <div className="thead" style={{ display: 'grid', gridTemplateColumns: QUEUE_COLS }}>
+            <span>Employee</span>
+            <span>Dept</span>
+            <span>Last day</span>
+            <span>Status</span>
+            <span style={{ textAlign: 'right' }}>Action</span>
+          </div>
+          {rows.map(({ case: c, status }) => {
+            const tag = FINANCE_STATUS_TAG[status]
+            const actionable = status === 'ready' || status === 'held'
+            const reason =
+              status === 'blocked' ? blockedReason(c.id, tasks) : status === 'held' && c.dues_note ? c.dues_note : null
+            return (
+              <div
+                className="row"
+                key={c.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: QUEUE_COLS,
+                  alignItems: 'center',
+                  ...(status === 'cleared' ? { opacity: 0.55 } : null),
+                }}
+              >
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.employee_name}
+                </span>
+                <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.department}
+                </span>
+                <span className="c-secondary">{fmtDate(c.last_working_day)}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span
+                    className={`tag ${tag.tone}`}
+                    style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' }}
+                  >
+                    {tag.label}{reason ? ` · ${reason}` : ''}
+                  </span>
+                </span>
+                <span style={{ textAlign: 'right' }}>
+                  {actionable ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
                       <input
                         type="text"
                         placeholder="Dues note (optional)"
                         value={notes[c.id] ?? c.dues_note ?? ''}
                         onChange={(e) => setNotes((n) => ({ ...n, [c.id]: e.target.value }))}
-                        style={{ marginTop: 4, fontSize: 12, padding: '3px 6px', width: '100%', maxWidth: 260 }}
+                        style={{ fontSize: 12, padding: '3px 6px', width: '100%' }}
                       />
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    {actionable ? (
-                      <>
+                      <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           style={BTN}
                           onClick={() => settle(c.id, notes[c.id] ?? c.dues_note)}
                           disabled={actioning[c.id] === 'pending' || rejecting[c.id] === 'pending'}
                         >
-                          {actioning[c.id] === 'pending' ? 'Saving…' : 'Mark dues settled'}
+                          {actioning[c.id] === 'pending' ? 'Saving…' : 'Settle dues'}
                         </button>
-                        {' '}
                         <button
                           className="c-danger"
                           style={{ ...BTN, borderColor: 'var(--text-danger)' }}
@@ -189,22 +222,22 @@ export function Dashboard() {
                         >
                           {rejecting[c.id] === 'pending' ? 'Rejecting…' : 'Reject'}
                         </button>
-                        {actioning[c.id] && actioning[c.id] !== 'pending' && (
-                          <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[c.id]}</p>
-                        )}
-                        {rejecting[c.id] && rejecting[c.id] !== 'pending' && (
-                          <p className="sub c-danger" style={{ marginTop: 2 }}>{rejecting[c.id]}</p>
-                        )}
-                      </>
-                    ) : (
-                      <span className={`tag ${tag.tone}`}>{tag.label}</span>
-                    )}
-                  </div>
-                </div>
-              )
-            }
-          )}
-          {!cases.length && <p className="sub">No cases awaiting finance clearance.</p>}
+                      </div>
+                      {actioning[c.id] && actioning[c.id] !== 'pending' && (
+                        <p className="sub c-danger" style={{ margin: 0 }}>{actioning[c.id]}</p>
+                      )}
+                      {rejecting[c.id] && rejecting[c.id] !== 'pending' && (
+                        <p className="sub c-danger" style={{ margin: 0 }}>{rejecting[c.id]}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="c-muted">{status === 'blocked' ? '—' : 'Done'}</span>
+                  )}
+                </span>
+              </div>
+            )
+          })}
+          {!cases.length && <p className="sub">No cases in finance queue.</p>}
         </div>
       </div>
     </>

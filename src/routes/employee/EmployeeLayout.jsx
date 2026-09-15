@@ -5,14 +5,14 @@ import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
 
 export const NAV = [
-  { label: 'Dashboard', to: '', end: true },
-  { label: 'My exit', to: 'my-exit' },
-  { label: 'My tasks', to: 'tasks' },
-  { label: 'Documents', to: 'documents' },
-  { label: 'Knowledge transfer', to: 'knowledge-transfer' },
-  { label: 'Exit interview', to: 'exit-interview' },
-  { label: 'Timeline', to: 'timeline' },
-  { label: 'Help and support', to: 'help' },
+  { label: 'Dashboard', to: '', end: true, icon: 'ti-layout-dashboard' },
+  { label: 'My exit', to: 'my-exit', icon: 'ti-door-exit' },
+  { label: 'My tasks', to: 'tasks', icon: 'ti-list-check' },
+  { label: 'Documents', to: 'documents', icon: 'ti-file-text' },
+  { label: 'Knowledge transfer', to: 'knowledge-transfer', icon: 'ti-transfer' },
+  { label: 'Exit interview', to: 'exit-interview', icon: 'ti-message-2' },
+  { label: 'Timeline', to: 'timeline', icon: 'ti-timeline' },
+  { label: 'Help and support', to: 'help', icon: 'ti-help' },
 ]
 
 export default function EmployeeLayout({ session }) {
