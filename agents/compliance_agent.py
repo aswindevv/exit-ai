@@ -2,11 +2,12 @@
 
 NEW: split from risk/finance. Verifies asset return, NDA acknowledgment, and access
 revocation are all done before final clearance -- deterministic keyword match over
-exit_tasks (no dedicated NDA/asset schema exists yet, same proxying style as
-finance_agent's clearance check). Blocks by leaving a stage='compliance' task pending
-with the specific missing/incomplete items named; never auto-clears past a human,
-same posture as it_agent/finance_agent. Idempotent: updates the same task row instead
-of piling up duplicates.
+exit_tasks, OR a validated case_documents row for asset return / NDA (uploaded +
+OCR-validated via the Employee Documents page). Blocks by leaving a stage='compliance'
+task pending with the specific missing/incomplete items named; never auto-clears past
+a human, same posture as it_agent/finance_agent. Idempotent: updates the same task row
+instead of piling up duplicates. The compliance-stage summary task itself is always
+excluded from the keyword match (else it would match its own pending title forever).
 
 Run (from repo root, with agents/.venv active):
     python -m agents.compliance_agent --self-check
@@ -30,16 +31,27 @@ CHECKS = {
     "access revoked": re.compile(r"\baccess\b|\bsso\b|\baccount\b|revoke|deprovision", re.I),
 }
 
+# asset return / NDA are also uploadable, OCR-validated documents (case_documents,
+# same doc_type strings as EmployeePages.jsx's REQUIRED_DOCS_BASE) -- a validated
+# row satisfies the item too, in addition to the exit_tasks keyword match. access
+# revoked has no document counterpart, so it's absent here on purpose.
+DOC_TYPES = {"asset_return": "Asset Return Form", "nda": "NDA"}
 
-def evaluate(tasks: list[dict]) -> dict:
+
+def evaluate(tasks: list[dict], validated_doc_types: frozenset[str] = frozenset()) -> dict:
     """Pure function: which of the three compliance checks are satisfied. A check
-    with no matching task at all counts as missing (blocks), not N/A."""
+    with no matching task at all counts as missing (blocks), not N/A. A validated
+    case_documents row for the item's doc_type (see DOC_TYPES) also satisfies it."""
     blocking = []
     for label, pattern in CHECKS.items():
         matches = [t for t in tasks if pattern.search(t.get("title", ""))]
+        done = [t for t in matches if t.get("status") == "done"]
+        doc_type = DOC_TYPES.get(ITEM_IDS[label])
+        if done or (doc_type and doc_type in validated_doc_types):
+            continue
         if not matches:
             blocking.append(f"{label}: no task found")
-        elif any(t.get("status") != "done" for t in matches):
+        else:
             blocking.append(f"{label}: pending")
     return {"cleared": not blocking, "blocking_reasons": blocking}
 
@@ -52,15 +64,19 @@ def evaluate(tasks: list[dict]) -> dict:
 # manager_gate -> agent_runs, ItDashboard.jsx's Approve button -> exit_tasks
 # status, the Finance dashboard's "Mark dues settled" -> exit_cases.finance_cleared).
 
-def _keyword_item(item: str, pattern, tasks: list[dict]) -> dict:
+def _keyword_item(item: str, pattern, tasks: list[dict], validated_doc_types: frozenset[str] = frozenset()) -> dict:
     matches = [t for t in tasks if pattern.search(t.get("title", ""))]
-    if not matches:
-        return {"item": item, "status": "missing", "source": "exit_tasks",
-                "evidence": None, "failure_reason": "no matching task found"}
     done = [t for t in matches if t.get("status") == "done"]
     if done:
         return {"item": item, "status": "done", "source": "exit_tasks",
                 "evidence": done[0].get("title"), "failure_reason": None}
+    doc_type = DOC_TYPES.get(item)
+    if doc_type and doc_type in validated_doc_types:
+        return {"item": item, "status": "done", "source": "case_documents",
+                "evidence": f"{doc_type} validated", "failure_reason": None}
+    if not matches:
+        return {"item": item, "status": "missing", "source": "exit_tasks",
+                "evidence": None, "failure_reason": "no matching task found"}
     return {"item": item, "status": "pending", "source": "exit_tasks",
             "evidence": matches[0].get("title"), "failure_reason": "task not yet done"}
 
@@ -101,11 +117,17 @@ def _finance_item(finance_cleared: bool) -> dict:
 ITEM_IDS = {"asset return": "asset_return", "NDA": "nda", "access revoked": "access_revoked"}
 
 
-def evaluate_items(tasks: list[dict], manager_detail: str | None, it_tasks: list[dict], finance_cleared: bool) -> list[dict]:
+def evaluate_items(
+    tasks: list[dict],
+    manager_detail: str | None,
+    it_tasks: list[dict],
+    finance_cleared: bool,
+    validated_doc_types: frozenset[str] = frozenset(),
+) -> list[dict]:
     """Pure function: the 6 required items, each with status/source/evidence/
     failure_reason. Does not decide overall clearance -- evaluate() above
     still owns that gate, untouched."""
-    items = [_keyword_item(ITEM_IDS[label], pattern, tasks) for label, pattern in CHECKS.items()]
+    items = [_keyword_item(ITEM_IDS[label], pattern, tasks, validated_doc_types) for label, pattern in CHECKS.items()]
     items.append(_manager_item(manager_detail))
     items.append(_it_item(it_tasks))
     items.append(_finance_item(finance_cleared))
@@ -118,10 +140,21 @@ class ComplianceState(TypedDict):
     items: list[dict]
 
 
+def _validated_doc_types(case_id: str) -> frozenset[str]:
+    docs = db.table("case_documents").select("doc_type, status").eq("case_id", case_id).eq("status", "validated").execute().data or []
+    return frozenset(d["doc_type"] for d in docs)
+
+
 @traced_node("Compliance Verification -- check")
 def _check_node(state: ComplianceState) -> ComplianceState:
-    tasks = db.table("exit_tasks").select("title, status").eq("case_id", state["case_id"]).execute().data or []
-    state["result"] = evaluate(tasks)
+    case_id = state["case_id"]
+    tasks = db.table("exit_tasks").select("title, status, stage").eq("case_id", case_id).execute().data or []
+    # exclude the compliance-stage summary task itself -- its own title (e.g.
+    # "...NDA: no task found...") is written by _persist_node and would
+    # otherwise keyword-match against the very checks below, self-poisoning
+    # every future run. Same filter _items_node already applies.
+    keyword_tasks = [t for t in tasks if t.get("stage") != "compliance"]
+    state["result"] = evaluate(keyword_tasks, _validated_doc_types(case_id))
     return state
 
 
@@ -163,7 +196,7 @@ def _items_node(state: ComplianceState) -> ComplianceState:
     # "...NDA: no task found...") is written by _persist_node and would
     # otherwise keyword-match against the very NDA/asset/access checks below.
     keyword_tasks = [t for t in tasks if t.get("stage") != "compliance"]
-    items = evaluate_items(keyword_tasks, manager_detail, it_tasks, finance_cleared)
+    items = evaluate_items(keyword_tasks, manager_detail, it_tasks, finance_cleared, _validated_doc_types(case_id))
     now = datetime.now(timezone.utc).isoformat()
     for item in items:
         db.table("compliance_checks").upsert({
@@ -248,6 +281,46 @@ def _demo() -> None:
     filtered = [t for t in self_ref_tasks if t.get("stage") != "compliance"]
     regression_items = {i["item"]: i for i in evaluate_items(filtered, None, [], False)}
     assert regression_items["nda"]["status"] == "missing", regression_items["nda"]
+
+    # regression (BUG 1): evaluate() has no notion of "stage" -- callers must
+    # filter out the compliance-stage summary task before calling it, same as
+    # evaluate_items() above. asset_return/access_revoked are genuinely done;
+    # only NDA is missing. Once the self-referential summary task is filtered
+    # out, it must not re-block on its own stale "asset return: pending;
+    # access revoked: pending" title (the real emp053 bug).
+    self_ref_case_tasks = [
+        {"title": "Return company laptop and access badge", "status": "done"},
+        {"title": "Disable SSO account and revoke all login credentials", "status": "done"},
+        {"title": "Final clearance blocked: asset return: pending; NDA: pending; access revoked: pending",
+         "status": "pending", "stage": "compliance"},
+    ]
+    filtered_case_tasks = [t for t in self_ref_case_tasks if t.get("stage") != "compliance"]
+    self_ref_result = evaluate(filtered_case_tasks)
+    assert not any("asset return" in r for r in self_ref_result["blocking_reasons"]), self_ref_result
+    assert not any("access revoked" in r for r in self_ref_result["blocking_reasons"]), self_ref_result
+    assert any("NDA" in r for r in self_ref_result["blocking_reasons"]), self_ref_result
+
+    # regression (BUG 2): a validated case_documents row for NDA / Asset
+    # Return Form satisfies those items even with zero matching exit_tasks --
+    # document-based OR task-based signal is enough.
+    doc_tasks = [{"title": "Disable SSO account and revoke all login credentials", "status": "done"}]
+    doc_result = evaluate(doc_tasks, frozenset({"NDA", "Asset Return Form"}))
+    assert doc_result["cleared"] and not doc_result["blocking_reasons"], doc_result
+
+    doc_items = {i["item"]: i for i in evaluate_items(
+        doc_tasks, "approved", [{"status": "done"}], True, frozenset({"NDA", "Asset Return Form"})
+    )}
+    assert doc_items["nda"]["status"] == "done" and doc_items["nda"]["source"] == "case_documents", doc_items["nda"]
+    assert doc_items["asset_return"]["status"] == "done" and doc_items["asset_return"]["source"] == "case_documents", doc_items["asset_return"]
+
+    # a case genuinely missing a validated NDA (no task, no validated doc) must still block
+    still_missing = {i["item"]: i for i in evaluate_items(
+        doc_tasks, "approved", [{"status": "done"}], True, frozenset({"Asset Return Form"})
+    )}
+    assert still_missing["nda"]["status"] == "missing", still_missing["nda"]
+    assert not evaluate(doc_tasks, frozenset({"Asset Return Form"}))["cleared"]
+
+    print("compliance_agent doc-validation + self-reference regression self-check passed")
 
 
 if __name__ == "__main__":
