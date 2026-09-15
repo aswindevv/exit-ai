@@ -59,12 +59,14 @@ function useApprove(reload) {
 function useReject(reload) {
   const [rejecting, setRejecting] = useState({})
   async function rejectTask(taskId, caseId) {
+    const reason = window.prompt('Reason for rejecting this KT plan (required):')?.trim()
+    if (!reason) return
     setRejecting((r) => ({ ...r, [taskId]: 'pending' }))
     try {
       const res = await fetch('http://localhost:8787/reject-manager-task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ case_id: caseId, task_id: taskId }),
+        body: JSON.stringify({ case_id: caseId, task_id: taskId, reason }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || data.error) {
@@ -86,6 +88,10 @@ function useReject(reload) {
 }
 
 const isEscalated = (t) => Boolean(t.title?.startsWith('Escalated'))
+// A reroute reopens the manager gate: the KT task's own row never changes,
+// so suppressing its Review/Reject buttons needs to look at the case's
+// escalation row, not just the row's own escalation_state.
+const hasOpenEscalation = (caseId, tasks) => tasks.some((x) => x.case_id === caseId && x.escalation_state === 'open')
 
 export function Dashboard() {
   const { profile, reports, tasks, reload } = useOutletContext()
@@ -165,7 +171,7 @@ export function Dashboard() {
                   <div>
                     <p className="sub">{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
                   </div>
-                  {isEscalated(t) ? (
+                  {isEscalated(t) || hasOpenEscalation(t.case_id, tasks) ? (
                     <span className="tag t-danger">Escalated to HR</span>
                   ) : t.status === 'done' ? (
                     <span className="tag t-success">Approved</span>
@@ -327,7 +333,7 @@ export function KtApprovals() {
               <div>
                 <p>{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
               </div>
-              {isEscalated(t) ? (
+              {isEscalated(t) || hasOpenEscalation(t.case_id, tasks) ? (
                 <span className="tag t-danger">Escalated to HR</span>
               ) : t.status === 'done' ? (
                 <span className="tag t-success">Approved</span>

@@ -108,7 +108,7 @@ def execute_deprovisioning(case_id: str) -> dict:
     return {"ok": True, "executed": result}
 
 
-def reject_manager_task(case_id: str, task_id: str | None) -> dict:
+def reject_manager_task(case_id: str, task_id: str | None, reason: str | None) -> dict:
     # Unlike every call above, this one IS the write, not a non-fatal
     # side-effect: exit_tasks has no INSERT policy for any role (0002/0004)
     # and its UPDATE policies (0008) pin status to 'done', so a manager's
@@ -118,6 +118,9 @@ def reject_manager_task(case_id: str, task_id: str | None) -> dict:
     # in-progress task instead of only from a full graph run.
     if not task_id:
         return {"error": "task_id required"}
+    reason = (reason or "").strip()
+    if not reason:
+        return {"error": "reason required"}
     task = db.table("exit_tasks").select("*").eq("id", task_id).single().execute().data
     if not task or task["case_id"] != case_id:
         return {"error": "task not found for this case"}
@@ -125,22 +128,59 @@ def reject_manager_task(case_id: str, task_id: str | None) -> dict:
         return {"error": "task is not a pending manager KT task"}
 
     already = (
-        db.table("exit_tasks").select("id").eq("case_id", case_id)
+        db.table("exit_tasks").select("id, escalation_state").eq("case_id", case_id)
         .ilike("title", "Escalated%").execute().data
     )
-    if already:
+    existing = already[0] if already else None
+
+    if existing and existing["escalation_state"] == "resolved":
+        return {"error": "escalation already resolved for this case"}
+    if existing and existing["escalation_state"] == "open":
         return {"ok": True, "already_escalated": True}
 
-    db.table("exit_tasks").insert({
-        "case_id": case_id, "stage": "manager", "status": "pending",
-        "title": "Escalated: manager rejected KT plan -- HR review needed",
-    }).execute()
-    log_db("insert", "exit_tasks", rows=1, detail="escalation")
+    if existing:
+        # Rerouted, and the manager rejected again: reopen the SAME
+        # escalation record (one per case) rather than inserting a duplicate.
+        db.table("exit_tasks").update(
+            {"reason": reason, "escalation_state": "open"}
+        ).eq("id", existing["id"]).execute()
+        log_db("update", "exit_tasks", rows=1, detail="escalation reopened")
+    else:
+        db.table("exit_tasks").insert({
+            "case_id": case_id, "stage": "manager", "status": "pending",
+            "title": "Escalated: manager rejected KT plan -- HR review needed",
+            "reason": reason, "escalation_state": "open",
+        }).execute()
+        log_db("insert", "exit_tasks", rows=1, detail="escalation")
+
     db.table("agent_runs").insert({
         "case_id": case_id, "stage": "escalate",
-        "detail": "escalated to HR, stopping short of IT/finance",
+        "detail": f"escalated to HR, stopping short of IT/finance -- reason: {reason}",
     }).execute()
     log_db("insert", "agent_runs", rows=1, detail="escalated to HR, stopping short of IT/finance")
+    return {"ok": True}
+
+
+def log_escalation_transition(case_id: str, task_id: str | None, action: str | None, actor_name: str | None) -> dict:
+    # HR's Re-route/Resolve buttons perform the real state change themselves,
+    # directly against Supabase with the anon key -- RLS (0025) restricts that
+    # UPDATE to HR and to a valid open->{rerouted,resolved} transition, so
+    # "only HR can resolve/re-route" is enforced by Postgres, not by this
+    # service. This call just appends the audit trail (who + when) to
+    # agent_runs, same spirit as every _record() call in agents.supervisor --
+    # and like most calls in this file, it's non-fatal: the real transition
+    # already happened before this was called.
+    if action not in ("rerouted", "resolved"):
+        return {"error": "invalid action"}
+    if not task_id:
+        return {"error": "task_id required"}
+    db.table("agent_runs").insert({
+        "case_id": case_id, "stage": "escalate",
+        "agent": "hr_escalation_resolution", "status": action,
+        "detail": f"HR ({actor_name or 'unknown'}) {action} this escalation",
+        "metadata": {"task_id": task_id, "actor_name": actor_name},
+    }).execute()
+    log_db("insert", "agent_runs", rows=1, detail=f"escalation {action}")
     return {"ok": True}
 
 
@@ -170,7 +210,10 @@ class Handler(BaseHTTPRequestHandler):
             "/issue-relieving-letter": lambda body: issue_relieving_letter(body["case_id"]),
             "/validate-document": lambda body: validate_document(body["case_id"], body.get("document_id")),
             "/execute-deprovisioning": lambda body: execute_deprovisioning(body["case_id"]),
-            "/reject-manager-task": lambda body: reject_manager_task(body["case_id"], body.get("task_id")),
+            "/reject-manager-task": lambda body: reject_manager_task(body["case_id"], body.get("task_id"), body.get("reason")),
+            "/escalation-audit": lambda body: log_escalation_transition(
+                body["case_id"], body.get("task_id"), body.get("action"), body.get("actor_name")
+            ),
         }
         if self.path not in routes:
             self._json(404, {"error": "not found"})
