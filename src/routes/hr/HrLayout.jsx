@@ -5,15 +5,15 @@ import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
 
 export const NAV = [
-  { label: 'Dashboard', to: '', end: true },
-  { label: 'All exits', to: 'all-exits' },
-  { label: 'Escalations', to: 'escalations' },
-  { label: 'Risk and compliance', to: 'risk-and-compliance' },
-  { label: 'Exit interviews', to: 'exit-interviews' },
-  { label: 'Trends', to: 'trends' },
-  { label: 'Clearances', to: 'clearances' },
-  { label: 'Reports', to: 'reports' },
-  { label: 'Settings', to: 'settings' },
+  { label: 'Dashboard', to: '', end: true, icon: 'ti-layout-dashboard' },
+  { label: 'All exits', to: 'all-exits', icon: 'ti-users' },
+  { label: 'Escalations', to: 'escalations', icon: 'ti-alert-triangle' },
+  { label: 'Risk and compliance', to: 'risk-and-compliance', icon: 'ti-shield-check' },
+  { label: 'Exit interviews', to: 'exit-interviews', icon: 'ti-message-2' },
+  { label: 'Trends', to: 'trends', icon: 'ti-chart-line' },
+  { label: 'Clearances', to: 'clearances', icon: 'ti-clipboard-check' },
+  { label: 'Reports', to: 'reports', icon: 'ti-report' },
+  { label: 'Settings', to: 'settings', icon: 'ti-settings' },
 ]
 
 export default function HrLayout({ session }) {

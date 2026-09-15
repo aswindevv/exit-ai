@@ -22,6 +22,12 @@ const ACCESS_CATEGORIES = [
   { label: 'SaaS applications', re: /.*/ },
 ]
 
+// Fixed grid-column widths for every "queue" table below -- a grid track's
+// width is set once on the container, so an Approve button present on one
+// row and absent ("—") on the next can't shrink that row's other columns
+// the way flex basis/shrink could.
+const QUEUE_COLS = '1.6fr 52px 64px 62px'
+
 const itGroupKey = (t) => t.case_id
 // allTasks is the full (unfiltered) IT task list -- "all done" must reflect
 // the employee's complete IT task set, not whatever filtered view (pending,
@@ -74,13 +80,16 @@ function useApprove(reload) {
 function TaskRow({ t, actioning, approveTask }) {
   const s = rowStatus(t)
   return (
-    <div className="row" key={t.id}>
-      <span className="c-secondary" style={{ flex: 1.6 }}>{t.title}</span>
-      <span className="c-secondary" style={{ width: 52 }}>{fmtDate(t.due_date)}</span>
-      <span style={{ width: 64 }}>
-        <span className={`tag ${s.tone}`}>{s.label}</span>
+    <div className="row" key={t.id} style={{ display: 'grid', gridTemplateColumns: QUEUE_COLS, alignItems: 'center' }}>
+      <span className="c-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <i className={`ti ${ASSET_RE.test(t.title) ? ASSET_ICON(t.title) : 'ti-key'} c-muted`} aria-hidden="true" style={{ flexShrink: 0 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
       </span>
-      <span style={{ width: 62, textAlign: 'right' }}>
+      <span className="c-secondary">{fmtDate(t.due_date)}</span>
+      <span style={{ minWidth: 0 }}>
+        <span className={`tag ${s.tone}`} style={{ display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{s.label}</span>
+      </span>
+      <span style={{ textAlign: 'right' }}>
         {t.status === 'done' ? (
           <span className="status c-muted">—</span>
         ) : (
@@ -156,11 +165,11 @@ export function Dashboard() {
       <div className="card card--pad mb">
         <p className="card-title">Deprovisioning queue</p>
         <div className="list">
-          <div className="thead">
-            <span style={{ flex: 1.6 }}>Task</span>
-            <span style={{ width: 52 }}>Due</span>
-            <span style={{ width: 64 }}>Status</span>
-            <span style={{ width: 62, textAlign: 'right' }}>Action</span>
+          <div className="thead" style={{ display: 'grid', gridTemplateColumns: QUEUE_COLS }}>
+            <span>Task</span>
+            <span>Due</span>
+            <span>Status</span>
+            <span style={{ textAlign: 'right' }}>Action</span>
           </div>
           {withEmployeeHeaders(
             tieredByCompletion([...tasks], itAllDone(tasks), itCreatedAt),
@@ -185,9 +194,7 @@ export function Dashboard() {
                   <div className="row" key={t.id}>
                     <i className={`ti ${ASSET_ICON(t.title)} c-muted`} aria-hidden="true" />
                     <span className="grow">{t.title}</span>
-                    <span className={`status ${s.tone === 't-danger' ? 'c-danger' : s.tone === 't-success' ? 'c-success' : 'c-warning'}`}>
-                      {s.label === 'Done' ? 'Collected' : s.label}
-                    </span>
+                    <span className={`tag ${s.tone}`}>{s.label === 'Done' ? 'Collected' : s.label}</span>
                   </div>
                 )
               }
@@ -236,11 +243,11 @@ export function Deprovisioning() {
     <div className="card card--pad">
       <p className="card-title">Deprovisioning queue</p>
       <div className="list">
-        <div className="thead">
-          <span style={{ flex: 1.6 }}>Task</span>
-          <span style={{ width: 52 }}>Due</span>
-          <span style={{ width: 64 }}>Status</span>
-          <span style={{ width: 62, textAlign: 'right' }}>Action</span>
+        <div className="thead" style={{ display: 'grid', gridTemplateColumns: QUEUE_COLS }}>
+          <span>Task</span>
+          <span>Due</span>
+          <span>Status</span>
+          <span style={{ textAlign: 'right' }}>Action</span>
         </div>
         {withEmployeeHeaders(
           tieredByCompletion([...tasks], itAllDone(tasks), itCreatedAt),
@@ -270,9 +277,7 @@ export function AssetRecovery() {
               <div className="row" key={t.id}>
                 <i className={`ti ${ASSET_ICON(t.title)} c-muted`} aria-hidden="true" />
                 <span className="grow">{t.title}</span>
-                <span className={`status ${s.tone === 't-danger' ? 'c-danger' : s.tone === 't-success' ? 'c-success' : 'c-warning'}`}>
-                  {s.label === 'Done' ? 'Collected' : s.label}
-                </span>
+                <span className={`tag ${s.tone}`}>{s.label === 'Done' ? 'Collected' : s.label}</span>
               </div>
             )
           }
@@ -324,11 +329,11 @@ export function Approvals() {
     <div className="card card--pad">
       <p className="card-title">Approvals</p>
       <div className="list">
-        <div className="thead">
-          <span style={{ flex: 1.6 }}>Task</span>
-          <span style={{ width: 52 }}>Due</span>
-          <span style={{ width: 64 }}>Status</span>
-          <span style={{ width: 62, textAlign: 'right' }}>Action</span>
+        <div className="thead" style={{ display: 'grid', gridTemplateColumns: QUEUE_COLS }}>
+          <span>Task</span>
+          <span>Due</span>
+          <span>Status</span>
+          <span style={{ textAlign: 'right' }}>Action</span>
         </div>
         {withEmployeeHeaders(
           tieredByCompletion([...pending], itAllDone(tasks), itCreatedAt),

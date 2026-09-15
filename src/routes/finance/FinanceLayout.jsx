@@ -5,8 +5,8 @@ import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
 
 export const NAV = [
-  { label: 'Dashboard', to: '', end: true },
-  { label: 'Help and support', to: 'help' },
+  { label: 'Dashboard', to: '', end: true, icon: 'ti-layout-dashboard' },
+  { label: 'Help and support', to: 'help', icon: 'ti-help' },
 ]
 
 export default function FinanceLayout({ session }) {

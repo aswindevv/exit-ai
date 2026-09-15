@@ -27,20 +27,24 @@ const TL_DOT_CLASS = { done: '', current: 'tl-dot--current', blocked: 'tl-dot--b
 // is BLOCKED instead. Relieving uses the real issuance timestamp (issued_at)
 // -- never last_working_day -- and stays blank/PENDING until actually issued.
 function buildTimeline(tasksByStage, exitCase) {
+  // unlocked = every stage so far is DONE -- gates 'done'/'current'/'blocked'
+  // so a stage can never render ahead of an earlier incomplete one (a later
+  // stage's own tasks being complete is not enough; it also isn't its turn
+  // yet), which is what let Finance show done while IT was still pending.
   let unlocked = true
   const nodes = STAGE_ORDER.map((s) => {
     const stageTasks = tasksByStage[s] || []
     let state = 'pending'
-    if (stageTasks.length) {
+    if (unlocked && stageTasks.length) {
       if (stageTasks.every((t) => t.status === 'done')) state = 'done'
       else if (stageTasks.some((t) => t.title?.startsWith('Escalated'))) state = 'blocked'
-      else if (unlocked) state = 'current'
+      else state = 'current'
     }
     if (state !== 'done') unlocked = false
     const dueDates = stageTasks.map((t) => t.due_date).filter(Boolean).sort()
-    return { label: STAGE_LABELS[s], date: fmtDate(dueDates[0]), state }
+    return { label: STAGE_LABELS[s], date: state === 'pending' ? '' : fmtDate(dueDates[0]), state }
   })
-  const relievingDone = exitCase?.relieving_letter_issued === true
+  const relievingDone = unlocked && exitCase?.relieving_letter_issued === true
   nodes.push({
     label: 'Relieving',
     date: relievingDone ? fmtDate(exitCase.issued_at) : '',
@@ -199,7 +203,7 @@ export function Dashboard() {
                   aria-hidden="true"
                 />
                 <span className="grow">{t.title}</span>
-                <span className={`status ${t.status === 'done' ? 'c-success' : 'c-warning'}`}>
+                <span className={`tag ${t.status === 'done' ? 't-success' : 't-warning'}`}>
                   {t.status === 'done' ? 'Done' : 'Pending'}
                 </span>
               </div>
@@ -423,7 +427,7 @@ export function Tasks() {
             <span className="grow">{t.title}</span>
             {t.due_date && <span className="sub c-muted">{fmtDate(t.due_date)}</span>}
             {t.status === 'done' ? (
-              <span className="status c-success">Done</span>
+              <span className="tag t-success">Done</span>
             ) : t.stage === 'hr' ? (
               <>
                 <button
@@ -439,7 +443,7 @@ export function Tasks() {
                 )}
               </>
             ) : (
-              <span className="status c-warning">Pending</span>
+              <span className="tag t-warning">Pending</span>
             )}
           </div>
         ))}

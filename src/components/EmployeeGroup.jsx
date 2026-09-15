@@ -1,3 +1,5 @@
+import { initials } from '../lib/format'
+
 // Shared employee-header grouping for task/case lists scattered by employee
 // across the Finance/IT/HR/Manager dashboards. Callers pass an already
 // case-creation-sorted array (Array.sort is stable, so same-employee rows
@@ -7,7 +9,8 @@
 export function EmployeeGroupHeader({ name, subtitle, chip }) {
   return (
     <div className="row" data-group-header="true">
-      <p style={{ fontWeight: 600 }}>{name}</p>
+      <span className="avatar-sm">{initials(name)}</span>
+      <p style={{ fontWeight: 600, marginLeft: 8 }}>{name}</p>
       {subtitle && <span className="sub" style={{ marginLeft: 8 }}>{subtitle}</span>}
       {chip && <span className={`tag ${chip.tone}`} style={{ marginLeft: 8 }}>{chip.label}</span>}
     </div>

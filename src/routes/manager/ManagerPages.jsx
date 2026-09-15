@@ -14,6 +14,13 @@ function dayTone(dateStr) {
   return 't-neutral'
 }
 
+// Fixed grid-column widths for the flat employee tables below -- a grid
+// track's width is set once on the container, so it can't drift row to row
+// the way flex basis/shrink could when one row's content differs.
+const TEAM_COLS = '1.4fr 1.2fr 1fr 70px'
+const REPORTS_COLS = '1.4fr 1fr 70px 90px'
+const TIMELINE_COLS = '1.4fr 1fr 70px'
+
 const mgrGroupKey = (t) => t.case_id
 // allTasks is the manager's full accessible task set for the case (every
 // stage) -- "all done" must reflect the whole case, not just this list.
@@ -26,6 +33,12 @@ const mgrGroupHeader = (reportsById, allTasks) => (t) => {
   }
 }
 const mgrAllDone = (allTasks) => (t) => caseTaskSummary(t.case_id, allTasks, CASE_GATE_STAGES).allDone
+// KT approvals tier only on KT (manager-stage) completion, not the whole
+// case -- a case with its KT done but IT/finance still pending must still
+// sink to the bottom of the KT list once KT itself needs no more manager
+// action. ktTasks is already the complete manager-stage set (unfiltered by
+// visibility), so this sees every row, not just what's rendered.
+const mgrKtAllDone = (ktTasks) => (t) => caseTaskSummary(t.case_id, ktTasks, ['manager']).allDone
 const mgrCreatedAt = (reportsById) => (t) => new Date(reportsById[t.case_id]?.created_at ?? 0)
 
 // KT approval (manager "Review") and clearance sign-off (manager "Sign") are
@@ -139,18 +152,18 @@ export function Dashboard() {
       <div className="card card--pad mb">
         <p className="card-title">My team's exits</p>
         <div className="list">
-          <div className="thead">
-            <span style={{ flex: 1.4 }}>Employee</span>
-            <span style={{ flex: 1.2 }}>Role</span>
-            <span style={{ flex: 1 }}>Department</span>
-            <span style={{ width: 70, textAlign: 'right' }}>Last day</span>
+          <div className="thead" style={{ display: 'grid', gridTemplateColumns: TEAM_COLS }}>
+            <span>Employee</span>
+            <span>Role</span>
+            <span>Department</span>
+            <span style={{ textAlign: 'right' }}>Last day</span>
           </div>
           {reports.map((e) => (
-            <div className="row" key={e.id}>
-              <span style={{ flex: 1.4 }}>{e.employee_name}</span>
-              <span className="c-secondary" style={{ flex: 1.2 }}>{e.role_title}</span>
-              <span className="c-secondary" style={{ flex: 1 }}>{e.department}</span>
-              <span style={{ width: 70, textAlign: 'right' }}>
+            <div className="row" key={e.id} style={{ display: 'grid', gridTemplateColumns: TEAM_COLS, alignItems: 'center' }}>
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.employee_name}</span>
+              <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.role_title}</span>
+              <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.department}</span>
+              <span style={{ textAlign: 'right' }}>
                 <span className={`tag ${dayTone(e.last_working_day)}`}>{fmtDate(e.last_working_day)}</span>
               </span>
             </div>
@@ -163,7 +176,7 @@ export function Dashboard() {
           <p className="card-title">KT approvals</p>
           <div className="list">
             {withEmployeeHeaders(
-              tieredByCompletion([...ktTasks], mgrAllDone(tasks), mgrCreatedAt(reportsById)),
+              tieredByCompletion([...ktTasks], mgrKtAllDone(ktTasks), mgrCreatedAt(reportsById)),
               mgrGroupKey,
               mgrGroupHeader(reportsById, tasks),
               (t) => (
@@ -262,18 +275,18 @@ export function MyTeam() {
     <div className="card card--pad">
       <p className="card-title">My team's exits</p>
       <div className="list">
-        <div className="thead">
-          <span style={{ flex: 1.4 }}>Employee</span>
-          <span style={{ flex: 1.2 }}>Role</span>
-          <span style={{ flex: 1 }}>Department</span>
-          <span style={{ width: 70, textAlign: 'right' }}>Last day</span>
+        <div className="thead" style={{ display: 'grid', gridTemplateColumns: TEAM_COLS }}>
+          <span>Employee</span>
+          <span>Role</span>
+          <span>Department</span>
+          <span style={{ textAlign: 'right' }}>Last day</span>
         </div>
         {reports.map((e) => (
-          <div className="row" key={e.id}>
-            <span style={{ flex: 1.4 }}>{e.employee_name}</span>
-            <span className="c-secondary" style={{ flex: 1.2 }}>{e.role_title}</span>
-            <span className="c-secondary" style={{ flex: 1 }}>{e.department}</span>
-            <span style={{ width: 70, textAlign: 'right' }}>
+          <div className="row" key={e.id} style={{ display: 'grid', gridTemplateColumns: TEAM_COLS, alignItems: 'center' }}>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.employee_name}</span>
+            <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.role_title}</span>
+            <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.department}</span>
+            <span style={{ textAlign: 'right' }}>
               <span className={`tag ${dayTone(e.last_working_day)}`}>{fmtDate(e.last_working_day)}</span>
             </span>
           </div>
@@ -289,21 +302,21 @@ export function ExitingReports() {
     <div className="card card--pad">
       <p className="card-title">Exiting reports</p>
       <div className="list">
-        <div className="thead">
-          <span style={{ flex: 1.4 }}>Employee</span>
-          <span style={{ flex: 1 }}>Department</span>
-          <span style={{ width: 70 }}>Last day</span>
-          <span style={{ width: 90, textAlign: 'right' }}>Progress</span>
+        <div className="thead" style={{ display: 'grid', gridTemplateColumns: REPORTS_COLS }}>
+          <span>Employee</span>
+          <span>Department</span>
+          <span>Last day</span>
+          <span style={{ textAlign: 'right' }}>Progress</span>
         </div>
         {reports.map((e) => {
           const caseTasks = tasks.filter((t) => t.case_id === e.id)
           const done = caseTasks.filter((t) => t.status === 'done').length
           return (
-            <div className="row" key={e.id}>
-              <span style={{ flex: 1.4 }}>{e.employee_name}</span>
-              <span className="c-secondary" style={{ flex: 1 }}>{e.department}</span>
-              <span className="c-secondary" style={{ width: 70 }}>{fmtDate(e.last_working_day)}</span>
-              <span style={{ width: 90, textAlign: 'right' }} className="c-secondary">
+            <div className="row" key={e.id} style={{ display: 'grid', gridTemplateColumns: REPORTS_COLS, alignItems: 'center' }}>
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.employee_name}</span>
+              <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.department}</span>
+              <span className="c-secondary">{fmtDate(e.last_working_day)}</span>
+              <span style={{ textAlign: 'right' }} className="c-secondary">
                 {caseTasks.length ? `${done} of ${caseTasks.length}` : '—'}
               </span>
             </div>
@@ -325,7 +338,7 @@ export function KtApprovals() {
       <p className="card-title">KT approvals</p>
       <div className="list">
         {withEmployeeHeaders(
-          tieredByCompletion([...ktTasks], mgrAllDone(tasks), mgrCreatedAt(reportsById)),
+          tieredByCompletion([...ktTasks], mgrKtAllDone(ktTasks), mgrCreatedAt(reportsById)),
           mgrGroupKey,
           mgrGroupHeader(reportsById, tasks),
           (t) => (
@@ -412,16 +425,16 @@ export function Timeline() {
     <div className="card card--pad">
       <p className="card-title">Timeline</p>
       <div className="list">
-        <div className="thead">
-          <span style={{ flex: 1.4 }}>Employee</span>
-          <span style={{ flex: 1 }}>Role</span>
-          <span style={{ width: 70, textAlign: 'right' }}>Last day</span>
+        <div className="thead" style={{ display: 'grid', gridTemplateColumns: TIMELINE_COLS }}>
+          <span>Employee</span>
+          <span>Role</span>
+          <span style={{ textAlign: 'right' }}>Last day</span>
         </div>
         {reports.map((e) => (
-          <div className="row" key={e.id}>
-            <span style={{ flex: 1.4 }}>{e.employee_name}</span>
-            <span className="c-secondary" style={{ flex: 1 }}>{e.role_title}</span>
-            <span style={{ width: 70, textAlign: 'right' }}>
+          <div className="row" key={e.id} style={{ display: 'grid', gridTemplateColumns: TIMELINE_COLS, alignItems: 'center' }}>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.employee_name}</span>
+            <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.role_title}</span>
+            <span style={{ textAlign: 'right' }}>
               <span className={`tag ${dayTone(e.last_working_day)}`}>{fmtDate(e.last_working_day)}</span>
             </span>
           </div>

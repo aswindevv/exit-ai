@@ -23,6 +23,7 @@ export default function Sidebar({ items, initials, name, role }) {
             end={item.end}
             className={({ isActive }) => (isActive ? 'is-active' : undefined)}
           >
+            {item.icon && <i className={`ti ${item.icon}`} aria-hidden="true" />}
             {item.label}
           </NavLink>
         ))}
