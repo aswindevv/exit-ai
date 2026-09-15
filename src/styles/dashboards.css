@@ -227,6 +227,47 @@ button:hover { background: var(--surface-1); }
 .tag { font-size: 11px; padding: 2px 7px; border-radius: var(--radius); }
 .status { font-size: 11px; }
 
+/* ---------- document cards (employee Documents page) ---------- */
+/* Mobile-first: single column below 640px; auto-fill grid of equal cards
+   returns above that, same breakpoint family as .two-col/.kpi-row. */
+.doc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .doc-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+}
+.doc-card {
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.doc-card-icon {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--surface-1);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: 2px;
+}
+.doc-card-icon i { font-size: 16px; color: var(--text-secondary); }
+.doc-card-title { font-size: 13px; font-weight: 500; margin: 0; }
+.doc-card-desc { font-size: 11px; color: var(--text-muted); margin: 0; flex: 1; }
+.doc-card-reason { margin: 0; font-size: 11px; }
+.doc-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.doc-card-action {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; padding: 5px 9px;
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-1); cursor: pointer;
+}
+.doc-card-action:hover { background: var(--fill-control); }
+.doc-card-action i { font-size: 13px; }
+.doc-card-action.is-disabled { opacity: 0.6; cursor: default; }
+
 /* ---------- exit timeline ---------- */
 .timeline { display: flex; justify-content: space-between; position: relative; }
 .tl-track {

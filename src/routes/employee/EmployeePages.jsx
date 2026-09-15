@@ -259,7 +259,9 @@ export function Dashboard() {
                 </>
               )}
               {askResult.refused && (
-                forwardResult?.ok ? (
+                forwardResult?.delayed ? (
+                  <p className="strip-body c-warning">{forwardResult.message}</p>
+                ) : forwardResult?.ok ? (
                   <p className="strip-body c-success">Forwarded to HR — they'll get back to you.</p>
                 ) : forwardResult?.error ? (
                   <p className="strip-body c-danger">{forwardResult.error}</p>
@@ -455,6 +457,39 @@ function requiredDocuments(department) {
   return [...REQUIRED_DOCS_BASE, ...(REQUIRED_DOCS_EXTRA[department] ?? [])]
 }
 
+const DOC_META = {
+  NDA: { icon: 'ti-file-signature', description: 'Signed confidentiality agreement covering the period after you leave.' },
+  'Asset Return Form': { icon: 'ti-device-laptop', description: 'Confirms all company hardware and access cards have been returned.' },
+  'Company Asset Declaration': { icon: 'ti-clipboard-list', description: 'Declares any company-owned equipment or accounts still in your name.' },
+}
+const DOC_META_DEFAULT = { icon: 'ti-file-text', description: 'Required for exit clearance.' }
+
+// case_documents.status is 'submitted' | 'validated' | 'rejected'; no row at
+// all means the doc hasn't been uploaded yet -- 'required' below.
+function docState(row) {
+  if (!row) return 'required'
+  if (row.status === 'validated' || row.status === 'rejected') return row.status
+  return 'pending'
+}
+const DOC_STATUS_META = {
+  required: { label: 'Required', tone: 't-neutral', action: 'Upload' },
+  pending: { label: 'Pending review', tone: 't-warning', action: 'Replace' },
+  validated: { label: 'Validated', tone: 't-success', action: 'Replace' },
+  rejected: { label: 'Rejected', tone: 't-danger', action: 'Re-upload' },
+}
+
+// agents/doc_collection.py's _validate_row writes validation_detail as
+// "matched=[...] missing=[...]" -- pull out the missing list and phrase it
+// as the reason an employee can act on, without touching the OCR agent that
+// produced it. Falls back to the raw string for any shape it doesn't match.
+function ocrRejectionReason(detail) {
+  if (!detail) return null
+  const missing = detail.match(/missing=\[(.*?)\]/)?.[1]?.trim()
+  if (!missing) return detail
+  const items = missing.split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
+  return items.length ? `Missing or unreadable: ${items.join(', ')}` : detail
+}
+
 export function Documents() {
   const { exitCase } = useOutletContext()
   const [rows, setRows] = useState(null)
@@ -520,33 +555,35 @@ export function Documents() {
   return (
     <div className="card card--pad">
       <p className="card-title">Documents</p>
-      <div className="list list--col">
+      <div className="doc-grid">
         {requiredDocuments(exitCase.department).map((docType) => {
           const row = latestByType[docType]
-          const status = row?.status
+          const state = docState(row)
+          const meta = DOC_META[docType] ?? DOC_META_DEFAULT
+          const { label, tone, action } = DOC_STATUS_META[state]
+          const busy = !!uploading[docType]
+          const reason = state === 'rejected' ? ocrRejectionReason(row?.validation_detail) : null
           return (
-            <div key={docType} className="row row--split">
-              <div>
-                <p>{docType}</p>
-                {status === 'rejected' && row.validation_detail && (
-                  <p className="sub c-danger">{row.validation_detail}</p>
-                )}
-                {errors[docType] && <p className="sub c-danger">{errors[docType]}</p>}
+            <div key={docType} className="doc-card">
+              <div className="doc-card-icon" aria-hidden="true">
+                <i className={`ti ${meta.icon}`} />
               </div>
-              <div className="row">
-                {status && (
-                  <span className={`status ${status === 'validated' ? 'c-success' : status === 'rejected' ? 'c-danger' : 'c-warning'}`}>
-                    {status === 'validated' ? 'Validated' : status === 'rejected' ? 'Rejected' : 'Pending review'}
-                  </span>
-                )}
-                {status !== 'validated' && (
+              <p className="doc-card-title">{docType}</p>
+              <p className="doc-card-desc">{meta.description}</p>
+              {reason && <p className="doc-card-reason c-danger">{reason}</p>}
+              {errors[docType] && <p className="doc-card-reason c-danger">{errors[docType]}</p>}
+              <div className="doc-card-foot">
+                <span className={`tag ${busy ? 't-neutral' : tone}`}>{busy ? 'Uploading…' : label}</span>
+                <label className={`doc-card-action${busy ? ' is-disabled' : ''}`} aria-label={`${action} ${docType}`}>
+                  <i className={`ti ${action === 'Upload' ? 'ti-upload' : 'ti-refresh'}`} aria-hidden="true" />
+                  {action}
                   <input
                     type="file"
-                    style={{ fontSize: 11, maxWidth: 160 }}
-                    disabled={uploading[docType]}
+                    className="sr-only"
+                    disabled={busy}
                     onChange={(e) => e.target.files[0] && handleUpload(docType, e.target.files[0])}
                   />
-                )}
+                </label>
               </div>
             </div>
           )

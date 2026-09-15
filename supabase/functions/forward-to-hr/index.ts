@@ -7,10 +7,16 @@ import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 // DEMO account only — production would send from a company-domain address.
 const EMAIL_SENDER = Deno.env.get('EMAIL_SENDER')!
 const EMAIL_APP_PASSWORD = Deno.env.get('EMAIL_APP_PASSWORD')!
 const HR_FORWARD_EMAIL = Deno.env.get('HR_FORWARD_EMAIL')!
+const SMTP_TIMEOUT_MS = 8000
+
+const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+})
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +29,13 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`SMTP timed out after ${ms}ms`)), ms)),
+  ])
 }
 
 Deno.serve(async (req) => {
@@ -52,29 +65,65 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .single()
 
-    const client = new SMTPClient({
-      connection: {
-        hostname: 'smtp.gmail.com',
-        port: 465,
-        tls: true,
-        auth: { username: EMAIL_SENDER, password: EMAIL_APP_PASSWORD },
-      },
-    })
+    try {
+      const client = new SMTPClient({
+        connection: {
+          hostname: 'smtp.gmail.com',
+          port: 465,
+          tls: true,
+          auth: { username: EMAIL_SENDER, password: EMAIL_APP_PASSWORD },
+        },
+      })
 
-    await client.send({
-      from: EMAIL_SENDER,
-      to: HR_FORWARD_EMAIL,
-      subject: `ExitAI: unanswered question from ${profile?.full_name ?? user.email}`,
-      content: [
-        `ExitAI couldn't answer this employee's question from the exit policy docs.`,
-        ``,
-        `Employee: ${profile?.full_name ?? '(unknown name)'} (${profile?.employee_id ?? user.id})`,
-        `Question: ${question}`,
-      ].join('\n'),
-    })
-    await client.close()
+      await withTimeout(
+        client.send({
+          from: EMAIL_SENDER,
+          to: HR_FORWARD_EMAIL,
+          subject: `ExitAI: unanswered question from ${profile?.full_name ?? user.email}`,
+          content: [
+            `ExitAI couldn't answer this employee's question from the exit policy docs.`,
+            ``,
+            `Employee: ${profile?.full_name ?? '(unknown name)'} (${profile?.employee_id ?? user.id})`,
+            `Question: ${question}`,
+          ].join('\n'),
+        }),
+        SMTP_TIMEOUT_MS,
+      )
+      await client.close()
 
-    return json({ ok: true })
+      return json({ ok: true })
+    } catch (sendErr) {
+      // SMTP is flaky/slow in ways that are never the employee's fault --
+      // never surface a bare dispatch error or hang. Record the question so
+      // HR still gets it (via the escalation queue, not email), and tell the
+      // employee the truth instead of a generic failure.
+      const { data: recentCase } = profile?.employee_id
+        ? await admin
+            .from('exit_cases')
+            .select('id')
+            .eq('employee_id', profile.employee_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : { data: null }
+
+      if (recentCase) {
+        await admin.from('agent_runs').insert({
+          case_id: recentCase.id,
+          stage: 'forward_to_hr',
+          agent: 'forward_to_hr',
+          status: 'delivery_failed',
+          detail: `Email to HR failed/timed out -- question logged: ${question}`,
+          metadata: { employee_id: profile?.employee_id ?? null, error: String(sendErr) },
+        })
+      }
+
+      return json({
+        ok: true,
+        delayed: true,
+        message: "Your question has been logged for HR. Email delivery may be delayed, but HR will still see it.",
+      })
+    }
   } catch (err) {
     return json({ error: String(err) }, 500)
   }

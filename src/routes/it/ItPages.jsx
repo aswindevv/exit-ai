@@ -31,6 +31,10 @@ const itAllDone = (allTasks) => (t) => caseTaskSummary(t.case_id, allTasks).allD
 const itCreatedAt = (t) => new Date(t.created_at)
 
 function rowStatus(t) {
+  // it_task_view.verification_status is the latest agent_runs outcome for
+  // this task's execute/verify/audit run (#18) -- a false "Done" (executed
+  // but failed verification) must render distinctly from a real one.
+  if (t.verification_status === 'verification_failed') return { label: 'Failed', tone: 't-danger' }
   if (t.status === 'done') return { label: 'Done', tone: 't-success' }
   if (t.due_date && daysUntil(t.due_date) < 0) return { label: 'Overdue', tone: 't-danger' }
   return { label: 'Pending', tone: 't-warning' }
