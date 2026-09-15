@@ -78,6 +78,7 @@ def _escalate(state: SupervisorState) -> SupervisorState:
     db.table("exit_tasks").insert({
         "case_id": state["case_id"], "stage": "manager", "status": "pending",
         "title": "Escalated: manager rejected KT plan -- HR review needed",
+        "escalation_state": "open",
     }).execute()
     log_db("insert", "exit_tasks", rows=1, detail="escalation")
     _record(state, "escalate", "escalated to HR, stopping short of IT/finance")
