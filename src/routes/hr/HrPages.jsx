@@ -3,9 +3,12 @@ import { useOutletContext } from 'react-router-dom'
 import PageHead from '../../components/PageHead'
 import Placeholder from '../shared/Placeholder'
 import { withEmployeeHeaders, tieredByCompletion, caseTaskSummary, completionChip, CASE_GATE_STAGES } from '../../components/EmployeeGroup'
-import { financeStatus, FINANCE_STATUS_TAG } from '../../lib/financeStatus'
+import { taskClearanceStatus, CLEARANCE_TAG } from '../../lib/clearanceStatus'
 import { supabase } from '../../lib/supabase'
 import { fmtDate } from '../../lib/format'
+
+const HR_CLEARANCE_COLS = '1.6fr 80px 74px'
+const HR_CELL_ELLIPSIS = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
 const STATUS_LABEL = { open: 'Open', in_progress: 'In progress', completed: 'Completed' }
 const STATUS_TONE = { open: 't-neutral', in_progress: 't-accent', completed: 't-success' }
@@ -474,7 +477,9 @@ function useIssueRelievingLetter(userId, reload) {
 export function Clearances() {
   const { cases, tasks, userId, reload } = useOutletContext()
   const casesById = Object.fromEntries(cases.map((c) => [c.id, c]))
-  const financeTasks = tasks.filter((t) => t.stage === 'finance')
+  // HR scope: finance-stage rows ("Clear final settlement dues") are Finance's
+  // to clear and belong on the Finance queue, not here.
+  const hrTasks = tasks.filter((t) => t.stage === 'hr')
   const [actioning, issue] = useIssueRelievingLetter(userId, reload)
   const ready = cases.filter((c) => readyForRelievingLetter(c, tasks))
 
@@ -483,13 +488,14 @@ export function Clearances() {
       <div className="card card--pad mb">
         <p className="card-title">Clearances</p>
         <div className="list">
-          <div className="thead">
-            <span style={{ flex: 1.4 }}>Task</span>
-            <span style={{ width: 70, textAlign: 'right' }}>Status</span>
+          <div className="thead" style={{ display: 'grid', gridTemplateColumns: HR_CLEARANCE_COLS }}>
+            <span>Task</span>
+            <span>Due</span>
+            <span style={{ textAlign: 'right' }}>Status</span>
           </div>
           {withEmployeeHeaders(
             tieredByCompletion(
-              [...financeTasks],
+              [...hrTasks],
               (t) => caseTaskSummary(t.case_id, tasks, CASE_GATE_STAGES).allDone,
               (t) => new Date(casesById[t.case_id]?.created_at ?? 0)
             ),
@@ -503,24 +509,25 @@ export function Clearances() {
               }
             },
             (t) => {
-              const c = casesById[t.case_id]
-              const status = c ? financeStatus(c, tasks) : 'ready'
-              const tag = FINANCE_STATUS_TAG[status]
+              const state = taskClearanceStatus(t, tasks)
+              const tag = CLEARANCE_TAG[state.key]
               return (
                 <div key={t.id}>
-                  <div className="row">
-                    <span className="c-secondary" style={{ flex: 1.4 }}>{t.title}</span>
-                    <span style={{ width: 70, textAlign: 'right' }}>
+                  <div className="row" style={{ display: 'grid', gridTemplateColumns: HR_CLEARANCE_COLS, alignItems: 'center' }}>
+                    <span className="c-secondary" style={HR_CELL_ELLIPSIS}>{t.title}</span>
+                    <span className="c-secondary">{t.due_date ? fmtDate(t.due_date) : '—'}</span>
+                    <span style={{ textAlign: 'right' }}>
                       <span className={`tag ${tag.tone}`}>{tag.label}</span>
                     </span>
                   </div>
-                  {status === 'held' && (
-                    <p className="sub c-danger" style={{ marginTop: -4 }}>Finance hold: {c.dues_note}</p>
+                  {state.reason && (
+                    <p className="sub c-danger" style={{ marginTop: -4 }}>Blocked: {state.reason}</p>
                   )}
                 </div>
               )
             }
           )}
+          {!hrTasks.length && <p className="sub">No HR clearance items.</p>}
         </div>
       </div>
 

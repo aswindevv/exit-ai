@@ -21,21 +21,18 @@ const db = createClient(url, serviceKey, { auth: { autoRefreshToken: false, pers
 
 const SOURCE = 'exit_policy.md'
 
-// Ported from rag.py's chunk_text(): pack paragraphs up to max_chars, splitting
-// on blank lines (each "§n.n Title\nBody" block is one paragraph in the doc).
-function chunkText(text, maxChars = 800) {
+// One chunk per "§n.n Title" section. sectionOf() labels a chunk with only its
+// FIRST section, so packing two sections together cites the first one as the
+// source of the second one's text — the sections are self-contained, so a
+// clean 1:1 split is what keeps citations honest. A section that runs to
+// several paragraphs stays whole.
+function chunkText(text) {
   const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
   const chunks = []
-  let current = ''
   for (const p of paragraphs) {
-    if (current && (current.length + 2 + p.length) > maxChars) {
-      chunks.push(current)
-      current = p
-    } else {
-      current = current ? `${current}\n\n${p}` : p
-    }
+    if (chunks.length === 0 || /^§[\d.]+\s+/.test(p)) chunks.push(p)
+    else chunks[chunks.length - 1] += `\n\n${p}`
   }
-  if (current) chunks.push(current)
   return chunks
 }
 

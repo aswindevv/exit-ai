@@ -254,15 +254,21 @@ export function Dashboard() {
                 <p className="strip-body">I don't have that in our docs — I can forward your question to HR.</p>
               ) : (
                 <>
+                  {askResult.general && (
+                    <p className="strip-body c-warning">
+                      Not in our exit policy — general guidance only, please confirm with HR:
+                    </p>
+                  )}
                   <p className="strip-body">{askResult.answer}</p>
                   {askResult.sources?.length > 0 && (
                     <p className="strip-body c-muted">
-                      Source: {askResult.sources.map((s) => s.section || s.source).join(', ')}
+                      {askResult.sources.length === 1 ? 'Source' : 'Sources'}:{' '}
+                      {askResult.sources.map((s) => s.section || s.source).join(', ')}
                     </p>
                   )}
                 </>
               )}
-              {askResult.refused && (
+              {(askResult.refused || askResult.general) && (
                 forwardResult?.delayed ? (
                   <p className="strip-body c-warning">{forwardResult.message}</p>
                 ) : forwardResult?.ok ? (

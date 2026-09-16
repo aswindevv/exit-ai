@@ -1,0 +1,135 @@
+┌─ Supervisor -- HR stage  ▸ start
+│  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  ┌─ Checklist Generator agent (#5)  ▸ start
+│  │  inputs: "2da9f8c4-cef9-449f-bd0e-c8144b2aee36"
+│  │  output: {"skipped": true, "reason": "hr/manager tasks already exist"}
+│  └─ Checklist Generator agent (#5)  ✓ done  1.45s
+│  ┌─ KT Document Reviewer agent (#10)  ▸ start
+│  │  inputs: "2da9f8c4-cef9-449f-bd0e-c8144b2aee36"
+│  │  ┌─ HR agent -- review KT document  ▸ start
+│  │  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  ↳ llm  @azure-openai-eus2/gpt-5.6-sol  3.26s  in=104 out=73 tok
+│  │  │     ⤷ {"complete":false,"gaps":[{"topic":"Payments vendor escalation contacts","detail":"Add current escal…
+│  │  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  └─ HR agent -- review KT document  ✓ done  3.26s
+│  │  ┌─ HR agent -- persist KT review  ▸ start
+│  │  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  │  ↳ db   insert exit_tasks  (1 rows)
+│  │  │  ↳ db   insert kt_reviews  (1 rows)
+│  │  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  │  └─ HR agent -- persist KT review  ✓ done  0.37s
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  └─ KT Document Reviewer agent (#10)  ✓ done  3.63s
+│  ┌─ Smart Routing -- fetch case + candidate approvers  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "hr", "department": null, "_candidates": [], "decision": {}}
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "hr", "department": "Support", "_candidates": [{"id": "24774c6e-bf6b-430f-8ba6-…
+│  └─ Smart Routing -- fetch case + candidate approvers  ✓ done  0.36s
+│  ┌─ Smart Routing -- select approver  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "hr", "department": "Support", "_candidates": [{"id": "24774c6e-bf6b-430f-8ba6-…
+│  │  ↳ db   insert agent_runs  (1 rows)  stage=hr approver=Siva is_delegate=False reason=primary approver available
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "hr", "department": "Support", "_candidates": [{"id": "24774c6e-bf6b-430f-8ba6-…
+│  └─ Smart Routing -- select approver  ✓ done  0.15s
+│  ↳ db   insert agent_runs  (1 rows)  hr: checklist + kt-review done
+│  ↳ db   insert agent_runs  (1 rows)  smart routing: primary approver available
+│  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+└─ Supervisor -- HR stage  ✓ done  5.89s
+┌─ Supervisor -- manager gate  ▸ start
+│  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  ┌─ Smart Routing -- fetch case + candidate approvers  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "manager", "department": null, "_candidates": [], "decision": {}}
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "manager", "department": "Support", "_candidates": [{"id": "7a43e75e-7b0e-46ad-…
+│  └─ Smart Routing -- fetch case + candidate approvers  ✓ done  0.31s
+│  ┌─ Smart Routing -- select approver  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "manager", "department": "Support", "_candidates": [{"id": "7a43e75e-7b0e-46ad-…
+│  │  ↳ db   insert agent_runs  (1 rows)  stage=manager approver=Aravidhan is_delegate=False reason=primary approver available
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "manager", "department": "Support", "_candidates": [{"id": "7a43e75e-7b0e-46ad-…
+│  └─ Smart Routing -- select approver  ✓ done  0.15s
+│  ↳ db   insert agent_runs  (1 rows)  smart routing: primary approver available
+│  ↳ db   insert agent_runs  (1 rows)  approved
+│  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+└─ Supervisor -- manager gate  ✓ done  1.42s
+┌─ Supervisor -- IT stage  ▸ start
+│  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  ┌─ Automated IT Deprovisioning agent (#18) -- generate plan  ▸ start
+│  │  inputs: "2da9f8c4-cef9-449f-bd0e-c8144b2aee36"
+│  │  output: {"skipped": true, "reason": "it tasks already exist"}
+│  └─ Automated IT Deprovisioning agent (#18) -- generate plan  ✓ done  0.16s
+│  ┌─ Smart Routing -- fetch case + candidate approvers  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "it", "department": null, "_candidates": [], "decision": {}}
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "it", "department": "Support", "_candidates": [{"id": "a878a642-cf10-4712-af7b-…
+│  └─ Smart Routing -- fetch case + candidate approvers  ✓ done  0.31s
+│  ┌─ Smart Routing -- select approver  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "it", "department": "Support", "_candidates": [{"id": "a878a642-cf10-4712-af7b-…
+│  │  ↳ db   insert agent_runs  (1 rows)  stage=it approver=Aswin is_delegate=False reason=primary approver available
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "stage": "it", "department": "Support", "_candidates": [{"id": "a878a642-cf10-4712-af7b-…
+│  └─ Smart Routing -- select approver  ✓ done  0.16s
+│  ↳ db   insert agent_runs  (1 rows)  it: deprovisioning plan done
+│  ↳ db   insert agent_runs  (1 rows)  smart routing: primary approver available
+│  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+└─ Supervisor -- IT stage  ✓ done  0.92s
+┌─ Supervisor -- compliance stage  ▸ start
+│  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  ┌─ Compliance Verification -- check  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {}, "items": []}
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  └─ Compliance Verification -- check  ✓ done  0.31s
+│  ┌─ Compliance Verification -- persist  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  │  ↳ db   insert exit_tasks  (1 rows)  Final clearance blocked: NDA: no task found
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  └─ Compliance Verification -- persist  ✓ done  0.31s
+│  ┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": []}
+│  │  ↳ db   upsert compliance_checks  (6 rows)  4/6 done
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"cleared": false, "blocking_reasons": ["NDA: no task found"]}, "items": [{"it…
+│  └─ Compliance Verification -- item-level trace (#13)  ✓ done  1.53s
+│  ↳ db   insert agent_runs  (1 rows)  compliance: blocked -- ['NDA: no task found']
+│  ┌─ Multi-System Clearance -- query stand-in adapters  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "_responses": {}, "_doc_rows": [], "status": {}}
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "_responses": {"hrms": {"system": "hrms", "status": "PENDING", "open_items": ["Complete …
+│  └─ Multi-System Clearance -- query stand-in adapters  ✓ done  0.90s
+│  ┌─ Multi-System Clearance -- consolidate  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "_responses": {"hrms": {"system": "hrms", "status": "PENDING", "open_items": ["Complete …
+│  │  ↳ db   insert agent_runs  (1 rows)  overall=PENDING it=CLEARED hrms=PENDING finance=CLEARED
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "_responses": {"hrms": {"system": "hrms", "status": "PENDING", "open_items": ["Complete …
+│  └─ Multi-System Clearance -- consolidate  ✓ done  0.15s
+│  ↳ db   insert agent_runs  (1 rows)  multi-system clearance: PENDING (it=CLEARED, hrms=PENDING, finance=CLEARED)
+│  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+└─ Supervisor -- compliance stage  ✓ done  3.50s
+┌─ Supervisor -- finance stage  ▸ start
+│  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  ┌─ Finance agent -- check clearance  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {}}
+│  │  ↳ db   update exit_tasks  (1 rows)  status=pending
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"cleared": false, "reason": "prior stages not complete"}}
+│  └─ Finance agent -- check clearance  ✓ done  0.60s
+│  ↳ db   insert agent_runs  (1 rows)  finance: clearance checked
+│  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+└─ Supervisor -- finance stage  ✓ done  0.75s
+┌─ Supervisor -- assess  ▸ start
+│  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+│  ┌─ Exit-Interview Intelligence -- analyze  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "interview_text": "The employee said the main reason for leaving was better compensation…
+│  │  ↳ llm  @azure-openai-eus2/gpt-5.6-sol  3.09s  in=116 out=79 tok
+│  │     ⤷ {"summary":"The employee is leaving primarily for better compensation elsewhere. They felt supported…
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "interview_text": "The employee said the main reason for leaving was better compensation…
+│  └─ Exit-Interview Intelligence -- analyze  ✓ done  3.09s
+│  ┌─ Exit-Interview Intelligence -- persist  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "interview_text": "The employee said the main reason for leaving was better compensation…
+│  │  ↳ db   insert exit_interviews  (1 rows)
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "interview_text": "The employee said the main reason for leaving was better compensation…
+│  └─ Exit-Interview Intelligence -- persist  ✓ done  0.31s
+│  ┌─ Compliance & Risk -- score  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {}}
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"risk_score": 0.58, "risk_level": "medium", "rehire_eligible": true}}
+│  └─ Compliance & Risk -- score  ✓ done  0.60s
+│  ┌─ Compliance & Risk -- persist  ▸ start
+│  │  inputs: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"risk_score": 0.58, "risk_level": "medium", "rehire_eligible": true}}
+│  │  ↳ db   update exit_cases  (1 rows)  {'risk_score': 0.58, 'risk_level': 'medium', 'rehire_eligible': True}
+│  │  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "result": {"risk_score": 0.58, "risk_level": "medium", "rehire_eligible": true}}
+│  └─ Compliance & Risk -- persist  ✓ done  0.16s
+│  ↳ db   insert agent_runs  (1 rows)  assess: risk scored
+│  output: {"case_id": "2da9f8c4-cef9-449f-bd0e-c8144b2aee36", "kt_text": "Handover doc: covers the deployment runbook and on-call rotation. Missing: e…
+└─ Supervisor -- assess  ✓ done  4.30s
+
+case 2da9f8c4-cef9-449f-bd0e-c8144b2aee36 finished in 16.79s -- log: ['hr: checklist + kt-review done', 'smart routing: primary approver available', 'smart routing: primary approver available', 'approved', 'it: deprovisioning plan done', 'smart routing: primary approver available', "compliance: blocked -- ['NDA: no task found']", 'multi-system clearance: PENDING (it=CLEARED, hrms=PENDING, finance=CLEARED)', 'finance: clearance checked', 'assess: risk scored']
