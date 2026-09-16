@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import PageHead from '../../components/PageHead'
 import { withEmployeeHeaders, tieredByCompletion, caseTaskSummary, completionChip, CASE_GATE_STAGES } from '../../components/EmployeeGroup'
+import { taskClearanceStatus, CLEARANCE_TAG } from '../../lib/clearanceStatus'
 import { supabase } from '../../lib/supabase'
 import { fmtDate, daysUntil } from '../../lib/format'
 
@@ -20,6 +21,9 @@ function dayTone(dateStr) {
 const TEAM_COLS = '1.4fr 1.2fr 1fr 70px'
 const REPORTS_COLS = '1.4fr 1fr 70px 90px'
 const TIMELINE_COLS = '1.4fr 1fr 70px'
+const CLEARANCE_COLS = '1.6fr 80px 74px 62px'
+
+const CELL_ELLIPSIS = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
 const mgrGroupKey = (t) => t.case_id
 // allTasks is the manager's full accessible task set for the case (every
@@ -32,7 +36,6 @@ const mgrGroupHeader = (reportsById, allTasks) => (t) => {
     chip: completionChip(t.case_id, allTasks, CASE_GATE_STAGES),
   }
 }
-const mgrAllDone = (allTasks) => (t) => caseTaskSummary(t.case_id, allTasks, CASE_GATE_STAGES).allDone
 // KT approvals tier only on KT (manager-stage) completion, not the whole
 // case -- a case with its KT done but IT/finance still pending must still
 // sink to the bottom of the KT list once KT itself needs no more manager
@@ -114,18 +117,21 @@ export function Dashboard() {
   const reportsById = Object.fromEntries(reports.map((r) => [r.id, r]))
 
   const ktTasks = tasks.filter((t) => t.stage === 'manager')
-  const financeTasks = tasks.filter((t) => t.stage === 'finance' && t.status !== 'done')
   const ktToReview = ktTasks.filter((t) => t.status !== 'done').length
+  // Manager scope: finance-stage rows belong to Finance, not this dashboard.
+  // "To sign" is what the manager can actually action now -- a blocked or
+  // escalated row is not signable, so it must not be counted here.
+  const toSign = ktTasks.filter((t) => taskClearanceStatus(t, tasks).key === 'ready')
 
   const CHIPS = [
     { tone: 't-plain', k: 'Reports', v: String(reports.length) },
-    ktToReview + financeTasks.length > 0 && { tone: 't-warning', text: `${ktToReview + financeTasks.length} awaiting you` },
+    ktToReview > 0 && { tone: 't-warning', text: `${ktToReview} awaiting you` },
   ].filter(Boolean)
 
   const KPIS = [
     { label: 'Exiting reports', value: String(reports.length) },
     { label: 'KT to review', value: String(ktToReview), valueClass: 'c-warning' },
-    { label: 'Clearances to sign', value: String(financeTasks.length), valueClass: 'c-accent' },
+    { label: 'Clearances to sign', value: String(toSign.length), valueClass: 'c-accent' },
   ]
 
   return (
@@ -225,7 +231,7 @@ export function Dashboard() {
           <p className="card-title">Clearances to sign</p>
           <div className="list">
             {withEmployeeHeaders(
-              tieredByCompletion([...financeTasks], mgrAllDone(tasks), mgrCreatedAt(reportsById)),
+              tieredByCompletion([...toSign], mgrKtAllDone(ktTasks), mgrCreatedAt(reportsById)),
               mgrGroupKey,
               mgrGroupHeader(reportsById, tasks),
               (t) => (
@@ -248,6 +254,7 @@ export function Dashboard() {
                 </div>
               )
             )}
+            {!toSign.length && <p className="sub">Nothing to sign right now.</p>}
           </div>
         </div>
       </div>
@@ -385,35 +392,55 @@ export function Clearances() {
   const { reports, tasks, reload } = useOutletContext()
   const [actioning, approveTask] = useApprove(reload)
   const reportsById = Object.fromEntries(reports.map((r) => [r.id, r]))
-  const financeTasks = tasks.filter((t) => t.stage === 'finance')
+  // Manager scope only. Finance-stage rows ("Clear final settlement dues") are
+  // Finance's to clear and belong on the Finance queue, not here.
+  const managerTasks = tasks.filter((t) => t.stage === 'manager')
   return (
     <div className="card card--pad">
       <p className="card-title">Clearances to sign</p>
       <div className="list">
+        <div className="thead" style={{ display: 'grid', gridTemplateColumns: CLEARANCE_COLS }}>
+          <span>Task</span>
+          <span>Due</span>
+          <span style={{ textAlign: 'right' }}>Status</span>
+          <span style={{ textAlign: 'right' }}>Action</span>
+        </div>
         {withEmployeeHeaders(
-          tieredByCompletion([...financeTasks], mgrAllDone(tasks), mgrCreatedAt(reportsById)),
+          tieredByCompletion([...managerTasks], mgrKtAllDone(managerTasks), mgrCreatedAt(reportsById)),
           mgrGroupKey,
           mgrGroupHeader(reportsById, tasks),
-          (t) => (
-            <div className="row row--split" key={t.id}>
-              <div>
-                <p>{t.title}</p>
-              </div>
-              {t.status === 'done' ? (
-                <span className="tag t-success">Signed</span>
-              ) : (
-                <div style={{ textAlign: 'right' }}>
-                  <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending'}>
-                    {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
-                  </button>
-                  {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                    <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
-                  )}
+          (t) => {
+            const state = taskClearanceStatus(t, tasks)
+            const tag = CLEARANCE_TAG[state.key]
+            return (
+              <div key={t.id}>
+                <div className="row" style={{ display: 'grid', gridTemplateColumns: CLEARANCE_COLS, alignItems: 'center' }}>
+                  <span style={CELL_ELLIPSIS}>{t.title}</span>
+                  <span className="c-secondary">{t.due_date ? fmtDate(t.due_date) : '—'}</span>
+                  <span style={{ textAlign: 'right' }}>
+                    <span className={`tag ${tag.tone}`}>{tag.label}</span>
+                  </span>
+                  <span style={{ textAlign: 'right' }}>
+                    {state.key === 'ready' ? (
+                      <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending'}>
+                        {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
+                      </button>
+                    ) : (
+                      <span className="c-muted">—</span>
+                    )}
+                  </span>
                 </div>
-              )}
-            </div>
-          )
+                {state.reason && (
+                  <p className="sub c-danger" style={{ marginTop: -4 }}>Blocked: {state.reason}</p>
+                )}
+                {actioning[t.id] && actioning[t.id] !== 'pending' && (
+                  <p className="sub c-danger" style={{ marginTop: -4 }}>{actioning[t.id]}</p>
+                )}
+              </div>
+            )
+          }
         )}
+        {!managerTasks.length && <p className="sub">No clearances to sign.</p>}
       </div>
     </div>
   )

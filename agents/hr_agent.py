@@ -145,10 +145,25 @@ def _persist_kt_review(state: KtReviewState) -> KtReviewState:
     r = state["result"]
     gaps = r.get("gaps", [])
 
+    # Idempotent per gap topic: a case can be KT-reviewed repeatedly (re-run,
+    # resubmitted handover), and re-inserting an identical title would stack
+    # duplicate to-dos on the manager's card.
+    existing = {
+        t["title"]
+        for t in (
+            db.table("exit_tasks")
+            .select("title")
+            .eq("case_id", case_id)
+            .eq("stage", "manager")
+            .execute()
+            .data
+            or []
+        )
+    }
     task_rows = [
-        {"case_id": case_id, "stage": "manager", "status": "pending",
-         "title": f"Add handover notes: {g['topic']}"}
-        for g in gaps
+        {"case_id": case_id, "stage": "manager", "status": "pending", "title": title}
+        for title in (f"Add handover notes: {g['topic']}" for g in gaps)
+        if title not in existing
     ]
     if task_rows:
         db.table("exit_tasks").insert(task_rows).execute()
