@@ -80,6 +80,48 @@ button:hover { background: var(--surface-1); }
 .card-title--loose { margin-bottom: 16px; }
 .card-title-count { font-size: 11px; font-weight: 500; letter-spacing: 0; padding: 2px 7px; border-radius: 999px; }
 
+/* Exit-complete header. .card-title is display:flex, so text-align alone on the
+   card leaves the heading hugging the left edge — the heading needs its own
+   justify-content: center. */
+.exit-done { text-align: center; padding: 2.5rem 1.25rem; }
+.exit-done-icon { display: block; font-size: 48px; line-height: 1; }
+.exit-done .card-title { justify-content: center; margin: 12px 0 4px; font-size: 20px; }
+.exit-done-sub { margin: 0; font-size: 13px; }
+
+/* ---------- card forms ---------- */
+/* The login form's inputs are styled by `.login-card input`, which doesn't
+   reach forms rendered inside a .card. These reuse the same values so a
+   form in a card looks identical to the login/resignation one. */
+.card-sub { font-size: 13px; color: var(--text-secondary); margin: -6px 0 0; }
+
+.form-fields { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.field input, .field textarea, .field select {
+  width: 100%; box-sizing: border-box;
+  font-family: inherit; font-size: 13px; padding: 8px 10px;
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); color: var(--text-primary);
+  resize: vertical;
+}
+.field select { resize: none; cursor: pointer; height: 35px; }
+.field input:focus, .field textarea:focus, .field select:focus {
+  outline: none; border-color: var(--fill-info);
+  box-shadow: 0 0 0 2px var(--bg-accent);
+}
+
+.form-actions {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 12px; margin-top: 20px;
+}
+.btn-primary {
+  background: var(--brand-green-accent); color: var(--brand-on-green);
+  border-color: transparent; font-weight: 500; font-size: 13px; padding: 8px 20px;
+}
+.btn-primary:hover:not(:disabled) { background: var(--brand-green-deep); }
+.btn-primary:disabled { opacity: 0.6; cursor: default; }
+.btn-primary:disabled:hover { background: var(--brand-green-accent); }
+
 /* ---------- sidebar ---------- */
 .sidebar { padding: 14px 10px; }
 
@@ -284,25 +326,58 @@ button:hover { background: var(--surface-1); }
 .doc-card-action.is-disabled { opacity: 0.6; cursor: default; }
 
 /* ---------- exit timeline ---------- */
+/* Three states, told twice over so neither colour nor shape carries the
+   meaning alone: DONE is a filled green dot with a check, CURRENT is a ringed
+   outline dot labelled "In progress", PENDING is a plain grey outline. */
+.tl-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 0 0 18px;
+}
+.tl-count { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.tl-legend { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); }
+.tl-key { display: inline-flex; align-items: center; gap: 5px; }
+.tl-key-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-sizing: border-box; }
+.tl-key-dot--done { background: var(--fill-success); }
+.tl-key-dot--current { background: var(--surface-2); border: 2px solid var(--fill-info); }
+.tl-key-dot--pending { background: var(--surface-2); border: 1.5px solid var(--border); }
+
 .timeline { display: flex; justify-content: space-between; position: relative; }
+/* The rail spans the first and last dot CENTRES (5 equal nodes -> 10%..90%),
+   so .tl-fill's width is a true fraction of the stages walked. */
 .tl-track {
-  position: absolute; top: 7px; left: 5%; right: 5%;
+  position: absolute; top: 9px; left: 10%; right: 10%;
   height: 2px; background: var(--border);
 }
-.tl-done {
-  position: absolute; top: 7px; left: 5%;
+.tl-fill {
+  position: absolute; top: 9px; left: 10%;
   height: 2px; background: var(--fill-success);
 }
-.tl-node { position: relative; text-align: center; flex: 1; }
+.tl-node { position: relative; text-align: center; flex: 1; min-width: 0; }
 .tl-dot {
-  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
-  background: var(--fill-success);
+  position: relative; z-index: 1; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--surface-2); border: 1.5px solid var(--border);
 }
-.tl-dot--open { background: var(--surface-2); border: 2px solid var(--border); }
-.tl-dot--current { background: var(--fill-info); }
-.tl-dot--blocked { background: var(--text-danger); }
-.tl-label { font-size: 11px; margin: 6px 0 0; }
-.tl-date { font-size: 10px; color: var(--text-muted); margin: 0; }
+.tl-dot--done {
+  background: var(--fill-success); border-color: var(--fill-success);
+  color: var(--on-success);
+}
+.tl-dot--done i { font-size: 13px; line-height: 1; }
+.tl-dot--current {
+  background: var(--surface-2); border: 2px solid var(--fill-info);
+  box-shadow: 0 0 0 4px var(--bg-accent);
+}
+.tl-dot--blocked {
+  background: var(--bg-danger); border: 2px solid var(--text-danger);
+  box-shadow: 0 0 0 4px var(--bg-danger);
+}
+.tl-label { font-size: 11px; margin: 8px 0 0; color: var(--text-secondary); }
+.tl-node--done .tl-label,
+.tl-node--current .tl-label { color: var(--text-primary); font-weight: 500; }
+.tl-date { font-size: 10px; color: var(--text-muted); margin: 2px 0 0; }
+.tl-node--current .tl-date { color: var(--text-accent); font-weight: 500; }
+.tl-node--blocked .tl-date { color: var(--text-danger); font-weight: 500; }
 
 /* ---------- horizontal bars ---------- */
 .bars { font-size: 12px; display: flex; flex-direction: column; gap: 9px; }

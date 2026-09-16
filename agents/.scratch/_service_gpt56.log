@@ -1,0 +1,157 @@
+[agent-service] listening on http://localhost:8787
+[agent-service] "OPTIONS /activate-exit HTTP/1.1" 204 -
+┌─ HR agent -- generate checklist  ▸ start
+│  inputs: {"case_id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "case": {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employe…
+│  ↳ llm  @azure-openai-eus2/gpt-5.6-sol  3.07s  in=95 out=46 tok
+│     ⤷ {"hr_tasks":["Confirm final pay and benefits details","Return company property","Update personal con…
+│  output: {"case_id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "case": {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employe…
+└─ HR agent -- generate checklist  ✓ done  3.07s
+┌─ HR agent -- persist checklist  ▸ start
+│  inputs: {"case_id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "case": {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employe…
+│  ↳ db   insert exit_tasks  (6 rows)
+│  ┌─ Email Drafting agent (#6) -- KT reminder  ▸ start
+│  │  inputs: {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employee_name": "Ananya Reddy", "email": "***", "department": "HR",…
+│  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  inputs: "emp056@gmail.com"
+│  │  │  output: {"sent": true, "to": "emp056@gmail.com"}
+│  │  └─ Notification agent -- send email  ✓ done  6.04s
+│  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  inputs: "aravidhan@company.com"
+│  │  │  output: {"sent": true, "to": "aravidhan@company.com"}
+│  │  └─ Notification agent -- send email  ✓ done  5.52s
+│  │  ↳ db   send notifications  (2 rows)  kt_reminder
+│  │  ↳ db   insert agent_runs  (1 rows)  email_drafting:kt_reminder:smtp_accepted
+│  │  output: {"results": [{"sent": true, "to": "emp056@gmail.com"}, {"sent": true, "to": "aravidhan@company.com"}]}
+│  └─ Email Drafting agent (#6) -- KT reminder  ✓ done  12.07s
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employee_name": "Ananya Reddy", "email": "***", "department": "HR",…
+│  │  output: {"booked": true, "event_id": "sei7qts0ik1300hj9qt6galmeo"}
+│  └─ Calendar -- book KT event  ✓ done  4.96s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employee_name": "Ananya Reddy", "email": "***", "department": "HR",…
+│  │  output: {"booked": true, "event_id": "0u81q554ueeap7j95ca9eu05t4"}
+│  └─ Calendar -- book KT event  ✓ done  3.42s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  ┌─ Calendar -- book KT event  ▸ start
+│  │  inputs: {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employee_name": "Ananya Reddy", "email": "***", "department": "HR",…
+│  │  output: {"booked": true, "event_id": "0qt4s55igkgv7id0oso9mgnmpg"}
+│  └─ Calendar -- book KT event  ✓ done  3.05s
+│  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  output: {"case_id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "case": {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employe…
+└─ HR agent -- persist checklist  ✓ done  24.18s
+↳ db   update exit_cases  (1 rows)  status -> in_progress
+┌─ Email Drafting agent (#6) -- resignation notice  ▸ start
+│  inputs: {"id": "e8ceca55-6edb-4356-ac9c-ccff9d40768b", "employee_id": "Emp056", "employee_name": "Ananya Reddy", "email": "***", "department": "HR",…
+│  ┌─ Notification agent -- send email  ▸ start
+│  │  inputs: "aravidhan@company.com"
+│  │  output: {"sent": true, "to": "aravidhan@company.com"}
+│  └─ Notification agent -- send email  ✓ done  5.83s
+│  ↳ db   send notifications  (1 rows)  resignation_notice
+│  ↳ db   insert agent_runs  (1 rows)  email_drafting:resignation_notice:smtp_accepted
+│  output: {"sent": true, "to": "aravidhan@company.com"}
+└─ Email Drafting agent (#6) -- resignation notice  ✓ done  6.34s
+[agent-service] "POST /activate-exit HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for Company Asset Declaration (9596336c-e763-4258-9ffc-2c69a1d6c6f0/Company Asset Declaration-1789555000880.png):
+NON-DISCLOSURE AGREEMENT
+
+This agreement is made between the Company and the
+
+departing employee.
+
+The employee agrees to keep confidential information
+
+private after leaving.
+
+[ This copy has NOT been signed or dated ]
+
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {}, "items": []}
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.31s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+│  ↳ db   update exit_tasks  (1 rows)  Compliance verified -- cleared for final clearance
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.32s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  6/6 done
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": [{"item": "asset_return", …
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.58s
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for Company Asset Declaration (9596336c-e763-4258-9ffc-2c69a1d6c6f0/Company Asset Declaration-1789555028172.png):
+ASSET RETURN FORM
+
+Employee: Liam Reddy (Emp053)
+
+Returned items:
+- Company laptop
+- Access card
+
+- Mobile device
+
+Signature: Liam Reddy
+Date: 26-Sep-2026
+
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {}, "items": []}
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.29s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+│  ↳ db   update exit_tasks  (1 rows)  Compliance verified -- cleared for final clearance
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.30s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  6/6 done
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": [{"item": "asset_return", …
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.52s
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /validate-document HTTP/1.1" 204 -
+[doc_collection] OCR output for Asset Return Form (9596336c-e763-4258-9ffc-2c69a1d6c6f0/Asset Return Form-1789555041329.png):
+ASSET RETURN FORM
+
+Employee: Liam Reddy (Emp053)
+
+Returned items:
+- Company laptop
+- Access card
+
+- Mobile device
+
+Signature: Liam Reddy
+Date: 26-Sep-2026
+
+┌─ Compliance Verification -- check  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {}, "items": []}
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+└─ Compliance Verification -- check  ✓ done  0.30s
+┌─ Compliance Verification -- persist  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+│  ↳ db   update exit_tasks  (1 rows)  Compliance verified -- cleared for final clearance
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+└─ Compliance Verification -- persist  ✓ done  0.33s
+┌─ Compliance Verification -- item-level trace (#13)  ▸ start
+│  inputs: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": []}
+│  ↳ db   upsert compliance_checks  (6 rows)  6/6 done
+│  output: {"case_id": "9596336c-e763-4258-9ffc-2c69a1d6c6f0", "result": {"cleared": true, "blocking_reasons": []}, "items": [{"item": "asset_return", …
+└─ Compliance Verification -- item-level trace (#13)  ✓ done  1.83s
+[agent-service] "POST /validate-document HTTP/1.1" 200 -
+[agent-service] "OPTIONS /submit-exit-interview HTTP/1.1" 204 -
+[agent-service] "OPTIONS /submit-exit-interview HTTP/1.1" 204 -
+[agent-service] "OPTIONS /submit-exit-interview HTTP/1.1" 204 -
+┌─ Exit-Interview Intelligence -- analyze  ▸ start
+│  inputs: {"case_id": "5d6c614a-1a2f-47f0-930d-d643dabb74fe", "interview_text": "Reason for leaving: Verification run — better growth opportunity else…
+│  ↳ llm  @azure-openai-eus2/gpt-5.6-sol  4.38s  in=128 out=137 tok
+│     ⤷ {   "summary": "The employee cited a better growth opportunity elsewhere as the reason for leaving a…
+│  output: {"case_id": "5d6c614a-1a2f-47f0-930d-d643dabb74fe", "interview_text": "Reason for leaving: Verification run — better growth opportunity else…
+└─ Exit-Interview Intelligence -- analyze  ✓ done  4.38s
+┌─ Exit-Interview Intelligence -- persist  ▸ start
+│  inputs: {"case_id": "5d6c614a-1a2f-47f0-930d-d643dabb74fe", "interview_text": "Reason for leaving: Verification run — better growth opportunity else…
+│  ↳ db   update exit_interviews  (1 rows)
+│  output: {"case_id": "5d6c614a-1a2f-47f0-930d-d643dabb74fe", "interview_text": "Reason for leaving: Verification run — better growth opportunity else…
+└─ Exit-Interview Intelligence -- persist  ✓ done  0.32s

@@ -21,13 +21,21 @@ IT/finance/risk assessment unconditionally, which would finish an exit case
 the moment it's opened -- wrong for a resignation that was just submitted
 and hasn't been reviewed by anyone yet.
 
-/validate-document, /execute-deprovisioning, and /finance-settle-check also
-each re-run compliance_agent.run_for_case (and the last also
-finance_agent.check_clearance) for that one case after their own action, so
-compliance/finance status updates automatically instead of only on a manual
-`run_case`. Each is the existing agent's own entry point, invoked, not
-duplicated -- and each is already idempotent (update-or-insert /
-upsert-on-conflict), so re-running on every small event is safe.
+Stage-gating the automatic path that way only works if every gate has a way
+to OPEN later, and the manager gate's approved branch had none: /manager-approve
+is it, the mirror of /reject-manager-task. Without it, a browser-created case
+got its HR checklist and then stopped -- nothing outside supervisor_graph ever
+called it_agent.generate_plan, so stage='it' tasks were never created and
+compliance_agent sat on "no IT task found" forever.
+
+/validate-document, /execute-deprovisioning, /finance-settle-check and
+/manager-approve also each re-run compliance_agent.run_for_case (and the last
+two also finance_agent.check_clearance / it_agent.generate_plan) for that one
+case after their own action, so compliance/finance status updates
+automatically instead of only on a manual `run_case`. Each is the existing
+agent's own entry point, invoked, not duplicated -- and each is already
+idempotent (update-or-insert / upsert-on-conflict), so re-running on every
+small event is safe.
 
 ponytail: stdlib http.server, not Flask/FastAPI -- neither is a project
 dependency (see requirements.txt) and this is one route.
@@ -139,6 +147,76 @@ def finance_settle_check(case_id: str) -> dict:
     return {"ok": True, "finance": finance, "compliance": compliance}
 
 
+def manager_approve(case_id: str) -> dict:
+    # The APPROVED branch of agents/supervisor.py's manager gate, made callable
+    # for one case -- the mirror of reject_manager_task below, and the same
+    # "re-run one stage for one case" shape as finance_settle_check above.
+    #
+    # ManagerPages.jsx's Review button already flipped the KT task to 'done'
+    # with the anon key (0008 pins a manager to their own reports' rows and to
+    # status='done'), so this never performs the approval and never bypasses
+    # the human gate: it reads the case back with the service key and advances
+    # ONLY if every KT task is genuinely done in the database. A call for a
+    # case whose KT is still outstanding is a no-op.
+    #
+    # Two writes the browser path had no way to make, both of which the
+    # supervisor's approved branch makes:
+    #   - agent_runs(stage='manager', detail='approved') -- the only source
+    #     compliance_agent._manager_item reads for its manager_approval item;
+    #   - the stage='it' exit_tasks rows, which nothing outside supervisor_graph
+    #     generated, leaving compliance_agent._it_item on "no IT task found"
+    #     and the relieving gate permanently shut.
+    # Plain select, not .single(): .single() RAISES on 0 rows (PGRST116), so
+    # the "case not found" guard below would never be reached.
+    if not db.table("exit_cases").select("id").eq("id", case_id).execute().data:
+        return {"error": "case not found"}
+
+    manager_tasks = (
+        db.table("exit_tasks").select("id, title, status, escalation_state")
+        .eq("case_id", case_id).eq("stage", "manager").execute().data or []
+    )
+    # The escalation row is a manager-stage row too, but HR closes it through
+    # escalation_state (HrPages.jsx) and never through status -- it stays
+    # 'pending' forever, so counting it as outstanding KT work would keep the
+    # gate shut for good on any case that was ever rejected.
+    escalation_ids = {t["id"] for t in manager_tasks if (t.get("title") or "").startswith("Escalated")}
+    if any(t["id"] in escalation_ids and t.get("escalation_state") == "open" for t in manager_tasks):
+        return {"ok": True, "advanced": False, "reason": "open escalation -- HR must resolve or re-route it first"}
+
+    kt_tasks = [t for t in manager_tasks if t["id"] not in escalation_ids]
+    if not kt_tasks:
+        return {"ok": True, "advanced": False, "reason": "no KT tasks on this case yet"}
+    pending = [t for t in kt_tasks if t.get("status") != "done"]
+    if pending:
+        return {
+            "ok": True, "advanced": False,
+            "reason": f"{len(pending)} of {len(kt_tasks)} KT task(s) still awaiting manager approval",
+        }
+
+    # Exactly the row supervisor._manager_gate records, in the shape
+    # compliance_agent._items_node queries for -- written once per opening, so
+    # approving the 2nd..nth KT task doesn't stack duplicates.
+    latest = (
+        db.table("agent_runs").select("detail").eq("case_id", case_id).eq("stage", "manager")
+        .in_("detail", ["approved", "rejected"]).order("created_at", desc=True).limit(1).execute().data or []
+    )
+    if not latest or latest[0]["detail"] != "approved":
+        db.table("agent_runs").insert({"case_id": case_id, "stage": "manager", "detail": "approved"}).execute()
+        log_db("insert", "agent_runs", rows=1, detail="manager gate: approved")
+
+    # Same call supervisor._it_stage makes (the #18-traced alias for
+    # it_agent.generate_plan), already idempotent: skips when IT tasks exist.
+    it_plan = it_deprovisioning_agent.generate(case_id)
+    if not it_plan.get("skipped"):
+        db.table("agent_runs").insert(
+            {"case_id": case_id, "stage": "it", "detail": "it: deprovisioning plan done"}
+        ).execute()
+        log_db("insert", "agent_runs", rows=1, detail="it: deprovisioning plan done")
+
+    compliance = compliance_agent.run_for_case(case_id)
+    return {"ok": True, "advanced": True, "it_plan": it_plan, "compliance": compliance}
+
+
 def reject_manager_task(case_id: str, task_id: str | None, reason: str | None) -> dict:
     # Unlike every call above, this one IS the write, not a non-fatal
     # side-effect: exit_tasks has no INSERT policy for any role (0002/0004)
@@ -242,6 +320,7 @@ class Handler(BaseHTTPRequestHandler):
             "/validate-document": lambda body: validate_document(body["case_id"], body.get("document_id")),
             "/execute-deprovisioning": lambda body: execute_deprovisioning(body["case_id"]),
             "/finance-settle-check": lambda body: finance_settle_check(body["case_id"]),
+            "/manager-approve": lambda body: manager_approve(body["case_id"]),
             "/reject-manager-task": lambda body: reject_manager_task(body["case_id"], body.get("task_id"), body.get("reason")),
             "/escalation-audit": lambda body: log_escalation_transition(
                 body["case_id"], body.get("task_id"), body.get("action"), body.get("actor_name")

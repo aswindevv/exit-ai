@@ -25,9 +25,9 @@ The hub + core clearance already run end-to-end. Confirm before building on top.
 |---|-------|------|------|--------|
 | 20 | Exit Process Orchestrator (Supervisor/hub) | supervisor.py | LangGraph routes hr→manager gate→it→finance→assess; exception/escalation branch | DONE |
 | 2 | HR Agent | hr_agent.py | LLM checklist + KT review; books calendar; idempotent | DONE |
-| 3 | IT Agent | it_agent.py | LLM deprovisioning tasks; human-approved | DONE |
+| 3 | IT Agent | it_agent.py | LLM deprovisioning tasks; human-approved. Triggered by supervisor.py's `it` stage node on a `run_case`, and on the browser path by service.py's `/manager-approve` once the manager has approved every KT task (idempotent — skips when stage='it' rows exist) | DONE |
 | 4 | Finance Agent | finance_agent.py | deterministic clearance gate: clears only when hr/manager/it are all done AND `exit_cases.finance_cleared` is true (the real dues flag, written by the Finance dashboard's "Mark dues settled" button); otherwise blocked with reason "dues/settlement not confirmed". Completion email fires on the pending→done transition | DONE |
-| 1 | Manager | (manager-gate node) | human role — approval gate, NOT an LLM agent | DONE |
+| 1 | Manager | (manager-gate node) | human role — approval gate, NOT an LLM agent. Both branches are reachable from the browser: Reject → service.py `/reject-manager-task` (escalation row), Approve → `/manager-approve` (records the gate in agent_runs and advances to IT) | DONE |
 
 **Verify:** run one case via run_case.py; trace shows hub→hr→manager gate→it→finance.
 
