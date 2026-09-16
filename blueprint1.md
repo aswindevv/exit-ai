@@ -145,6 +145,39 @@ Legend: [x] built  ·  [~] partial  ·  [ ] not done/unconfirmed
 
 ---
 
+### I. Manager gate: approved branch (new scope, added after H1)
+- [ ] I1. G1 stage-gates the automatic path on purpose, but only the REJECTED
+      branch of the manager gate had a trigger (`/reject-manager-task`). The
+      approved branch had none, so a browser-created case stopped after the HR
+      checklist: nothing outside supervisor_graph ever called
+      it_agent.generate_plan, so stage='it' tasks were never created, compliance
+      sat on "no IT task found" forever, and the relieving gate
+      (RELIEVING_LETTER_STAGES includes 'it') could never open. Unlike
+      compliance and finance, the IT stage had no per-stage re-entry endpoint.
+      Fix: agents/service.py `/manager-approve` (the mirror of
+      `/reject-manager-task`, same shape as `/finance-settle-check`), called by
+      ManagerPages.jsx's useApprove after its own RLS-scoped
+      `update({status:'done'})`. It never performs the approval and never
+      bypasses the human gate -- it re-reads the case with the service key and
+      advances ONLY when every non-escalation manager task is done and no
+      escalation is open, then writes the two things the browser path could
+      not: agent_runs(stage='manager', detail='approved') (the only source
+      compliance_agent._manager_item reads) and the stage='it' rows via the
+      already-idempotent it_deprovisioning_agent.generate, before the same
+      single-case compliance re-check every other endpoint here ends with.
+      Still NOT the full supervisor_graph.
+      Check: scripts/verify_manager_gate.cjs -- two disposable cases created by
+      real browser resignation, then purged. Happy path, no `run_case`
+      anywhere: resignation -> hr:3/manager:4 and ZERO it tasks -> employee
+      clears HR tasks -> manager approves 4/4 KT -> 5 IT tasks appear, gate
+      recorded once -> IT approves 5/5 -> finance settles -> compliance no
+      longer blocked on IT -> HR's "Issue relieving letter" offered for the
+      case. Regression: rejection still escalates, and `/manager-approve`
+      refuses to advance a case with an open escalation (no IT tasks created).
+      All pass, zero console errors.
+
+---
+
 ## Phase 10 — Finance clearance role (built after Phase 8/9, on top of the working system)
 
 Adds `finance` as a real fifth role, not a mock:

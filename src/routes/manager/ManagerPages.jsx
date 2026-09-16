@@ -50,12 +50,34 @@ const mgrCreatedAt = (reportsById) => (t) => new Date(reportsById[t.case_id]?.cr
 // 'done', so this can't be used to un-approve or touch other rows.
 function useApprove(reload) {
   const [actioning, setActioning] = useState({})
-  async function approveTask(taskId) {
+  async function approveTask(task) {
+    const taskId = task.id
     setActioning((a) => ({ ...a, [taskId]: 'pending' }))
     const { error } = await supabase.from('exit_tasks').update({ status: 'done' }).eq('id', taskId)
     if (error) {
       setActioning((a) => ({ ...a, [taskId]: error.message }))
       return
+    }
+    // Approving KT is the manager gate's approved branch, and on the browser
+    // path nothing else takes it: /manager-approve advances the case to IT
+    // (agents/service.py), exactly as supervisor.py's manager_gate --approved-->
+    // it edge does. The service re-checks in the database that every KT task is
+    // done before it advances, so this is a trigger, not the decision. Every
+    // approve site here is manager-stage today ('Review' and 'Sign' both act on
+    // stage='manager' rows); the guard keeps it that way if a finance-stage row
+    // is ever routed through this hook, which 0008 would also permit.
+    // Non-fatal if the service isn't running: the approval above already stuck,
+    // same posture as ItPages.jsx's /execute-deprovisioning call.
+    if (task.stage === 'manager') {
+      try {
+        await fetch('http://localhost:8787/manager-approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ case_id: task.case_id }),
+        })
+      } catch {
+        // agent service unreachable — non-fatal, see comment above
+      }
     }
     await reload()
     setActioning((a) => {
@@ -199,7 +221,7 @@ export function Dashboard() {
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button
                           style={BTN}
-                          onClick={() => approveTask(t.id)}
+                          onClick={() => approveTask(t)}
                           disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}
                         >
                           {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
@@ -242,7 +264,7 @@ export function Dashboard() {
                   <div style={{ textAlign: 'right' }}>
                     <button
                       style={BTN}
-                      onClick={() => approveTask(t.id)}
+                      onClick={() => approveTask(t)}
                       disabled={actioning[t.id] === 'pending'}
                     >
                       {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
@@ -360,7 +382,7 @@ export function KtApprovals() {
               ) : (
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                    <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}>
+                    <button style={BTN} onClick={() => approveTask(t)} disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}>
                       {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
                     </button>
                     <button
@@ -422,7 +444,7 @@ export function Clearances() {
                   </span>
                   <span style={{ textAlign: 'right' }}>
                     {state.key === 'ready' ? (
-                      <button style={BTN} onClick={() => approveTask(t.id)} disabled={actioning[t.id] === 'pending'}>
+                      <button style={BTN} onClick={() => approveTask(t)} disabled={actioning[t.id] === 'pending'}>
                         {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
                       </button>
                     ) : (

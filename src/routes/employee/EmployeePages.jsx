@@ -15,42 +15,112 @@ const STAGE_ORDER = ['hr', 'manager', 'it', 'finance']
 const REQUIRED_STAGES = ['hr', 'manager', 'it', 'compliance', 'finance']
 const CIRCUMFERENCE = 201
 const BTN = { fontSize: 11, padding: '4px 9px' }
-const TL_DOT_CLASS = { done: '', current: 'tl-dot--current', blocked: 'tl-dot--blocked', pending: 'tl-dot--open' }
 
-// Always renders all 5 required nodes (Resignation, Manager & KT, IT
-// Clearance, Finance Clearance, Relieving) even when a stage has no tasks
-// yet -- a stage with zero tasks is PENDING, never hidden (Phase 6: the old
-// `STAGE_ORDER.filter(s => tasksByStage[s])` dropped it entirely). `unlocked`
-// tracks whether every earlier stage is DONE, so a stage with real tasks in
-// progress only becomes CURRENT once it's actually its turn; a stage the
-// supervisor escalated (title prefix written by supervisor.py's _escalate)
-// is BLOCKED instead. Relieving uses the real issuance timestamp (issued_at)
-// -- never last_working_day -- and stays blank/PENDING until actually issued.
+// Always renders all 5 nodes (Resignation, Manager & KT, IT clearance,
+// Finance clearance, Relieving) even when a stage has no tasks yet -- a stage
+// with zero tasks hasn't STARTED, which is not the same as being done.
+//
+// State is strictly ordered, so the rendered timeline can never contradict
+// itself: walking the stages in order, everything stays DONE until the first
+// stage that isn't complete; that one is CURRENT (or BLOCKED), and every
+// stage after it is PENDING regardless of its own tasks. A later stage whose
+// own rows happen to be finished therefore cannot show Done while an earlier
+// stage is still open.
+//
+// Dates: the schema records no per-task completion timestamp (exit_tasks has
+// created_at/due_date, no completed_at), so a done stage cannot claim a
+// completion date it doesn't have -- showing its due_date instead is what put
+// a future "26 Sept" on finished stages while Relieving showed its real, and
+// earlier, issued_at. Relieving is the one stage with a real timestamp
+// (exit_cases.issued_at) and is the only node that carries a date; the rest
+// carry their state. Nothing here can render out of order as a result.
+function stageState(tasks) {
+  // The escalation row (supervisor.py's _escalate / service.py's
+  // reject_manager_task) is a manager-stage row that HR closes through
+  // escalation_state, never through status -- it stays 'pending' forever, so
+  // it blocks while open and is otherwise not outstanding work.
+  const escalations = tasks.filter((t) => t.title?.startsWith('Escalated'))
+  const work = tasks.filter((t) => !t.title?.startsWith('Escalated'))
+  return {
+    blocked: escalations.some((e) => (e.escalation_state ?? 'open') === 'open'),
+    complete: work.length > 0 && work.every((t) => t.status === 'done'),
+  }
+}
+
+const STATE_DATE = { current: 'In progress', blocked: 'Blocked', pending: 'Pending', done: '' }
+
 function buildTimeline(tasksByStage, exitCase) {
-  // unlocked = every stage so far is DONE -- gates 'done'/'current'/'blocked'
-  // so a stage can never render ahead of an earlier incomplete one (a later
-  // stage's own tasks being complete is not enough; it also isn't its turn
-  // yet), which is what let Finance show done while IT was still pending.
-  let unlocked = true
+  let unlocked = true // every stage so far is DONE
   const nodes = STAGE_ORDER.map((s) => {
-    const stageTasks = tasksByStage[s] || []
-    let state = 'pending'
-    if (unlocked && stageTasks.length) {
-      if (stageTasks.every((t) => t.status === 'done')) state = 'done'
-      else if (stageTasks.some((t) => t.title?.startsWith('Escalated'))) state = 'blocked'
-      else state = 'current'
-    }
-    if (state !== 'done') unlocked = false
-    const dueDates = stageTasks.map((t) => t.due_date).filter(Boolean).sort()
-    return { label: STAGE_LABELS[s], date: state === 'pending' ? '' : fmtDate(dueDates[0]), state }
+    const { blocked, complete } = stageState(tasksByStage[s] || [])
+    let state
+    if (!unlocked) state = 'pending'
+    else if (complete && !blocked) state = 'done'
+    else { state = blocked ? 'blocked' : 'current'; unlocked = false }
+    return { label: STAGE_LABELS[s], date: STATE_DATE[state], state }
   })
-  const relievingDone = unlocked && exitCase?.relieving_letter_issued === true
+
+  const issued = exitCase?.relieving_letter_issued === true && exitCase?.issued_at
+  const state = unlocked ? (issued ? 'done' : 'current') : 'pending'
   nodes.push({
     label: 'Relieving',
-    date: relievingDone ? fmtDate(exitCase.issued_at) : '',
-    state: relievingDone ? 'done' : unlocked ? 'current' : 'pending',
+    // The only real completion timestamp the employee can see, and only once
+    // HR has actually issued -- never last_working_day, never a stale date.
+    date: state === 'done' ? fmtDate(exitCase.issued_at) : STATE_DATE[state],
+    state,
   })
   return nodes
+}
+
+const LEGEND = [
+  { key: 'done', label: 'Done' },
+  { key: 'current', label: 'Current' },
+  { key: 'pending', label: 'Pending' },
+]
+
+function ExitTimeline({ tasksByStage, exitCase, isOnHold, className = 'card card--pad' }) {
+  const nodes = buildTimeline(tasksByStage, exitCase)
+  const doneCount = nodes.filter((n) => n.state === 'done').length
+  // The track runs between the first and last dot centres (10%..90% of the
+  // row), so the fill reaches exactly the last completed dot -- not the
+  // task-completion percentage it used to use, which could outrun the stages.
+  const lastDone = nodes.reduce((acc, n, i) => (n.state === 'done' ? i : acc), -1)
+  const fill = lastDone > 0 ? (lastDone / (nodes.length - 1)) * 80 : 0
+
+  return (
+    <div className={className}>
+      <p className="card-title card-title--tight">
+        Exit timeline
+        {isOnHold && <span className="tag t-danger" style={{ marginLeft: 8 }}>On hold · under HR review</span>}
+      </p>
+
+      <div className="tl-meta">
+        <span className="tl-count">{doneCount} of {nodes.length} stages complete</span>
+        <span className="tl-legend">
+          {LEGEND.map((l) => (
+            <span key={l.key} className="tl-key">
+              <span className={`tl-key-dot tl-key-dot--${l.key}`} aria-hidden="true" />
+              {l.label}
+            </span>
+          ))}
+        </span>
+      </div>
+
+      <div className="timeline">
+        <div className="tl-track" />
+        <div className="tl-fill" style={{ width: `${fill}%` }} />
+        {nodes.map((n) => (
+          <div key={n.label} className={`tl-node tl-node--${n.state}`} data-stage-state={n.state}>
+            <span className={`tl-dot tl-dot--${n.state}`} aria-hidden="true">
+              {n.state === 'done' && <i className="ti ti-check" />}
+            </span>
+            <p className="tl-label">{n.label}</p>
+            <p className="tl-date">{n.date}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // "Mark done" -- same shape as manager's approveTask (ManagerPages.jsx). RLS
@@ -145,8 +215,6 @@ export function Dashboard() {
   )
   const isExitComplete = allStagesCleared && exitCase?.relieving_letter_issued === true
 
-  const TIMELINE = buildTimeline(tasksByStage, exitCase)
-
   if (isExitComplete) return <ExitComplete profile={profile} exitCase={exitCase} />
 
   return (
@@ -227,20 +295,12 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="card card--pad mb">
-        <p className="card-title card-title--loose">Exit timeline</p>
-        <div className="timeline">
-          <div className="tl-track"></div>
-          <div className="tl-done" style={{ width: `${percent}%` }}></div>
-          {TIMELINE.map((n) => (
-            <div key={n.label} className="tl-node">
-              <span className={`tl-dot ${TL_DOT_CLASS[n.state]}`}></span>
-              <p className={n.state === 'done' ? 'tl-label' : 'tl-label c-secondary'}>{n.label}</p>
-              <p className="tl-date">{n.date}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <ExitTimeline
+        tasksByStage={tasksByStage}
+        exitCase={exitCase}
+        isOnHold={isOnHold}
+        className="card card--pad mb"
+      />
 
       <div className="strip strip--top">
         <span className="strip-icon">
@@ -361,12 +421,12 @@ function ExitComplete({ profile, exitCase }) {
     <>
       <h2 className="sr-only">Exit complete — all clearances done and relieving letter issued.</h2>
 
-      <div className="card card--pad mb" style={{ textAlign: 'center', padding: '2.5rem 1.25rem' }}>
-        <i className="ti ti-circle-check c-success" style={{ fontSize: 48 }} aria-hidden="true" />
-        <p className="card-title" style={{ margin: '12px 0 4px', fontSize: 20 }}>
+      <div className="card exit-done mb">
+        <i className="ti ti-circle-check c-success exit-done-icon" aria-hidden="true" />
+        <p className="card-title">
           Thank you, {firstName} — your exit is complete.
         </p>
-        <p className="c-secondary" style={{ margin: 0, fontSize: 13 }}>
+        <p className="c-secondary exit-done-sub">
           Every stage of your offboarding has been cleared and your relieving letter has been issued.
         </p>
       </div>
@@ -691,29 +751,43 @@ export function ExitInterview() {
 
   return (
     <div className="card card--pad">
-      <p className="card-title">Exit interview</p>
-      <form onSubmit={handleSubmit} className="list list--col">
-        <label className="login-label" htmlFor="ei-reason">Reason for leaving</label>
-        <input id="ei-reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
+      <p className="card-title card-title--tight">Exit interview</p>
+      <p className="card-sub">Your responses are confidential and reviewed by HR.</p>
 
-        <label className="login-label" htmlFor="ei-feedback">Feedback</label>
-        <textarea id="ei-feedback" rows={3} value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+      <form onSubmit={handleSubmit}>
+        <div className="form-fields">
+          <div className="field">
+            <label htmlFor="ei-reason">Reason for leaving</label>
+            <input id="ei-reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
+          </div>
 
-        <label className="login-label" htmlFor="ei-recommend">Would you recommend this company to a friend?</label>
-        <select id="ei-recommend" value={wouldRecommend} onChange={(e) => setWouldRecommend(e.target.value)} required>
-          <option value="" disabled>Select one</option>
-          <option value="yes">Yes</option>
-          <option value="no">No</option>
-        </select>
+          <div className="field">
+            <label htmlFor="ei-feedback">Feedback</label>
+            <textarea id="ei-feedback" rows={3} value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+          </div>
 
-        <label className="login-label" htmlFor="ei-comments">Additional comments</label>
-        <textarea id="ei-comments" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} />
+          <div className="field">
+            <label htmlFor="ei-recommend">Would you recommend this company to a friend?</label>
+            <select id="ei-recommend" value={wouldRecommend} onChange={(e) => setWouldRecommend(e.target.value)} required>
+              <option value="" disabled>Select one</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="ei-comments">Additional comments</label>
+            <textarea id="ei-comments" rows={3} value={comments} onChange={(e) => setComments(e.target.value)} />
+          </div>
+        </div>
 
         {error && <p className="login-error">{error}</p>}
 
-        <button type="submit" disabled={busy || !reason || !wouldRecommend} style={BTN}>
-          {busy ? 'Submitting…' : 'Submit'}
-        </button>
+        <div className="form-actions">
+          <button type="submit" className="btn-primary" disabled={busy || !reason || !wouldRecommend}>
+            {busy ? 'Submitting…' : 'Submit'}
+          </button>
+        </div>
       </form>
     </div>
   )
@@ -721,33 +795,12 @@ export function ExitInterview() {
 
 export function Timeline() {
   const { exitCase, tasks } = useOutletContext()
-  const done = tasks.filter((t) => t.status === 'done').length
-  const percent = tasks.length ? Math.round((done / tasks.length) * 100) : 0
-
   const tasksByStage = {}
   for (const t of tasks) (tasksByStage[t.stage] ??= []).push(t)
-
-  const TIMELINE = buildTimeline(tasksByStage, exitCase)
   const isOnHold = tasks.some((t) => t.title?.startsWith('Escalated'))
 
-  return (
-    <div className="card card--pad">
-      <p className="card-title card-title--loose">
-        Exit timeline{isOnHold && <span className="tag t-danger" style={{ marginLeft: 8 }}>On hold · under HR review</span>}
-      </p>
-      <div className="timeline">
-        <div className="tl-track"></div>
-        <div className="tl-done" style={{ width: `${percent}%` }}></div>
-        {TIMELINE.map((n) => (
-          <div key={n.label} className="tl-node">
-            <span className={`tl-dot ${TL_DOT_CLASS[n.state]}`}></span>
-            <p className={n.state === 'done' ? 'tl-label' : 'tl-label c-secondary'}>{n.label}</p>
-            <p className="tl-date">{n.date}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  // Same component the dashboard renders -- one timeline, one state machine.
+  return <ExitTimeline tasksByStage={tasksByStage} exitCase={exitCase} isOnHold={isOnHold} />
 }
 
 export function Resignation({ session }) {
