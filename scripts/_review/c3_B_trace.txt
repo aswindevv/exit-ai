@@ -1,0 +1,86 @@
+┌─ Supervisor -- HR stage  ▸ start
+│  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "kt_text": null, "interview_text": null, "simulate_rejection": true, "log": []}
+│  ┌─ Checklist Generator agent (#5)  ▸ start
+│  │  inputs: "a629a0cb-764a-467d-86b8-348af8ec7c61"
+│  │  ┌─ HR agent -- generate checklist  ▸ start
+│  │  │  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "case": {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employe…
+│  │  │  ↳ llm  @azure-openai-eus2/gpt-5.6-sol  24.98s  in=185 out=123 tok
+│  │  │     ⤷ {   "hr_tasks": [     "Confirm final contact details",     "Review benefits transition information",…
+│  │  │  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "case": {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employe…
+│  │  └─ HR agent -- generate checklist  ✓ done  24.98s
+│  │  ┌─ HR agent -- persist checklist  ▸ start
+│  │  │  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "case": {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employe…
+│  │  │  ↳ db   insert exit_tasks  (7 rows)
+│  │  │  ┌─ Email Drafting agent (#6) -- KT reminder  ▸ start
+│  │  │  │  inputs: {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employee_name": "Liam Iyer", "email": "***", "department": "Enginee…
+│  │  │  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  │  │  inputs: "emp033@gmail.com"
+│  │  │  │  │  output: {"sent": true, "to": "emp033@gmail.com"}
+│  │  │  │  └─ Notification agent -- send email  ✓ done  3.28s
+│  │  │  │  ┌─ Notification agent -- send email  ▸ start
+│  │  │  │  │  inputs: "aravidhan@company.com"
+│  │  │  │  │  output: {"sent": true, "to": "aravidhan@company.com"}
+│  │  │  │  └─ Notification agent -- send email  ✓ done  3.42s
+│  │  │  │  ↳ db   send notifications  (2 rows)  kt_reminder
+│  │  │  │  ↳ db   insert agent_runs  (1 rows)  email_drafting:kt_reminder:smtp_accepted
+│  │  │  │  output: {"results": [{"sent": true, "to": "emp033@gmail.com"}, {"sent": true, "to": "aravidhan@company.com"}]}
+│  │  │  └─ Email Drafting agent (#6) -- KT reminder  ✓ done  7.47s
+│  │  │  ┌─ Calendar -- book KT event  ▸ start
+│  │  │  │  inputs: {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employee_name": "Liam Iyer", "email": "***", "department": "Enginee…
+│  │  │  │  output: {"booked": true, "event_id": "n7ji8clpun14r009pgfq7t500g"}
+│  │  │  └─ Calendar -- book KT event  ✓ done  5.07s
+│  │  │  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  │  │  ┌─ Calendar -- book KT event  ▸ start
+│  │  │  │  inputs: {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employee_name": "Liam Iyer", "email": "***", "department": "Enginee…
+│  │  │  │  output: {"booked": true, "event_id": "35hvnlonp3oe948ignln3mjj7o"}
+│  │  │  └─ Calendar -- book KT event  ✓ done  3.78s
+│  │  │  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  │  │  ┌─ Calendar -- book KT event  ▸ start
+│  │  │  │  inputs: {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employee_name": "Liam Iyer", "email": "***", "department": "Enginee…
+│  │  │  │  output: {"booked": true, "event_id": "ff92pa7en6dl1n84oa106a2e14"}
+│  │  │  └─ Calendar -- book KT event  ✓ done  2.84s
+│  │  │  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  │  │  ┌─ Calendar -- book KT event  ▸ start
+│  │  │  │  inputs: {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employee_name": "Liam Iyer", "email": "***", "department": "Enginee…
+│  │  │  │  output: {"booked": true, "event_id": "tqq63ph1akstldeo5duekip8p0"}
+│  │  │  └─ Calendar -- book KT event  ✓ done  3.91s
+│  │  │  ↳ db   update exit_tasks  (1 rows)  kt_event_id
+│  │  │  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "case": {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employe…
+│  │  └─ HR agent -- persist checklist  ✓ done  24.05s
+│  │  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "case": {"id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "employee_id": "Emp033", "employe…
+│  └─ Checklist Generator agent (#5)  ✓ done  51.07s
+│  ┌─ Smart Routing -- fetch case + candidate approvers  ▸ start
+│  │  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "stage": "hr", "department": null, "_candidates": [], "decision": {}}
+│  │  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "stage": "hr", "department": "Engineering", "_candidates": [{"id": "24774c6e-bf6b-430f-8…
+│  └─ Smart Routing -- fetch case + candidate approvers  ✓ done  0.31s
+│  ┌─ Smart Routing -- select approver  ▸ start
+│  │  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "stage": "hr", "department": "Engineering", "_candidates": [{"id": "24774c6e-bf6b-430f-8…
+│  │  ↳ db   insert agent_runs  (1 rows)  stage=hr approver=Siva is_delegate=False reason=primary approver available
+│  │  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "stage": "hr", "department": "Engineering", "_candidates": [{"id": "24774c6e-bf6b-430f-8…
+│  └─ Smart Routing -- select approver  ✓ done  0.15s
+│  ↳ db   insert agent_runs  (1 rows)  hr: checklist + kt-review done
+│  ↳ db   insert agent_runs  (1 rows)  smart routing: primary approver available
+│  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "kt_text": null, "interview_text": null, "simulate_rejection": true, "log": ["hr: checkl…
+└─ Supervisor -- HR stage  ✓ done  51.84s
+┌─ Supervisor -- manager gate  ▸ start
+│  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "kt_text": null, "interview_text": null, "simulate_rejection": true, "log": ["hr: checkl…
+│  ┌─ Smart Routing -- fetch case + candidate approvers  ▸ start
+│  │  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "stage": "manager", "department": null, "_candidates": [], "decision": {}}
+│  │  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "stage": "manager", "department": "Engineering", "_candidates": [{"id": "7a43e75e-7b0e-4…
+│  └─ Smart Routing -- fetch case + candidate approvers  ✓ done  0.30s
+│  ┌─ Smart Routing -- select approver  ▸ start
+│  │  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "stage": "manager", "department": "Engineering", "_candidates": [{"id": "7a43e75e-7b0e-4…
+│  │  ↳ db   insert agent_runs  (1 rows)  stage=manager approver=Aravidhan is_delegate=False reason=primary approver available
+│  │  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "stage": "manager", "department": "Engineering", "_candidates": [{"id": "7a43e75e-7b0e-4…
+│  └─ Smart Routing -- select approver  ✓ done  0.16s
+│  ↳ db   insert agent_runs  (1 rows)  smart routing: primary approver available
+│  ↳ db   insert agent_runs  (1 rows)  rejected
+│  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "kt_text": null, "interview_text": null, "simulate_rejection": true, "log": ["hr: checkl…
+└─ Supervisor -- manager gate  ✓ done  0.78s
+┌─ Supervisor -- escalate  ▸ start
+│  inputs: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "kt_text": null, "interview_text": null, "simulate_rejection": true, "log": ["hr: checkl…
+│  ↳ db   insert exit_tasks  (1 rows)  escalation
+│  ↳ db   insert agent_runs  (1 rows)  escalated to HR, stopping short of IT/finance
+│  output: {"case_id": "a629a0cb-764a-467d-86b8-348af8ec7c61", "kt_text": null, "interview_text": null, "simulate_rejection": true, "log": ["hr: checkl…
+└─ Supervisor -- escalate  ✓ done  0.30s
+{'case_id': 'a629a0cb-764a-467d-86b8-348af8ec7c61', 'kt_text': None, 'interview_text': None, 'simulate_rejection': True, 'log': ['hr: checklist + kt-review done', 'smart routing: primary approver available', 'smart routing: primary approver available', 'rejected', 'escalated to HR, stopping short of IT/finance']}

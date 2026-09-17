@@ -1,12 +1,25 @@
 import { useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import PageHead from '../../components/PageHead'
 import { withEmployeeHeaders, tieredByCompletion, caseTaskSummary, completionChip, CASE_GATE_STAGES } from '../../components/EmployeeGroup'
-import { taskClearanceStatus, CLEARANCE_TAG } from '../../lib/clearanceStatus'
+import {
+  managerStageTasks,
+  isEscalationRow,
+  hasOpenEscalation,
+  clearanceRows,
+  CLEARANCE_STATE_TAG,
+} from '../../lib/ktScope'
 import { supabase } from '../../lib/supabase'
 import { fmtDate, daysUntil } from '../../lib/format'
 
 const BTN = { fontSize: 11, padding: '4px 9px' }
+
+// The dashboard cards are a preview of the KT approvals / Clearances pages,
+// not a second copy of them: show the top of each queue and link to the page
+// for the rest, so the dashboard stays a dashboard.
+const KT_PREVIEW = 6
+const CLEARANCE_PREVIEW = 5
+const TEAM_PREVIEW = 8
 
 function dayTone(dateStr) {
   const d = daysUntil(dateStr)
@@ -21,7 +34,8 @@ function dayTone(dateStr) {
 const TEAM_COLS = '1.4fr 1.2fr 1fr 70px'
 const REPORTS_COLS = '1.4fr 1fr 70px 90px'
 const TIMELINE_COLS = '1.4fr 1fr 70px'
-const CLEARANCE_COLS = '1.6fr 80px 74px 62px'
+// One row per EMPLOYEE now, not per task: employee · KT progress · state · action.
+const CLEARANCE_COLS = '1.5fr 1fr 110px 118px'
 
 const CELL_ELLIPSIS = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
@@ -44,10 +58,11 @@ const mgrGroupHeader = (reportsById, allTasks) => (t) => {
 const mgrKtAllDone = (ktTasks) => (t) => caseTaskSummary(t.case_id, ktTasks, ['manager']).allDone
 const mgrCreatedAt = (reportsById) => (t) => new Date(reportsById[t.case_id]?.created_at ?? 0)
 
-// KT approval (manager "Review") and clearance sign-off (manager "Sign") are
-// both just approving a task -- mark it done. RLS (0008) only lets a manager
-// do this for their own reports' manager/finance-stage tasks, and only to
-// 'done', so this can't be used to un-approve or touch other rows.
+// KT approval (manager "Review") is just approving a task -- mark it done.
+// RLS (0008) only lets a manager do this for their own reports'
+// manager/finance-stage tasks, and only to 'done', so this can't be used to
+// un-approve or touch other rows. Clearance sign-off no longer goes through
+// here: it is one per employee, not per task (see useSignClearance).
 function useApprove(reload) {
   const [actioning, setActioning] = useState({})
   async function approveTask(task) {
@@ -125,25 +140,202 @@ function useReject(reload) {
   return [rejecting, rejectTask]
 }
 
-const isEscalated = (t) => Boolean(t.title?.startsWith('Escalated'))
-// A reroute reopens the manager gate: the KT task's own row never changes,
-// so suppressing its Review/Reject buttons needs to look at the case's
-// escalation row, not just the row's own escalation_state.
-const hasOpenEscalation = (caseId, tasks) => tasks.some((x) => x.case_id === caseId && x.escalation_state === 'open')
+// The manager's ONE formal sign-off for an employee, replacing the old
+// per-KT-task "Sign" buttons. It performs no write of its own: every KT task
+// is already 'done' (the Review button did that), so all that is left is the
+// manager->IT handoff, which is exactly what /manager-approve is. That
+// endpoint re-checks in the database that the case has no open escalation and
+// that every KT task is done before it advances, and its IT-stage generation
+// is idempotent -- so this is a trigger for the existing gate, not a second
+// decision and not a bypass.
+//
+// Unlike useApprove's fetch (where the status write already stuck and the
+// call is a best-effort follow-up), this one is NOT non-fatal: it is the only
+// thing the click does, so a service failure or a refusal to advance has to
+// surface in the UI.
+function useSignClearance(reload) {
+  const [signing, setSigning] = useState({})
+  async function signClearance(caseId) {
+    setSigning((s) => ({ ...s, [caseId]: 'pending' }))
+    try {
+      const res = await fetch('http://localhost:8787/manager-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: caseId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || data.error) {
+        setSigning((s) => ({ ...s, [caseId]: data.error || `Sign-off failed (HTTP ${res.status})` }))
+        return
+      }
+      if (data.advanced === false) {
+        setSigning((s) => ({ ...s, [caseId]: `Not advanced -- ${data.reason}` }))
+        return
+      }
+    } catch (err) {
+      setSigning((s) => ({ ...s, [caseId]: `Agent service unreachable -- ${err.message}` }))
+      return
+    }
+    await reload()
+    setSigning((s) => {
+      const next = { ...s }
+      delete next[caseId]
+      return next
+    })
+  }
+  return [signing, signClearance]
+}
+
+// The team table, shared by the dashboard card and the My team page (they
+// were duplicated line for line). `limit` previews the soonest leavers on the
+// dashboard; the page passes none and lists everyone.
+function TeamExitsTable({ reports, limit }) {
+  const rows = limit ? reports.slice(0, limit) : reports
+  return (
+    <div className="list">
+      <div className="thead" style={{ display: 'grid', gridTemplateColumns: TEAM_COLS }}>
+        <span>Employee</span>
+        <span>Role</span>
+        <span>Department</span>
+        <span style={{ textAlign: 'right' }}>Last day</span>
+      </div>
+      {rows.map((e) => (
+        <div className="row" key={e.id} style={{ display: 'grid', gridTemplateColumns: TEAM_COLS, alignItems: 'center' }}>
+          <span style={CELL_ELLIPSIS}>{e.employee_name}</span>
+          <span className="c-secondary" style={CELL_ELLIPSIS}>{e.role_title}</span>
+          <span className="c-secondary" style={CELL_ELLIPSIS}>{e.department}</span>
+          <span style={{ textAlign: 'right' }}>
+            <span className={`tag ${dayTone(e.last_working_day)}`}>{fmtDate(e.last_working_day)}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// One KT task row, shared by the dashboard card and the KT approvals page so
+// the two queues can't drift apart (they were duplicated line for line). The
+// `.row` class, the Review/Reject labels and the Escalated/Approved tag text
+// are read by scripts/verify_manager_kt_clearances.cjs -- keep them.
+function KtTaskRow({ task, tasks, actioning, approveTask, rejecting, rejectTask }) {
+  const escalated = isEscalationRow(task) || hasOpenEscalation(task.case_id, tasks)
+  const done = task.status === 'done'
+  const busy = actioning[task.id] === 'pending' || rejecting[task.id] === 'pending'
+  const errors = [actioning[task.id], rejecting[task.id]].filter((m) => m && m !== 'pending')
+  return (
+    <div>
+      <div className={`row kt-row${done && !escalated ? ' kt-row--done' : ''}`}>
+        <span className="kt-row__title">{task.title}</span>
+        <span className="kt-row__due">{task.due_date ? fmtDate(task.due_date) : ''}</span>
+        <span className="kt-row__action">
+          {escalated ? (
+            <span className="tag t-danger">Escalated to HR</span>
+          ) : done ? (
+            <span className="tag t-success">Approved</span>
+          ) : (
+            <>
+              <button className="btn-approve" style={BTN} onClick={() => approveTask(task)} disabled={busy}>
+                {actioning[task.id] === 'pending' ? 'Approving…' : 'Review'}
+              </button>
+              <button
+                className="c-danger"
+                style={{ ...BTN, borderColor: 'var(--text-danger)' }}
+                onClick={() => rejectTask(task.id, task.case_id)}
+                disabled={busy}
+              >
+                {rejecting[task.id] === 'pending' ? 'Rejecting…' : 'Reject'}
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+      {errors.map((msg) => (
+        <p className="sub c-danger" key={msg} style={{ marginTop: -2 }}>{msg}</p>
+      ))}
+    </div>
+  )
+}
+
+// The employee-level clearance list, shared by the dashboard card and the
+// Clearances page so the two can never disagree about who is signable.
+function ClearanceSignOff({ reports, tasks, signing, signClearance, withHeader, limit }) {
+  // clearanceRows sorts signable-first, so a limited preview on the dashboard
+  // shows what needs the manager, never a truncated alphabet.
+  const all = clearanceRows(reports, tasks)
+  const rows = limit ? all.slice(0, limit) : all
+  return (
+    <div className="list">
+      {withHeader && (
+        <div className="thead" style={{ display: 'grid', gridTemplateColumns: CLEARANCE_COLS }}>
+          <span>Employee</span>
+          <span>KT approvals</span>
+          <span style={{ textAlign: 'right' }}>Status</span>
+          <span style={{ textAlign: 'right' }}>Action</span>
+        </div>
+      )}
+      {rows.map(({ report, state }) => {
+        const tag = CLEARANCE_STATE_TAG[state.key]
+        const ready = state.key === 'ready'
+        return (
+          <div key={report.id} data-clearance-case={report.id}>
+            <div className="row" style={{ display: 'grid', gridTemplateColumns: CLEARANCE_COLS, alignItems: 'center' }}>
+              <span style={{ ...CELL_ELLIPSIS, fontWeight: ready ? 500 : undefined }}>{report.employee_name}</span>
+              {/* Counts plus a bar: the ratio is what the manager scans for, and
+                  it replaces a sub-line that only restated these same numbers. */}
+              <span className="clr-progress">
+                <span className="c-secondary" style={CELL_ELLIPSIS}>
+                  {state.total ? `${state.approved} of ${state.total} approved` : 'No KT tasks yet'}
+                </span>
+                {state.total > 0 && (
+                  <span className="bar-track">
+                    <span
+                      className={`bar-fill${state.approved === state.total ? ' bar-fill--success' : ''}`}
+                      style={{ width: `${Math.round((state.approved / state.total) * 100)}%` }}
+                    />
+                  </span>
+                )}
+              </span>
+              <span style={{ textAlign: 'right' }}>
+                <span className={`tag ${tag.tone}`}>{tag.label}</span>
+              </span>
+              <span style={{ textAlign: 'right' }}>
+                {ready && (
+                  <button className="btn-approve" style={BTN} onClick={() => signClearance(report.id)} disabled={signing[report.id] === 'pending'}>
+                    {signing[report.id] === 'pending' ? 'Signing…' : 'Sign clearance'}
+                  </button>
+                )}
+              </span>
+            </div>
+            {signing[report.id] && signing[report.id] !== 'pending' && (
+              <p className="sub c-danger" style={{ marginTop: -4 }}>{signing[report.id]}</p>
+            )}
+          </div>
+        )
+      })}
+      {!rows.length && <p className="sub">No clearances to sign.</p>}
+    </div>
+  )
+}
 
 export function Dashboard() {
   const { profile, reports, tasks, reload } = useOutletContext()
   const [actioning, approveTask] = useApprove(reload)
   const [rejecting, rejectTask] = useReject(reload)
+  const [signing, signClearance] = useSignClearance(reload)
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
   const reportsById = Object.fromEntries(reports.map((r) => [r.id, r]))
 
-  const ktTasks = tasks.filter((t) => t.stage === 'manager')
-  const ktToReview = ktTasks.filter((t) => t.status !== 'done').length
-  // Manager scope: finance-stage rows belong to Finance, not this dashboard.
-  // "To sign" is what the manager can actually action now -- a blocked or
-  // escalated row is not signable, so it must not be counted here.
-  const toSign = ktTasks.filter((t) => taskClearanceStatus(t, tasks).key === 'ready')
+  // Manager scope: stage='manager' only. IT/finance/compliance rows belong to
+  // their own dashboards and are never actionable here.
+  const ktTasks = managerStageTasks(tasks)
+  const ktPending = ktTasks.filter((t) => t.status !== 'done')
+  const ktToReview = ktPending.length
+  // Preview only what still needs the manager — already-approved rows are on
+  // the KT approvals page, one click away.
+  const ktPreview = tieredByCompletion(ktPending, mgrKtAllDone(ktTasks), mgrCreatedAt(reportsById)).slice(0, KT_PREVIEW)
+  // One sign-off per employee, not per task -- countable only when every one
+  // of that employee's KT tasks is approved and the case has not advanced.
+  const toSign = clearanceRows(reports, tasks).filter((r) => r.state.key === 'ready')
 
   const CHIPS = [
     { tone: 't-plain', k: 'Reports', v: String(reports.length) },
@@ -179,105 +371,57 @@ export function Dashboard() {
 
       <div className="card card--pad mb">
         <p className="card-title">My team's exits</p>
-        <div className="list">
-          <div className="thead" style={{ display: 'grid', gridTemplateColumns: TEAM_COLS }}>
-            <span>Employee</span>
-            <span>Role</span>
-            <span>Department</span>
-            <span style={{ textAlign: 'right' }}>Last day</span>
-          </div>
-          {reports.map((e) => (
-            <div className="row" key={e.id} style={{ display: 'grid', gridTemplateColumns: TEAM_COLS, alignItems: 'center' }}>
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.employee_name}</span>
-              <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.role_title}</span>
-              <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.department}</span>
-              <span style={{ textAlign: 'right' }}>
-                <span className={`tag ${dayTone(e.last_working_day)}`}>{fmtDate(e.last_working_day)}</span>
-              </span>
-            </div>
-          ))}
-        </div>
+        <TeamExitsTable reports={reports} limit={TEAM_PREVIEW} />
+        {reports.length > TEAM_PREVIEW && (
+          <Link className="card-more" to="/manager/my-team">View all {reports.length} exiting reports →</Link>
+        )}
       </div>
 
       <div className="two-col two-col--even mb">
         <div className="card card--pad">
-          <p className="card-title">KT approvals</p>
+          <p className="card-title">
+            KT approvals
+            {ktToReview > 0 && <span className="card-title-count t-warning">{ktToReview} pending</span>}
+          </p>
           <div className="list">
+            {ktPreview.length === 0 && <p className="sub">Nothing awaiting your review.</p>}
             {withEmployeeHeaders(
-              tieredByCompletion([...ktTasks], mgrKtAllDone(ktTasks), mgrCreatedAt(reportsById)),
+              ktPreview,
               mgrGroupKey,
               mgrGroupHeader(reportsById, tasks),
               (t) => (
-                <div className="row row--split" key={t.id}>
-                  <div>
-                    <p className="sub">{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
-                  </div>
-                  {isEscalated(t) || hasOpenEscalation(t.case_id, tasks) ? (
-                    <span className="tag t-danger">Escalated to HR</span>
-                  ) : t.status === 'done' ? (
-                    <span className="tag t-success">Approved</span>
-                  ) : (
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button
-                          style={BTN}
-                          onClick={() => approveTask(t)}
-                          disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}
-                        >
-                          {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
-                        </button>
-                        <button
-                          className="c-danger"
-                          style={{ ...BTN, borderColor: 'var(--text-danger)' }}
-                          onClick={() => rejectTask(t.id, t.case_id)}
-                          disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}
-                        >
-                          {rejecting[t.id] === 'pending' ? 'Rejecting…' : 'Reject'}
-                        </button>
-                      </div>
-                      {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                        <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
-                      )}
-                      {rejecting[t.id] && rejecting[t.id] !== 'pending' && (
-                        <p className="sub c-danger" style={{ marginTop: 2 }}>{rejecting[t.id]}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <KtTaskRow
+                  key={t.id}
+                  task={t}
+                  tasks={tasks}
+                  actioning={actioning}
+                  approveTask={approveTask}
+                  rejecting={rejecting}
+                  rejectTask={rejectTask}
+                />
               )
             )}
           </div>
+          {ktToReview > KT_PREVIEW && (
+            <Link className="card-more" to="/manager/kt-approvals">View all {ktToReview} KT approvals →</Link>
+          )}
         </div>
 
         <div className="card card--pad">
-          <p className="card-title">Clearances to sign</p>
-          <div className="list">
-            {withEmployeeHeaders(
-              tieredByCompletion([...toSign], mgrKtAllDone(ktTasks), mgrCreatedAt(reportsById)),
-              mgrGroupKey,
-              mgrGroupHeader(reportsById, tasks),
-              (t) => (
-                <div className="row row--split" key={t.id}>
-                  <div>
-                    <p>{t.title}</p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <button
-                      style={BTN}
-                      onClick={() => approveTask(t)}
-                      disabled={actioning[t.id] === 'pending'}
-                    >
-                      {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
-                    </button>
-                    {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                      <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
-                    )}
-                  </div>
-                </div>
-              )
-            )}
-            {!toSign.length && <p className="sub">Nothing to sign right now.</p>}
-          </div>
+          <p className="card-title">
+            Clearances to sign
+            {toSign.length > 0 && <span className="card-title-count t-accent">{toSign.length} ready</span>}
+          </p>
+          <ClearanceSignOff
+            reports={reports}
+            tasks={tasks}
+            signing={signing}
+            signClearance={signClearance}
+            limit={CLEARANCE_PREVIEW}
+          />
+          {reports.length > CLEARANCE_PREVIEW && (
+            <Link className="card-more" to="/manager/clearances">View all {reports.length} employees →</Link>
+          )}
         </div>
       </div>
 
@@ -289,8 +433,8 @@ export function Dashboard() {
           <p className="strip-title">KT review summary</p>
           <p className="strip-body">
             {ktToReview} knowledge-transfer item{ktToReview === 1 ? '' : 's'} awaiting your review across{' '}
-            {reports.length} exiting report{reports.length === 1 ? '' : 's'}. Gap analysis is generated by the
-            HR agent once KT documents are submitted (Phase 6b).
+            {reports.length} exiting report{reports.length === 1 ? '' : 's'}. Gap analysis appears here once the
+            exiting employee submits their KT documents.
           </p>
         </div>
       </div>
@@ -303,24 +447,7 @@ export function MyTeam() {
   return (
     <div className="card card--pad">
       <p className="card-title">My team's exits</p>
-      <div className="list">
-        <div className="thead" style={{ display: 'grid', gridTemplateColumns: TEAM_COLS }}>
-          <span>Employee</span>
-          <span>Role</span>
-          <span>Department</span>
-          <span style={{ textAlign: 'right' }}>Last day</span>
-        </div>
-        {reports.map((e) => (
-          <div className="row" key={e.id} style={{ display: 'grid', gridTemplateColumns: TEAM_COLS, alignItems: 'center' }}>
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.employee_name}</span>
-            <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.role_title}</span>
-            <span className="c-secondary" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.department}</span>
-            <span style={{ textAlign: 'right' }}>
-              <span className={`tag ${dayTone(e.last_working_day)}`}>{fmtDate(e.last_working_day)}</span>
-            </span>
-          </div>
-        ))}
-      </div>
+      <TeamExitsTable reports={reports} />
     </div>
   )
 }
@@ -361,7 +488,9 @@ export function KtApprovals() {
   const [actioning, approveTask] = useApprove(reload)
   const [rejecting, rejectTask] = useReject(reload)
   const reportsById = Object.fromEntries(reports.map((r) => [r.id, r]))
-  const ktTasks = tasks.filter((t) => t.stage === 'manager')
+  // stage='manager' only -- IT, finance and compliance rows are their own
+  // dashboards' queues and must never appear here.
+  const ktTasks = managerStageTasks(tasks)
   return (
     <div className="card card--pad">
       <p className="card-title">KT approvals</p>
@@ -371,38 +500,15 @@ export function KtApprovals() {
           mgrGroupKey,
           mgrGroupHeader(reportsById, tasks),
           (t) => (
-            <div className="row row--split" key={t.id}>
-              <div>
-                <p>{t.title}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ''}</p>
-              </div>
-              {isEscalated(t) || hasOpenEscalation(t.case_id, tasks) ? (
-                <span className="tag t-danger">Escalated to HR</span>
-              ) : t.status === 'done' ? (
-                <span className="tag t-success">Approved</span>
-              ) : (
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                    <button style={BTN} onClick={() => approveTask(t)} disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}>
-                      {actioning[t.id] === 'pending' ? 'Approving…' : 'Review'}
-                    </button>
-                    <button
-                      className="c-danger"
-                      style={{ ...BTN, borderColor: 'var(--text-danger)' }}
-                      onClick={() => rejectTask(t.id, t.case_id)}
-                      disabled={actioning[t.id] === 'pending' || rejecting[t.id] === 'pending'}
-                    >
-                      {rejecting[t.id] === 'pending' ? 'Rejecting…' : 'Reject'}
-                    </button>
-                  </div>
-                  {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                    <p className="sub c-danger" style={{ marginTop: 2 }}>{actioning[t.id]}</p>
-                  )}
-                  {rejecting[t.id] && rejecting[t.id] !== 'pending' && (
-                    <p className="sub c-danger" style={{ marginTop: 2 }}>{rejecting[t.id]}</p>
-                  )}
-                </div>
-              )}
-            </div>
+            <KtTaskRow
+              key={t.id}
+              task={t}
+              tasks={tasks}
+              actioning={actioning}
+              approveTask={approveTask}
+              rejecting={rejecting}
+              rejectTask={rejectTask}
+            />
           )
         )}
       </div>
@@ -410,60 +516,23 @@ export function KtApprovals() {
   )
 }
 
+// One final sign-off PER EMPLOYEE -- not a second list of the individual KT
+// tasks that KT approvals already actions. The manager approves each KT task
+// once (Review), then signs the employee's clearance once, which is the
+// manager->IT handoff.
 export function Clearances() {
   const { reports, tasks, reload } = useOutletContext()
-  const [actioning, approveTask] = useApprove(reload)
-  const reportsById = Object.fromEntries(reports.map((r) => [r.id, r]))
-  // Manager scope only. Finance-stage rows ("Clear final settlement dues") are
-  // Finance's to clear and belong on the Finance queue, not here.
-  const managerTasks = tasks.filter((t) => t.stage === 'manager')
+  const [signing, signClearance] = useSignClearance(reload)
   return (
     <div className="card card--pad">
       <p className="card-title">Clearances to sign</p>
-      <div className="list">
-        <div className="thead" style={{ display: 'grid', gridTemplateColumns: CLEARANCE_COLS }}>
-          <span>Task</span>
-          <span>Due</span>
-          <span style={{ textAlign: 'right' }}>Status</span>
-          <span style={{ textAlign: 'right' }}>Action</span>
-        </div>
-        {withEmployeeHeaders(
-          tieredByCompletion([...managerTasks], mgrKtAllDone(managerTasks), mgrCreatedAt(reportsById)),
-          mgrGroupKey,
-          mgrGroupHeader(reportsById, tasks),
-          (t) => {
-            const state = taskClearanceStatus(t, tasks)
-            const tag = CLEARANCE_TAG[state.key]
-            return (
-              <div key={t.id}>
-                <div className="row" style={{ display: 'grid', gridTemplateColumns: CLEARANCE_COLS, alignItems: 'center' }}>
-                  <span style={CELL_ELLIPSIS}>{t.title}</span>
-                  <span className="c-secondary">{t.due_date ? fmtDate(t.due_date) : '—'}</span>
-                  <span style={{ textAlign: 'right' }}>
-                    <span className={`tag ${tag.tone}`}>{tag.label}</span>
-                  </span>
-                  <span style={{ textAlign: 'right' }}>
-                    {state.key === 'ready' ? (
-                      <button style={BTN} onClick={() => approveTask(t)} disabled={actioning[t.id] === 'pending'}>
-                        {actioning[t.id] === 'pending' ? 'Signing…' : 'Sign'}
-                      </button>
-                    ) : (
-                      <span className="c-muted">—</span>
-                    )}
-                  </span>
-                </div>
-                {state.reason && (
-                  <p className="sub c-danger" style={{ marginTop: -4 }}>Blocked: {state.reason}</p>
-                )}
-                {actioning[t.id] && actioning[t.id] !== 'pending' && (
-                  <p className="sub c-danger" style={{ marginTop: -4 }}>{actioning[t.id]}</p>
-                )}
-              </div>
-            )
-          }
-        )}
-        {!managerTasks.length && <p className="sub">No clearances to sign.</p>}
-      </div>
+      <ClearanceSignOff
+        reports={reports}
+        tasks={tasks}
+        signing={signing}
+        signClearance={signClearance}
+        withHeader
+      />
     </div>
   )
 }

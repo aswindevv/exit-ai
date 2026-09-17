@@ -1,0 +1,36 @@
+EXIT INTERVIEW TRANSCRIPT
+Employee: Aiden Iyer (Emp031), Operations Coordinator, Operations
+Interviewer: Siva (HR)
+Date: 2026-09-17
+
+HR: Thanks for making the time. What's the main reason you decided to leave?
+AIDEN: Honestly it's mostly relocation - my family is moving to Pune and there's no
+Operations role here that works remotely. If the remote policy had been flexible I
+would probably have stayed. That's the single biggest factor.
+
+HR: Anything about the role itself?
+AIDEN: The workload got heavy after we lost two coordinators last year and those seats
+were never backfilled. I was covering three portfolios for about eight months. I raised
+it a few times, and Aravidhan escalated it, but nothing moved on headcount. That wore
+me down more than I expected.
+
+HR: How was your relationship with your manager?
+AIDEN: Aravidhan was genuinely good. Supportive, gave me real autonomy, backed me when
+I pushed back on unrealistic vendor deadlines. No complaints there at all.
+
+HR: Compensation?
+AIDEN: Fair for the level, a bit behind market for the scope I was actually covering,
+but it wasn't a driver. Career growth was more of an issue - there is no clear next
+step from Coordinator without moving to a different function entirely.
+
+HR: Tooling and process?
+AIDEN: The manual vendor reconciliation is a real problem. It's a spreadsheet macro
+only I understand. That should have been a proper tool two years ago.
+
+HR: Would you consider coming back?
+AIDEN: Yes, absolutely, if there's a remote-friendly Operations Manager role. I'd
+recommend the team to a friend. I'm leaving on good terms.
+
+HR: Anything else?
+AIDEN: Just please backfill the roles and document the reconciliation. The next person
+shouldn't inherit what I inherited.

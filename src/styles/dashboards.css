@@ -40,6 +40,11 @@ button {
   cursor: pointer;
 }
 button:hover { background: var(--surface-1); }
+/* Keyboard users got no focus ring at all once the UA default was overridden. */
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--fill-info);
+  outline-offset: 2px;
+}
 
 /* ---------- shell ---------- */
 /* Mobile-first: single column below 768px (sidebar stacks above content);
@@ -67,6 +72,7 @@ button:hover { background: var(--surface-1); }
   background: var(--surface-2);
   border: 0.5px solid var(--border);
   border-radius: 12px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
 }
 .card--pad { padding: 1rem 1.25rem; }
 .card--warned { border-color: var(--border-warning); }
@@ -205,17 +211,21 @@ button:hover { background: var(--surface-1); }
 .gauge > span {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 16px; font-weight: 500;
+  font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
 }
 
 /* ---------- stat pills / KPI cards ---------- */
 /* Mobile-first: stacked single column below 1024px; the side-by-side row
    returns at desktop width, matching the current approved look exactly. */
+/* The pills used to stretch the full card width, so two small numbers sat in a
+   pair of near-empty banners. Capped at a readable width instead, with the
+   tone's own colour as a left rule so Pending/Done read at a glance. */
 .stat-row { display: flex; flex-direction: column; gap: 10px; }
 .stat {
-  flex: 1; padding: 8px 10px; border-radius: var(--radius); font-size: 12px;
+  flex: 1; padding: 8px 12px; border-radius: var(--radius); font-size: 12px;
+  border-left: 3px solid currentColor;
 }
-.stat b { font-size: 16px; font-weight: 500; display: block; }
+.stat b { font-size: 18px; font-weight: 600; display: block; margin-top: 1px; }
 
 .kpi-row { display: flex; flex-direction: column; gap: 10px; }
 .kpi {
@@ -231,6 +241,7 @@ button:hover { background: var(--surface-1); }
 
 @media (min-width: 1024px) {
   .stat-row, .kpi-row { flex-direction: row; }
+  .stat { flex: 0 1 190px; }
 }
 
 /* ---------- column grids ---------- */
@@ -263,7 +274,10 @@ button:hover { background: var(--surface-1); }
 .row--split { justify-content: space-between; }
 .row i { font-size: 17px; }
 .row p { margin: 0; }
-.row .sub { font-size: 11px; color: var(--text-muted); }
+/* Was .row .sub, so the same class outside a row (empty-state lines, card
+   footnotes) rendered as unstyled body text with a browser default margin. */
+.sub { font-size: 11px; color: var(--text-muted); }
+.list > p { margin: 0; padding: 8px 0; }
 .grow { flex: 1; min-width: 0; }
 
 /* The mockups' fixed-width table columns (inline styles) are flex children,
@@ -274,8 +288,106 @@ button:hover { background: var(--surface-1); }
   .thead, .row { flex-wrap: wrap; }
 }
 
-.tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; }
+/* A tag is a single short label: never let .row > span's overflow-wrap break
+   one mid-word ("Positi/ve", "Medium/60%"), which also made rows in the same
+   table different heights. Give a tag's column enough width instead. */
+.tag { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
 .status { font-size: 11px; }
+
+/* ---------- manager queues: KT approvals + clearance sign-off ---------- */
+/* Both are action queues, so the action sits in a fixed column: every button
+   and status pill lands on one vertical edge however long the task title is,
+   and already-approved rows recede so the eye goes to what still needs the
+   manager. The .row class, the Review/Reject labels and the one-button-per-
+   employee shape are load-bearing -- verify_manager_kt_clearances.cjs reads
+   them -- so this changes layout only. */
+.kt-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px 148px;
+  gap: 8px; align-items: center;
+}
+.kt-row__title { overflow-wrap: break-word; }
+.kt-row--done .kt-row__title { color: var(--text-muted); }
+.kt-row__due { font-size: 11px; color: var(--text-muted); text-align: right; white-space: nowrap; }
+.kt-row__action { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: flex-end; align-items: center; }
+.btn-approve { background: var(--bg-success); color: var(--text-success); border-color: transparent; font-weight: 500; }
+.btn-approve:hover:not(:disabled) { background: var(--fill-success); color: var(--on-success); }
+.btn-approve:disabled, .kt-row__action button:disabled { opacity: 0.6; cursor: default; }
+
+/* Agent activity log. Each row is a sentence with its step icon, so a day of
+   runs reads as a list of things that happened rather than a trace dump:
+   icon | what happened (+ step and supporting line) | outcome | time. */
+.run-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 104px 46px;
+  gap: 10px; align-items: start; padding: 9px 0;
+}
+.run-row__icon {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--surface-1); color: var(--text-secondary);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: -1px;
+}
+.run-row__icon i { font-size: 14px; }
+.run-row__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.run-row__text { overflow-wrap: break-word; }
+.run-row__meta { font-size: 11px; color: var(--text-muted); overflow-wrap: break-word; }
+.run-row__raw {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--text-muted);
+  background: var(--surface-1); border-radius: var(--radius);
+  padding: 4px 7px; margin-top: 4px; overflow-wrap: anywhere;
+}
+.run-row__status { text-align: right; }
+.run-row__time { font-size: 11px; color: var(--text-muted); white-space: nowrap; text-align: right; }
+/* Too narrow for four columns: the sentence keeps the icon's line, outcome
+   and time drop underneath it. */
+@media (max-width: 860px) {
+  .run-row { grid-template-columns: 28px minmax(0, 1fr); row-gap: 6px; }
+  .run-row__status, .run-row__time { grid-column: 2; text-align: left; }
+}
+
+/* Filter + raw-output toggle above the log. */
+.run-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin-bottom: 4px; }
+.run-controls .field { max-width: 240px; flex: 1 1 200px; }
+.run-raw-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-secondary); cursor: pointer;
+  padding-bottom: 8px;
+}
+
+/* Day heading between groups of agent runs. */
+.run-day {
+  margin: 14px 0 2px; font-size: 11px; font-weight: 500;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.list--col:first-of-type > .run-day:first-child { margin-top: 0; }
+
+/* "View all N" footer link on a dashboard card that previews a longer page. */
+.card-more {
+  display: inline-block; margin-top: 10px;
+  font-size: 12px; color: var(--text-accent); text-decoration: none;
+}
+.card-more:hover { text-decoration: underline; }
+
+/* "3 of 6 approved" as a number plus a bar: the ratio is the thing a manager
+   scans for, and it replaces a sub-line that only restated the same counts. */
+.clr-progress { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.clr-progress .bar-track, .clr-progress .bar-fill { display: block; height: 4px; }
+.clr-progress .bar-track { max-width: 160px; }
+
+/* A row whose main cell runs to several lines (an interview summary, an agent
+   run's detail) with something short beside it — a sentiment pill, a
+   timestamp. The aside gets its own fixed column and a top edge to align to,
+   so the asides form a straight right-hand edge instead of each centring
+   against its own row's height. */
+.row--aside { align-items: flex-start; gap: 16px; }
+.row--aside > div { flex: 1; min-width: 0; }
+.row--aside > .row__aside {
+  flex: 0 0 auto; width: 72px;
+  display: flex; justify-content: flex-end;
+  padding-top: 1px;
+}
 
 .avatar-sm {
   width: 20px; height: 20px; border-radius: 50%;

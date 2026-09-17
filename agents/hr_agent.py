@@ -26,6 +26,7 @@ Run (from repo root, with agents/.venv active):
 """
 from __future__ import annotations
 
+import re
 import sys
 from datetime import date, timedelta
 
@@ -43,7 +44,39 @@ CHECKLIST_SYSTEM_PROMPT = (
     "ONLY a JSON object with keys 'hr_tasks' and 'manager_tasks', each a list "
     "of 2-4 short imperative task titles tailored to the employee's role and "
     "department. Titles must be neutral and actionable (things to do), never "
-    "evaluative -- they are shown to the employee as their own to-do list."
+    "evaluative -- they are shown to the employee as their own to-do list. "
+    "'manager_tasks' are KNOWLEDGE-TRANSFER and handover items only: "
+    "documenting, transferring ownership, briefing the team, handing off "
+    "contacts, scheduling a handover session. Never put IT deprovisioning "
+    "(revoking or disabling access, accounts, SSO, credentials, repository "
+    "permissions; collecting laptops, devices or access cards) or finance "
+    "settlement work in 'manager_tasks' -- separate IT and Finance agents own "
+    "those stages and generate their own plans."
+)
+
+# The prompt above tells the model the rule; this enforces it. The checklist
+# LLM used to write IT deprovisioning work into 'manager_tasks' (e.g. "Revoke
+# access to internal systems, servers, and repositories"), which landed on the
+# manager's KT approvals queue as an item the manager cannot do and IT never
+# sees -- and, because agents/service.py's manager_approve requires EVERY
+# manager-stage row to be done, held the manager->IT gate shut on it.
+#
+# Matched titles are DROPPED, not re-staged to 'it' here: inserting a
+# stage='it' row at checklist time would make it_agent.generate_plan's "it
+# tasks already exist" idempotency check skip the real deprovisioning plan at
+# the manager gate. Nothing is lost -- the IT agent generates these properly,
+# in IT's own queue, when the gate opens.
+#
+# Deliberately anchored on the leading verb so genuine KT items survive:
+# "Share access credentials for analytics tools" and "Transfer access to
+# marketing platforms" are handover work and are kept; "Revoke access to ..."
+# and "Collect company laptop" are not.
+IT_OWNED_TITLE_RE = re.compile(
+    r"^\s*(?:revoke|de-?provision|disable|deactivate|terminate|remove)\b[^.]*?\b"
+    r"(?:access|account|credential|login|sso|permission|licen[cs]e|key)s?\b"
+    r"|^\s*(?:collect|retrieve|recover|reclaim)\b[^.]*?\b"
+    r"(?:laptop|macbook|device|hardware|equipment|peripheral|headset|badge|access card)s?\b",
+    re.IGNORECASE,
 )
 
 KT_REVIEW_SYSTEM_PROMPT = (
@@ -81,10 +114,16 @@ def _persist_checklist(state: ChecklistState) -> ChecklistState:
          "due_date": (last_day - timedelta(days=3)).isoformat()}
         for t in r.get("hr_tasks", [])
     ]
+    kt_titles, it_owned = [], []
+    for t in r.get("manager_tasks", []):
+        (it_owned if IT_OWNED_TITLE_RE.search(t or "") else kt_titles).append(t)
+    if it_owned:
+        log_db("drop", "exit_tasks", rows=len(it_owned),
+               detail=f"IT-owned titles kept out of stage=manager: {it_owned}")
     manager_rows = [
         {"case_id": case_id, "stage": "manager", "title": t, "status": "pending",
          "due_date": (last_day - timedelta(days=1)).isoformat()}
-        for t in r.get("manager_tasks", [])
+        for t in kt_titles
     ]
     rows = hr_rows + manager_rows
     inserted_manager_rows = []
