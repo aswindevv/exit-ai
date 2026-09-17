@@ -24,6 +24,7 @@ Run (from repo root, with agents/.venv active):
 from __future__ import annotations
 
 import sys
+import textwrap
 from datetime import date
 
 from langgraph.graph import StateGraph
@@ -35,6 +36,22 @@ from .sla_escalation import find_breaches
 from .trace import log_db, traced_node
 
 ACTIVE_STATUSES = {"open", "in_progress"}
+
+# The three checks below, in the order the report lists them. Every one is
+# always printed, including at zero, so the reader can tell "checked, clean"
+# apart from "not checked".
+CHECKS = ("sla_breach", "missing_approval", "skipped_step")
+CHECK_LABEL = {
+    "sla_breach": "SLA breach",
+    "missing_approval": "Missing approval",
+    "skipped_step": "Skipped step",
+}
+
+# Written to analytics_insights.agent_type on every audit. #14/#17/#23 write
+# 'dashboard_insights'/'workflow_optimizer'/'predictive_attrition' to the same
+# table, so this is what makes the auditor's rows identifiable -- by
+# HrLayout.jsx's Policy Audit query and by any hand-written SQL.
+AGENT_TYPE = "policy_compliance_auditor"
 
 SYSTEM_PROMPT = (
     "You are a compliance auditor summarizing a policy audit of offboarding cases. "
@@ -90,6 +107,52 @@ def audit_cases(
     }
 
 
+def _detail_line(breach: dict) -> str:
+    """One breach's detail. missing_approval/skipped_step carry a sentence;
+    sla_breach carries find_breaches' own dict, which is rendered rather than
+    dumped."""
+    detail = breach.get("detail")
+    if isinstance(detail, dict):
+        return (
+            f"\"{detail.get('title', '?')}\" ({detail.get('stage', '?')}) -- "
+            f"{detail.get('days_overdue', '?')} days overdue, blocked by {detail.get('blocker', '?')}"
+        )
+    return str(detail or "")
+
+
+def format_report(report: dict, narrative: str, today: date | None = None) -> str:
+    """Human-readable rendering of one audit, for the CLI.
+
+    The graph's final state also carries the private _active/_tasks_by_case/
+    _all_tasks_by_case/_approvals_by_case scratch keys the nodes hand to each
+    other; printing the state raw dumped every one of them into the terminal
+    alongside the report. This prints the audit and nothing else.
+    """
+    by_check = report.get("breaches_by_check") or {}
+    breaches = report.get("breaches") or []
+    width = max(len(label) for label in CHECK_LABEL.values())
+
+    lines = [
+        f"Policy Compliance Audit (#22) -- {today or date.today()}",
+        "",
+        f"  Cases audited   {report.get('cases_audited', 0)}",
+        f"  Breaches found  {report.get('breach_count', 0)}",
+        "",
+        "  By check",
+    ]
+    lines += [f"    {CHECK_LABEL[c]:<{width}}  {by_check.get(c, 0)}" for c in CHECKS]
+
+    if breaches:
+        lines += ["", "  Breaches"]
+        for b in breaches:
+            lines.append(f"    [{CHECK_LABEL.get(b.get('check'), b.get('check'))}] {b.get('employee_name', '?')}")
+            lines.append(f"      {_detail_line(b)}")
+
+    lines += ["", "  Recommendation"]
+    lines += [f"    {line}" for line in textwrap.wrap(narrative, 76)] or ["    (none)"]
+    return "\n".join(lines)
+
+
 class AuditorState(TypedDict):
     report: dict
     narrative: str
@@ -143,7 +206,7 @@ def _report(state: AuditorState) -> AuditorState:
     else:
         state["narrative"] = "No policy breaches found across active cases in this audit."
     db.table("analytics_insights").insert({
-        "narrative": state["narrative"], "stats": report, "agent_type": "policy_compliance_auditor",
+        "narrative": state["narrative"], "stats": report, "agent_type": AGENT_TYPE,
     }).execute()
     log_db("insert", "analytics_insights", rows=1)
     return state
@@ -191,4 +254,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--self-check":
         _demo()
     else:
-        print(run())
+        final = run()
+        print()
+        print(format_report(final["report"], final["narrative"]))

@@ -30,7 +30,7 @@ confirms review in a real browser — a script passing once is not "done".
 - FAQ chatbot ← #7 (built as RAG)
 - Exit-Interview agent ← #8, #19 trend analyst (longitudinal mode)
 - Risk agent ← #12; #21 rehire is its own thin-wrapper module (rehire_agent.py)
-- Compliance agent ← #13 (compliance_agent.py, real blocking logic), #22 policy auditor (policy_auditor.py, scheduled -- reuses sla_escalation.find_breaches plus its own missing_approval/skipped_step checks)
+- Compliance agent ← #13 (compliance_agent.py, real blocking logic), #22 policy auditor (policy_auditor.py, ON-DEMAND / CLI-triggered -- `python -m agents.policy_auditor`; nothing imports or schedules it, a real scheduler is a follow-up. Reuses sla_escalation.find_breaches plus its own missing_approval/skipped_step checks; writes analytics_insights with agent_type='policy_compliance_auditor', surfaced on HR -> Policy audit)
 - Analytics agent ← #14 (analytics_agent.py), #17 optimizer (workflow_optimizer.py, reuses analytics_agent's aggregate node), #23 attrition (attrition_agent.py, department-level proxy -- see its ponytail comment)
 - Supervisor ← #20 orchestrator, #24 end-to-end capstone
 - Tool-nodes (not standalone agents, called from existing supervisor.py stage nodes): #11 smart routing (smart_routing.py, real department + out_of_office routing over profiles, routes to a real delegate profile via scripts/seed_delegates.js — called from the hr/manager/it stage nodes), #15 multi-system clearance (multi_system_clearance.py, consolidates exit_tasks/case_documents as a labeled demo stand-in for IT asset mgmt/HRMS/finance — called from the compliance stage node)
@@ -175,6 +175,51 @@ Legend: [x] built  ·  [~] partial  ·  [ ] not done/unconfirmed
       case. Regression: rejection still escalates, and `/manager-approve`
       refuses to advance a case with an open escalation (no IT tasks created).
       All pass, zero console errors.
+
+---
+
+### J. Manager dashboard: KT approvals scoping + one clearance sign-off per employee (new scope, added after I1)
+- [ ] J1. Two related defects on the Manager dashboard, both visible in the browser:
+      (a) KT approvals listed work that is not the manager's — "Revoke access to
+      internal systems, servers, and repositories" and two siblings. The UI
+      filter was already `stage === 'manager'`; the rows were mis-STAGED, not
+      mis-filtered: agents/hr_agent.py's checklist LLM had written IT
+      deprovisioning items into `manager_tasks`, so they were stored as
+      stage='manager'. Because service.py's manager_approve requires EVERY
+      manager-stage row to be done, each one also held that case's manager->IT
+      gate shut on an item the manager cannot perform and IT never sees.
+      (b) "Clearances to sign" re-listed the same individual KT tasks with a
+      "Sign" button, so the manager actioned each task twice (Review, then Sign
+      — both just `update({status:'done'})` on the same row).
+      Fix (a): `hr_agent.IT_OWNED_TITLE_RE` + a tightened CHECKLIST_SYSTEM_PROMPT
+      keep IT-owned titles out of `manager_tasks` at generation (dropped, not
+      re-staged to 'it' there — an 'it' row written at checklist time would make
+      it_agent.generate_plan's idempotency check skip the real plan at the
+      gate); `0028_restage_it_owned_manager_tasks.sql` re-stages the 3 rows
+      already in the table to 'it', guarded by an EXISTS so it only touches
+      cases that already have an IT plan. Nothing is hidden in the UI — hiding
+      would orphan the row and deadlock the gate. Applied with
+      `node scripts/apply_0028_restage.cjs` (no Supabase CLI in this project).
+      Fix (b): `src/lib/ktScope.js` (`caseClearanceState`, shared by the
+      dashboard card and the Clearances page) + `ClearanceSignOff` in
+      ManagerPages.jsx — ONE row per employee: escalated / no KT plan /
+      "Not ready to sign — N KT approvals outstanding" / "Ready to sign" /
+      Signed. The single "Sign clearance" action POSTs the existing
+      `/manager-approve`, so the manager->IT handoff is the same idempotent,
+      server-re-checked gate as I1, not a new one — and unlike useApprove's
+      best-effort call, a failure or `advanced:false` surfaces in the UI.
+      Review/Reject and the escalation rows are unchanged.
+      Check: scripts/verify_manager_kt_clearances.cjs — real data read-only,
+      two disposable cases (Emp021 all-KT-approved, Emp023 KT-pending) seeded
+      and purged. KT approvals: 102 rendered rows all stage='manager', 0 of the
+      206 IT/finance/compliance rows leaked, 8 escalation rows intact, Review +
+      Reject on 54 rows and both still act (approve / escalate) on the
+      disposable case. Clearances: 28 rows for 28 reports, one each, no KT task
+      titles (82 checked) and no off-stage titles (121 checked), ≤1 action per
+      row, every Sign button matches the database. Sign-off on the disposable
+      case created 4 stage='it' tasks, recorded the gate once, and the row then
+      read "Signed" with no active action. All pass, zero console errors.
+      scripts/verify_clearances.cjs (manager + HR) still passes.
 
 ---
 

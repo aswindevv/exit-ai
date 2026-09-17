@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import useScrollTopOnNavigate from '../../lib/useScrollTopOnNavigate'
 import Sidebar from '../../components/Sidebar'
 import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
@@ -10,6 +11,7 @@ export const NAV = [
 ]
 
 export default function FinanceLayout({ session }) {
+  const scrollRef = useScrollTopOnNavigate()
   const [data, setData] = useState(null)
   const mountedRef = useRef(true)
 
@@ -36,7 +38,7 @@ export default function FinanceLayout({ session }) {
   return (
     <div className="shell">
       <Sidebar items={NAV} initials={initials(data.profile?.full_name)} name={data.profile?.full_name} role="Finance" />
-      <div>
+      <div ref={scrollRef}>
         <Outlet context={data} />
       </div>
     </div>

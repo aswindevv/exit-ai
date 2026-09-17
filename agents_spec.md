@@ -24,10 +24,10 @@ The hub + core clearance already run end-to-end. Confirm before building on top.
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
 | 20 | Exit Process Orchestrator (Supervisor/hub) | supervisor.py | LangGraph routes hr→manager gate→it→finance→assess; exception/escalation branch | DONE |
-| 2 | HR Agent | hr_agent.py | LLM checklist + KT review; books calendar; idempotent | DONE |
+| 2 | HR Agent | hr_agent.py | LLM checklist + KT review; books calendar; idempotent. `manager_tasks` are knowledge-transfer/handover items ONLY — `IT_OWNED_TITLE_RE` drops IT deprovisioning titles the LLM mis-files there (they would otherwise sit on the manager's KT queue as un-doable work and hold the manager→IT gate shut); the IT agent generates those properly at the gate | DONE |
 | 3 | IT Agent | it_agent.py | LLM deprovisioning tasks; human-approved. Triggered by supervisor.py's `it` stage node on a `run_case`, and on the browser path by service.py's `/manager-approve` once the manager has approved every KT task (idempotent — skips when stage='it' rows exist) | DONE |
 | 4 | Finance Agent | finance_agent.py | deterministic clearance gate: clears only when hr/manager/it are all done AND `exit_cases.finance_cleared` is true (the real dues flag, written by the Finance dashboard's "Mark dues settled" button); otherwise blocked with reason "dues/settlement not confirmed". Completion email fires on the pending→done transition | DONE |
-| 1 | Manager | (manager-gate node) | human role — approval gate, NOT an LLM agent. Both branches are reachable from the browser: Reject → service.py `/reject-manager-task` (escalation row), Approve → `/manager-approve` (records the gate in agent_runs and advances to IT) | DONE |
+| 1 | Manager | (manager-gate node) | human role — approval gate, NOT an LLM agent. Both branches are reachable from the browser: Reject → service.py `/reject-manager-task` (escalation row), Approve → `/manager-approve` (records the gate in agent_runs and advances to IT). `/manager-approve` has two UI triggers, both idempotent and both server-re-checked: the per-task Review button, and the Manager dashboard's single per-employee "Sign clearance" action (one sign-off per employee, active only once every one of that employee's KT tasks is approved) | DONE |
 
 **Verify:** run one case via run_case.py; trace shows hub→hr→manager gate→it→finance.
 
@@ -108,7 +108,7 @@ manual SQL count.
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
 | 9 | SLA Escalation | sla_escalation.py | scans clearances >5 days overdue → escalation message (who's blocking, how long, impact). REUSE notifications overdue scan, own agent | DONE |
-| 22 | Policy Compliance Auditor | policy_auditor.py | periodic audit of active cases vs policy (SLA breaches, missing approvals, skipped steps) → report | DONE |
+| 22 | Policy Compliance Auditor | policy_auditor.py | audit of active cases vs policy (SLA breaches, missing approvals, skipped steps) → report. ON-DEMAND, not periodic: `python -m agents.policy_auditor` prints a formatted report and writes `analytics_insights` with `agent_type='policy_compliance_auditor'`; HR → Policy audit shows the latest row. No scheduler exists (follow-up) | DONE |
 
 **Verify:** create an overdue case → SLA agent composes a real escalation naming the
 blocker; run auditor → report row listing any breaches across active cases.

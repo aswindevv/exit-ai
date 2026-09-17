@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import PageHead from '../../components/PageHead'
 import Placeholder from '../shared/Placeholder'
 import { supabase } from '../../lib/supabase'
@@ -15,6 +15,8 @@ const STAGE_ORDER = ['hr', 'manager', 'it', 'finance']
 const REQUIRED_STAGES = ['hr', 'manager', 'it', 'compliance', 'finance']
 const CIRCUMFERENCE = 201
 const BTN = { fontSize: 11, padding: '4px 9px' }
+// The dashboard checklist previews My tasks rather than repeating it in full.
+const CHECKLIST_PREVIEW = 5
 
 // Always renders all 5 nodes (Resignation, Manager & KT, IT clearance,
 // Finance clearance, Relieving) even when a stage has no tasks yet -- a stage
@@ -207,6 +209,12 @@ export function Dashboard() {
       return { label: t.title, date: fmtDate(t.due_date), tag, tone }
     })
 
+  // Pending first (sort is stable, so each group keeps its order), then capped:
+  // the dashboard shows what's left to do, My tasks has the full list.
+  const checklistPreview = [...tasks]
+    .sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0))
+    .slice(0, CHECKLIST_PREVIEW)
+
   const tasksByStage = {}
   for (const t of tasks) (tasksByStage[t.stage] ??= []).push(t)
 
@@ -264,7 +272,7 @@ export function Dashboard() {
         <div className="card card--pad">
           <p className="card-title">My checklist</p>
           <div className="list list--col">
-            {tasks.map((t) => (
+            {checklistPreview.map((t) => (
               <div key={t.id} className="row">
                 <i
                   className={`ti ${t.status === 'done' ? 'ti-circle-check c-success' : 'ti-circle c-muted'}`}
@@ -276,7 +284,11 @@ export function Dashboard() {
                 </span>
               </div>
             ))}
+            {tasks.length === 0 && <p className="sub c-muted">No tasks assigned yet.</p>}
           </div>
+          {tasks.length > CHECKLIST_PREVIEW && (
+            <Link className="card-more" to="/employee/tasks">View all {tasks.length} tasks →</Link>
+          )}
         </div>
 
         <div className="card card--pad">
@@ -291,6 +303,7 @@ export function Dashboard() {
                 <span className={`tag ${d.tone}`}>{d.tag}</span>
               </div>
             ))}
+            {DEADLINES.length === 0 && <p className="sub c-muted">Nothing due right now.</p>}
           </div>
         </div>
       </div>

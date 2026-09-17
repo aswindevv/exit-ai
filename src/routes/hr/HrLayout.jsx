@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import useScrollTopOnNavigate from '../../lib/useScrollTopOnNavigate'
 import Sidebar from '../../components/Sidebar'
 import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
@@ -12,23 +13,35 @@ export const NAV = [
   { label: 'Exit interviews', to: 'exit-interviews', icon: 'ti-message-2' },
   { label: 'Trends', to: 'trends', icon: 'ti-chart-line' },
   { label: 'Clearances', to: 'clearances', icon: 'ti-clipboard-check' },
+  { label: 'Policy audit', to: 'policy-audit', icon: 'ti-shield-search' },
   { label: 'Reports', to: 'reports', icon: 'ti-report' },
+  { label: 'Agent activity', to: 'agent-activity', icon: 'ti-activity' },
   { label: 'Settings', to: 'settings', icon: 'ti-settings' },
 ]
 
+// The dashboard card shows the newest few; the Agent activity page pages
+// through this whole slice, and says so when it is truncated.
+export const RUNS_LIMIT = 150
+
 export default function HrLayout({ session }) {
+  const scrollRef = useScrollTopOnNavigate()
   const [data, setData] = useState(null)
   const mountedRef = useRef(true)
 
   async function load() {
-    const [{ data: profile }, { data: cases }, { data: alerts }, { data: tasks }, { data: interviews }, { data: insights }, { data: runs }] = await Promise.all([
+    // analytics_insights holds one row per run for four different agents, so
+    // every read of it is pinned to an agent_type (0029): 'dashboard_insights'
+    // is #14's, which the Reports page shows; 'policy_compliance_auditor' is
+    // #22's, which the Policy audit page shows. Latest row each.
+    const [{ data: profile }, { data: cases }, { data: alerts }, { data: tasks }, { data: interviews }, { data: insights }, { data: audits }, { data: runs }] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', session.user.id).single(),
       supabase.from('exit_cases').select('*').order('last_working_day'),
       supabase.from('trend_alerts').select('*').order('created_at', { ascending: false }),
       supabase.from('exit_tasks').select('*'),
       supabase.from('exit_interviews').select('*').order('created_at', { ascending: false }),
       supabase.from('analytics_insights').select('*').eq('agent_type', 'dashboard_insights').order('created_at', { ascending: false }).limit(1),
-      supabase.from('agent_runs').select('*').order('created_at', { ascending: false }).limit(8),
+      supabase.from('analytics_insights').select('*').eq('agent_type', 'policy_compliance_auditor').order('created_at', { ascending: false }).limit(1),
+      supabase.from('agent_runs').select('*').order('created_at', { ascending: false }).limit(RUNS_LIMIT),
     ])
     if (mountedRef.current) {
       setData({
@@ -38,6 +51,7 @@ export default function HrLayout({ session }) {
         tasks: tasks ?? [],
         interviews: interviews ?? [],
         insight: insights?.[0] ?? null,
+        audit: audits?.[0] ?? null,
         runs: runs ?? [],
         userId: session.user.id,
         reload: load,
@@ -56,7 +70,7 @@ export default function HrLayout({ session }) {
   return (
     <div className="shell">
       <Sidebar items={NAV} initials={initials(data.profile?.full_name)} name={data.profile?.full_name} role="HR" />
-      <div>
+      <div ref={scrollRef}>
         <Outlet context={data} />
       </div>
     </div>

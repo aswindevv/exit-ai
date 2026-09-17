@@ -1,0 +1,1256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ExitAI — Project Documentation</title>
+<style>
+  @page { size: A4 portrait; margin: 15mm 11mm; }
+  /* The 24-agent table is 7 columns wide and does not fit portrait — it gets
+     its own landscape pages. Named pages need preferCSSPageSize on the PDF call. */
+  @page land { size: A4 landscape; margin: 13mm 11mm; }
+  .landscape { page: land; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 9.6pt; line-height: 1.5; color: #1a1d23; margin: 0;
+  }
+
+  h1 { font-size: 21pt; margin: 0 0 4px; letter-spacing: -0.4px; }
+  h2 {
+    font-size: 13pt; margin: 22px 0 8px; padding: 6px 0 5px;
+    border-bottom: 2px solid #1f4e79; color: #1f4e79;
+    break-after: avoid; page-break-after: avoid;
+  }
+  h3 {
+    font-size: 10.6pt; margin: 14px 0 5px; color: #123;
+    break-after: avoid; page-break-after: avoid;
+  }
+  h4 { font-size: 9.6pt; margin: 10px 0 3px; color: #334; break-after: avoid; }
+  p { margin: 5px 0; }
+  ul, ol { margin: 5px 0 5px 0; padding-left: 18px; }
+  li { margin: 2px 0; }
+  code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 8.6pt; }
+  code { background: #f1f3f6; padding: 0 3px; border-radius: 2px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 10px; font-size: 8.4pt; }
+  th, td { border: 1px solid #c7cdd6; padding: 4px 6px; vertical-align: top; text-align: left; }
+  th { background: #eaf0f7; font-weight: 600; color: #1f4e79; }
+  td, th { overflow-wrap: anywhere; word-break: break-word; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  td.nowrap { white-space: nowrap; }
+
+  pre {
+    background: #f7f8fa; border: 1px solid #d5dbe4; border-left: 3px solid #1f4e79;
+    padding: 8px 10px; font-family: Consolas, "Courier New", monospace;
+    font-size: 8pt; line-height: 1.35; white-space: pre; overflow: hidden;
+    break-inside: avoid; page-break-inside: avoid; margin: 8px 0;
+  }
+
+  .badge { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 7.6pt;
+           font-weight: 600; white-space: nowrap; border: 1px solid; }
+  .b-work { background:#e3f5e8; color:#1c6b32; border-color:#a5d8b5; }
+  .b-man  { background:#fff4de; color:#8a5a00; border-color:#f0cf93; }
+  .b-mock { background:#fde8e8; color:#9b2222; border-color:#f0b1b1; }
+  .b-human{ background:#e8eefc; color:#23458f; border-color:#b4c6ee; }
+
+  .callout {
+    background: #fffaf0; border: 1px solid #e8d6a8; border-left: 3px solid #d79b1e;
+    padding: 7px 10px; margin: 9px 0; break-inside: avoid;
+  }
+  .callout.info { background:#f2f7fd; border-color:#bcd4ec; border-left-color:#1f4e79; }
+  .callout p { margin: 3px 0; }
+  .callout .lbl { font-weight: 700; color: #8a5a00; }
+  .callout.info .lbl { color: #1f4e79; }
+
+  .cover { border-bottom: 3px solid #1f4e79; padding-bottom: 10px; margin-bottom: 4px; }
+  .sub { color: #5a6270; font-size: 9pt; margin: 2px 0; }
+  .meta { font-size: 8.2pt; color: #6b7280; margin-top: 8px; }
+
+  .toc { columns: 2; column-gap: 26px; font-size: 9pt; }
+  .toc div { break-inside: avoid; margin: 2px 0; }
+
+  .pb { break-before: page; page-break-before: always; }
+  .keep { break-inside: avoid; page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>ExitAI — Project Documentation</h1>
+  <p class="sub">AI-assisted employee offboarding · LangGraph hub-and-spoke multi-agent system over Supabase</p>
+  <p class="meta">
+    Generated 17 September 2026 from the actual repository at
+    <span class="mono">C:\Users\Aswin.v\Desktop\Exit Ai</span> — git branch <span class="mono">main</span>,
+    HEAD <span class="mono">86b9dfe</span>. Every statement below was checked against source files,
+    SQL migrations, or a live query against the Supabase project. Where something is
+    manual, mocked, or demo-scale, it is labelled as such.
+  </p>
+</div>
+
+<h2>Contents</h2>
+<div class="toc">
+  <div>1. Project overview</div>
+  <div>2. Technology stack</div>
+  <div>3. What RAG is, in this project</div>
+  <div>4. Architecture — hub and spoke</div>
+  <div>5. All 24 agents</div>
+  <div>6. Agent workflow, step by step</div>
+  <div>7. File / code map</div>
+  <div>8. Database and security model</div>
+  <div>9. The five roles</div>
+  <div>10. Honest status — what is real, manual, or mocked</div>
+</div>
+
+<div class="callout">
+  <p><span class="lbl">Read this first (the honesty summary).</span>
+  Everything in sections 1–9 is built and runs against a live Supabase project with real data
+  (107 profiles, 27 exit cases, 316 tasks, 323 agent-run records). Four things are <em>not</em>
+  fully production-real, and are called out again in place:</p>
+  <ul>
+    <li><strong>No scheduler exists anywhere in the repo.</strong> Every "periodic"/"scheduled" agent
+      (#9 SLA escalation, #14 analytics, #17 optimizer, #19 trend analyst, #22 policy auditor,
+      #23 attrition) is run by hand from the command line. There is no cron, no pg_cron, no GitHub
+      Action, no timer.</li>
+    <li><strong>#15 Multi-System Clearance is a demo stand-in.</strong> No external IT-asset-management,
+      HRMS, or finance system exists. Its three adapters query <em>our own</em> Supabase tables
+      through a real adapter contract (timeouts, retries, status codes) so the shape is production-ready,
+      but the "external systems" are ours.</li>
+    <li><strong>#18's execution step uses a MockITAdapter.</strong> Plan generation and human approval
+      are real; the "execute" call does not talk to Okta/Jamf/Google Workspace — nothing real is disabled.</li>
+    <li><strong>Phase 9 (full real-browser end-to-end review) is not signed off.</strong> Individual flows
+      have been Playwright-verified; the single, complete, all-five-roles browser pass is still open
+      (item E1 in <span class="mono">blueprint1.md</span>).</li>
+  </ul>
+</div>
+
+<!-- ==================================================================== -->
+<h2 class="pb">1. Project overview</h2>
+
+<h3>What ExitAI is</h3>
+<p>
+ExitAI is a web application that runs the whole process of an employee leaving a company —
+"offboarding" or "exit clearance" — with a team of AI agents doing the coordination work that a
+person would otherwise chase by email.
+</p>
+<p>
+An employee submits their resignation in the app. From that moment the system generates their
+personal exit checklist, tells their manager, tracks knowledge handover, generates the IT
+deprovisioning plan, verifies compliance (NDA, assets, access), waits for Finance to settle dues,
+assesses risk and rehire eligibility from the exit interview, and finally issues the relieving
+letter. Five people see five different dashboards, each showing only what their role is
+responsible for.
+</p>
+
+<h3>The problem it solves</h3>
+<table>
+  <tr><th style="width:38%">Problem with manual offboarding</th><th>What ExitAI does about it</th></tr>
+  <tr><td>Exit checklists are copy-pasted and generic, so role-specific handover gets missed.</td>
+      <td>An LLM generates the checklist from the employee's actual role and department, with due dates derived from their last working day.</td></tr>
+  <tr><td>Nobody knows who is currently blocking a clearance. Chasing happens over email and gets dropped.</td>
+      <td>Every task has a stage, an owner and a due date in one database. The SLA agent names the specific blocker, how many days late, and the downstream impact.</td></tr>
+  <tr><td>An employee "leaves" but their accounts stay live for weeks because IT was told too late.</td>
+      <td>The IT deprovisioning plan is generated automatically the moment the manager signs off knowledge transfer — not after someone remembers to raise a ticket.</td></tr>
+  <tr><td>Final clearance gets signed while the NDA is unreturned or a laptop is missing, and no one notices until audit.</td>
+      <td>A compliance agent blocks final clearance and names the exact missing item. It cannot be bypassed in the UI, because the relieving-letter gate is enforced by a database function.</td></tr>
+  <tr><td>Exit interviews are filed and never read, so the same attrition cause repeats.</td>
+      <td>Each interview is summarised with sentiment and themes; a longitudinal agent counts themes across all interviews and raises a rising-theme alert per department.</td></tr>
+  <tr><td>Exiting employees keep asking HR the same questions about notice period, settlement, and documents.</td>
+      <td>A RAG chatbot answers from the company's actual exit policy document, with citations, and refuses to invent company-specific facts.</td></tr>
+  <tr><td>Sensitive assessments (risk score, rehire eligibility, interview sentiment) leak to managers.</td>
+      <td>Those columns are HR-only and enforced in the database with row-level security plus restricted views — not merely hidden in the UI.</td></tr>
+</table>
+
+<h3>Scale of the running system (live query, 17 Sep 2026)</h3>
+<table>
+  <tr><th>Table</th><th>Rows</th><th>Table</th><th>Rows</th></tr>
+  <tr><td>profiles</td><td>107 (100 employees, 2 HR, 2 manager, 2 IT, 1 finance)</td><td>agent_runs</td><td>323</td></tr>
+  <tr><td>exit_cases</td><td>27</td><td>compliance_checks</td><td>78</td></tr>
+  <tr><td>exit_tasks</td><td>316</td><td>analytics_insights</td><td>18</td></tr>
+  <tr><td>exit_interviews</td><td>18</td><td>kt_reviews</td><td>27</td></tr>
+  <tr><td>exit_docs (RAG chunks)</td><td>67</td><td>case_documents</td><td>13</td></tr>
+  <tr><td>trend_alerts</td><td>4</td><td>—</td><td>—</td></tr>
+</table>
+
+<!-- ==================================================================== -->
+<h2 class="pb">2. Technology stack</h2>
+
+<p>Every technology listed here is actually used by code in this repository. Versions come from
+<span class="mono">package.json</span> and <span class="mono">agents/requirements.txt</span>.</p>
+
+<h3>2.1 Frontend</h3>
+<table>
+  <tr><th style="width:20%">Technology</th><th style="width:34%">What it is</th><th>How it is used here / why chosen</th></tr>
+  <tr><td class="nowrap"><strong>React 18.3</strong></td>
+      <td>UI library — builds the page out of components that re-render when data changes.</td>
+      <td>All five dashboards. Chosen because the dashboards are data-driven tables and cards that must refresh the instant a button writes to Supabase.</td></tr>
+  <tr><td class="nowrap"><strong>Vite 6</strong></td>
+      <td>Dev server and bundler.</td>
+      <td><code>npm run dev</code> / <code>npm run build</code>. Chosen for instant hot reload and because its <code>import.meta.env.VITE_*</code> convention makes the "only the anon key ever reaches the browser" rule mechanical — a variable without the <code>VITE_</code> prefix physically cannot enter the bundle.</td></tr>
+  <tr><td class="nowrap"><strong>React Router 7.18</strong></td>
+      <td>Client-side routing.</td>
+      <td><span class="mono">src/routes/AppRoutes.jsx</span> — one route tree per role, each guarded by <code>role === '…'</code> so an IT user typing <span class="mono">/hr</span> is redirected, not served.</td></tr>
+  <tr><td class="nowrap"><strong>@supabase/supabase-js 2.116</strong></td>
+      <td>Official Supabase client.</td>
+      <td>Auth, table reads/writes, RPC calls, Storage uploads, and Edge Function invocation — one library for all of it. Created once in <span class="mono">src/lib/supabase.js</span> with the anon key only.</td></tr>
+  <tr><td class="nowrap"><strong>Tabler Icons (webfont) 3.31</strong></td>
+      <td>Icon set delivered as a font.</td>
+      <td>Dashboard iconography. A webfont avoids shipping an icon-component library.</td></tr>
+  <tr><td class="nowrap"><strong>CSS design tokens</strong></td>
+      <td>Plain CSS custom properties.</td>
+      <td><span class="mono">src/styles/tokens.css</span> + <span class="mono">dashboards.css</span>. No Tailwind, no CSS-in-JS — the approved design is a fixed token set, so a token file is the smallest thing that keeps five dashboards visually identical.</td></tr>
+  <tr><td class="nowrap"><strong>Playwright 1.63</strong> <span class="badge b-man">dev only</span></td>
+      <td>Headless real-browser automation.</td>
+      <td>Verification scripts in <span class="mono">scripts/*.cjs</span> log in as each role and assert against a real Chromium, because "a script passed once" is not accepted as proof for UI work in this project.</td></tr>
+</table>
+
+<h3>2.2 Backend — Supabase</h3>
+<table>
+  <tr><th style="width:20%">Technology</th><th style="width:34%">What it is</th><th>How it is used here / why chosen</th></tr>
+  <tr><td class="nowrap"><strong>PostgreSQL</strong></td>
+      <td>The relational database behind Supabase.</td>
+      <td>10 tables, 5 views, 6 functions, in 28 numbered migrations under <span class="mono">supabase/migrations/</span>. Chosen because the data is inherently relational (cases → tasks → documents) and because Postgres can enforce the access rules itself.</td></tr>
+  <tr><td class="nowrap"><strong>Supabase Auth</strong></td>
+      <td>Email/password authentication issuing JWTs.</td>
+      <td><span class="mono">profiles.id</span> is a foreign key to <span class="mono">auth.users.id</span>, so <code>auth.uid()</code> joins straight into every security policy. Login is a single <code>signInWithPassword</code> call.</td></tr>
+  <tr><td class="nowrap"><strong>Row Level Security (RLS)</strong></td>
+      <td>Per-row access rules enforced by Postgres on every query.</td>
+      <td>The core of the security model — see §8. Chosen over checking permissions in the frontend because the frontend holds a key any user can read out of the bundle; the database cannot be argued with.</td></tr>
+  <tr><td class="nowrap"><strong>pgvector</strong></td>
+      <td>Postgres extension adding a <code>vector</code> column type and similarity operators.</td>
+      <td>The RAG store — <span class="mono">exit_docs.embedding vector(1536)</span> with an HNSW cosine index. See §3.</td></tr>
+  <tr><td class="nowrap"><strong>Supabase Storage</strong></td>
+      <td>S3-style object storage with the same RLS engine.</td>
+      <td>Private <span class="mono">exit-documents</span> bucket. Employees upload to <span class="mono">&lt;case_id&gt;/&lt;doc_type&gt;-&lt;timestamp&gt;.&lt;ext&gt;</span>; a storage policy checks the first path segment is a case they own.</td></tr>
+  <tr><td class="nowrap"><strong>Edge Functions (Deno/TypeScript)</strong></td>
+      <td>Serverless functions running in Supabase's cloud.</td>
+      <td>Three of them — <span class="mono">ask</span>, <span class="mono">submit-resignation</span>, <span class="mono">forward-to-hr</span>. Used wherever a secret must never reach the browser but the operation must be callable from it.</td></tr>
+  <tr><td class="nowrap"><strong>Python agent service</strong></td>
+      <td>A local HTTP bridge, <span class="mono">agents/service.py</span>, on <span class="mono">localhost:8787</span>.</td>
+      <td>Edge Functions run in Supabase's cloud and have no network path to the machine where the agents run. The browser (which <em>is</em> on that machine in dev) calls this service directly. Built on stdlib <code>http.server</code> — not Flask or FastAPI — because neither is a project dependency and this is nine routes.</td></tr>
+</table>
+
+<h3>2.3 Agent framework and LLM layer</h3>
+<table>
+  <tr><th style="width:20%">Technology</th><th style="width:34%">What it is</th><th>How it is used here / why chosen</th></tr>
+  <tr><td class="nowrap"><strong>LangGraph ≥ 0.2</strong></td>
+      <td>Framework for building agents as a <em>graph</em> of nodes with typed shared state and conditional edges.</td>
+      <td>Every agent is a compiled <code>StateGraph</code>, and the Supervisor is a graph whose nodes are those agents. Chosen over a plain function chain because the manager gate needs a real conditional branch (approve → IT, reject → escalate) and because a graph gives one uniform "invoke" shape for every agent. <em>Not CrewAI.</em></td></tr>
+  <tr><td class="nowrap"><strong>Portkey AI gateway</strong></td>
+      <td>An LLM proxy: one endpoint and one key in front of many model providers, with virtual keys, routing, and observability.</td>
+      <td>Self-hosted at <span class="mono">https://portkeygateway.perficient.com</span>. Both the Python agents and the Edge Functions call it. Chosen so the model can be swapped by changing one environment variable, and so no provider key is ever held by application code.</td></tr>
+  <tr><td class="nowrap"><strong>Azure OpenAI <span class="mono">gpt-5.6-sol</span></strong></td>
+      <td>The generation model, reached as <span class="mono">@azure-openai-eus2/gpt-5.6-sol</span>.</td>
+      <td>Writes checklists, reviews KT documents, summarises interviews, and drafts narratives. <strong>Migrated from Claude:</strong> the code still speaks the <em>Anthropic Messages</em> wire protocol (<code>POST /v1/messages</code>, <code>anthropic-version: 2023-06-01</code>) and the env vars are still named <span class="mono">ANTHROPIC_*</span>, but Portkey translates that request to Azure OpenAI and translates the reply back. So the names describe the <em>protocol</em>, not the vendor — worth knowing, because a reviewer reading <code>ask_claude()</code> will otherwise assume Claude is being called.</td></tr>
+  <tr><td class="nowrap"><strong>OpenAI <span class="mono">text-embedding-3-small</span></strong></td>
+      <td>The embedding model, 1536 dimensions, reached through Portkey's virtual key.</td>
+      <td>Turns policy chunks and user questions into vectors. 1536 is hard-coded into the <span class="mono">exit_docs.embedding</span> column and re-checked by the ingest script, so a model swap fails loudly instead of silently corrupting the index.</td></tr>
+</table>
+
+<div class="callout">
+  <p><span class="lbl">Two consequences of the Claude → Azure migration that show up in the code.</span></p>
+  <p>(1) The gateway model has extended thinking enabled, so <code>content[0]</code> is sometimes a
+  <em>thinking</em> block with no text. <span class="mono">agents/llm.py</span> searches for the first
+  block of <code>type: "text"</code> instead of assuming index 0, and raises a clear error naming
+  <code>stop_reason</code> when a reasoning model spends its whole budget before emitting text.</p>
+  <p>(2) The new model emits typographic apostrophes (<span class="mono">don’t</span>) where the old
+  one emitted ASCII, which broke the /ask refusal detector. It now normalises the apostrophe first.</p>
+</div>
+
+<h3>2.4 Everything else</h3>
+<table>
+  <tr><th style="width:20%">Technology</th><th style="width:34%">What it is</th><th>How it is used here / why chosen</th></tr>
+  <tr><td class="nowrap"><strong>Tesseract OCR</strong><br>(via <span class="mono">pytesseract</span> + Pillow)</td>
+      <td>Open-source optical character recognition — reads text out of an image.</td>
+      <td><strong>Real OCR, not simulated.</strong> <span class="mono">agents/doc_collection.py</span> downloads an uploaded document from Storage, runs <code>pytesseract.image_to_string</code> against the actual Tesseract binary, then keyword-checks the extracted text (an NDA must contain both "non-disclosure/confidential" <em>and</em> "signature/signed", plus the employee's own name and a date). Chosen over a vision LLM because the checks are deterministic substring rules — an LLM would add cost, latency and a hallucination risk for a task that is exact matching. Binary path falls back to the <span class="mono">TESSERACT_PATH</span> env var when not on PATH.</td></tr>
+  <tr><td class="nowrap"><strong>Google Calendar API</strong><br>(OAuth 2.0, <span class="mono">google-api-python-client</span>)</td>
+      <td>Calendar event creation.</td>
+      <td><strong>Real events are created.</strong> When the HR agent writes KT tasks, <span class="mono">calendar_booking.py</span> books an event per task and stores the Google event id back on <span class="mono">exit_tasks.kt_event_id</span>. <span class="badge b-man">demo-scale</span> One shared demo Google account authorised once via <span class="mono">agents/oauth_setup.py</span> holds every booking — there is no per-user Google login. Scope is <code>calendar.events</code> only (least privilege). If the OAuth vars are unset, bookings are logged and never raise.</td></tr>
+  <tr><td class="nowrap"><strong>Gmail SMTP</strong><br>(<code>smtplib</code> / denomailer)</td>
+      <td>Outbound email over <span class="mono">smtp.gmail.com:465</span> with an app password.</td>
+      <td><strong>Real mail is delivered.</strong> Python side uses stdlib <code>smtplib</code>; the <span class="mono">forward-to-hr</span> Edge Function uses denomailer against the same account. Sends always come from <span class="mono">aswindevv2005@gmail.com</span> and go to the recipient's own address from <span class="mono">profiles.email</span> — never redirected to one test inbox. <span class="badge b-man">dev gate</span> If <span class="mono">EMAIL_TEST_RECIPIENT</span> is unset, every send degrades to a printed dev-log line instead of a network call. It is currently set, so real sends are on.</td></tr>
+  <tr><td class="nowrap"><strong>python-dotenv, requests, typing_extensions</strong></td>
+      <td>Env loading, HTTP, typed dicts.</td>
+      <td>Supporting libraries for the agent service. <code>load_dotenv(..., override=True)</code> is deliberate — a stale Windows user-level <span class="mono">ANTHROPIC_BASE_URL</span> was shadowing the correct value.</td></tr>
+</table>
+
+<div class="callout">
+  <p><span class="lbl">Small drift worth owning if asked.</span>
+  <span class="mono">agents/requirements.txt</span> lists seven packages but omits
+  <span class="mono">pytesseract</span> and <span class="mono">Pillow</span>, which
+  <span class="mono">doc_collection.py</span> imports. They are installed in the venv, so it runs —
+  but a fresh <code>pip install -r requirements.txt</code> would not reproduce the OCR agent.</p>
+</div>
+
+<!-- ==================================================================== -->
+<h2 class="pb">3. What RAG is, in this project</h2>
+
+<h3>The plain-language version</h3>
+<p>
+A language model does not know your company's exit policy. You could paste the whole policy into
+every question, but that is expensive and the model loses the thread in long text.
+<strong>RAG — Retrieval-Augmented Generation</strong> — is the cheap fix: keep the policy in a
+database, fetch only the two or three passages that actually relate to the question, and hand
+just those to the model along with the question. The model answers from what it was handed,
+and you can show the employee which sections the answer came from.
+</p>
+
+<h3>The five steps, and exactly what each one is here</h3>
+<table>
+  <tr><th style="width:8%">Step</th><th style="width:22%">What happens</th><th>The concrete implementation in this repo</th></tr>
+  <tr><td><strong>1. Chunk</strong></td>
+      <td>Split the document into passages small enough to be precise.</td>
+      <td><span class="mono">scripts/ingest_docs.js</span> reads <span class="mono">scripts/exit_policy.md</span> and splits on section headings — a new chunk starts at every <span class="mono">§n.n Title</span> line, and following paragraphs attach to it. <strong>One chunk = one policy section</strong>, deliberately, so a citation can never point at section 4.1 for text that actually came from 4.2. Result: <strong>67 chunks</strong> currently in the table.</td></tr>
+  <tr><td><strong>2. Embed</strong></td>
+      <td>Turn each chunk into a list of numbers (a vector) that encodes its meaning.</td>
+      <td><code>POST {PORTKEY_BASE_URL}/v1/embeddings</code> with <strong>OpenAI <span class="mono">text-embedding-3-small</span></strong> (1536 dimensions) via the Portkey virtual key. The script asserts <code>embedding.length === 1536</code> before inserting, so a model change fails on ingest rather than at query time.</td></tr>
+  <tr><td><strong>3. Store</strong></td>
+      <td>Save chunk text + vector so you can search by meaning.</td>
+      <td>Table <strong><span class="mono">exit_docs</span></strong> — <span class="mono">id, source, section, content, embedding vector(1536)</span> — with an <strong>HNSW index</strong> using <code>vector_cosine_ops</code>. HNSW was chosen over ivfflat because ivfflat needs training data and returns poor results until the table is large; HNSW works correctly from the very first row. Ingest is idempotent: it deletes prior rows for that source before re-inserting.</td></tr>
+  <tr><td><strong>4. Retrieve</strong></td>
+      <td>Embed the question the same way, find the nearest chunks.</td>
+      <td>SQL function <strong><span class="mono">match_exit_docs(query_embedding vector(1536), match_count int default 4)</span></strong> (migration <span class="mono">0003_rag.sql</span>). It orders by pgvector's cosine-distance operator <code>&lt;=&gt;</code> and returns <code>1 - distance</code> as a similarity score. The app requests <strong>top-k = 4</strong>.</td></tr>
+  <tr><td><strong>5. Generate</strong></td>
+      <td>Give the model the retrieved text plus the question; it answers from that.</td>
+      <td>Edge Function <strong><span class="mono">supabase/functions/ask</span></strong>. Builds the prompt as <code>[Section title]\ncontent</code> blocks, calls <span class="mono">gpt-5.6-sol</span> through Portkey, and returns <code>{ answer, sources, refused, general }</code> to the browser.</td></tr>
+</table>
+
+<pre>
+  Employee types a question in the Help page
+              │
+              ▼
+  ┌──────────────────────────────────────────────────────────┐
+  │  Edge Function  /ask     (runs in Supabase's cloud)      │
+  │                                                          │
+  │  1. embed(question) ──► Portkey ──► text-embedding-3-small│
+  │                                       └─► 1536 numbers   │
+  │  2. rpc match_exit_docs(vector, match_count = 4)          │
+  │         └─► pgvector HNSW cosine search over exit_docs    │
+  │             └─► top 4 chunks + similarity score           │
+  │  3. context = "[§4.2 Final settlement]\n<text>" × 4       │
+  │  4. gpt-5.6-sol answers, returning JSON:                  │
+  │         { scope, answer, sections }                       │
+  └──────────────────────────────────────────────────────────┘
+              │
+              ▼
+  { answer, sources: [{source, section}], refused, general }
+</pre>
+
+<h3>What makes this implementation careful rather than naive</h3>
+<ul>
+  <li><strong>The model reports its own citations as data, not prose.</strong> It must return a JSON
+      object with a <code>sections</code> array listing the section titles it used. The UI renders the
+      citation line from that array. A naive version lets the model write "Sources: …" into its answer,
+      which then disagrees with whatever the UI lists separately.</li>
+  <li><strong>Three-way scope, not two.</strong> <code>scope</code> is <span class="mono">policy</span>
+      (the context answers it), <span class="mono">general</span> (not in the policy, but it is a
+      reasonable work question — give general guidance and <em>never</em> state a company-specific
+      number as if it were this company's rule), or <span class="mono">refused</span> (nothing to do
+      with work — one sentence, contact HR). This distinction matters because an employee will act on
+      a notice period or a settlement figure; an invented one is the failure that actually hurts.</li>
+  <li><strong>A similarity floor.</strong> Below cosine similarity <strong>0.35</strong> the top chunk
+      is not genuinely relevant (greetings, chit-chat), so the answer is still returned but
+      <em>no citations are attached</em> — unrelated sections are never shown as if they grounded it.</li>
+  <li><strong>A refusal fallback path.</strong> If the model ignores the JSON contract, a wording
+      heuristic classifies "I don't have…" as a refusal, so the employee still gets the
+      <em>Forward to HR</em> button rather than a dead end.</li>
+  <li><strong>Forward-to-HR never silently fails.</strong> If Gmail SMTP times out (8 s cap), the
+      <span class="mono">forward-to-hr</span> function writes the question to <span class="mono">agent_runs</span>
+      with <code>status='delivery_failed'</code> and tells the employee the truth — that it is logged
+      and may be delayed — instead of showing a generic error.</li>
+</ul>
+
+<h3>Why pgvector instead of a dedicated vector database</h3>
+<table>
+  <tr><th style="width:26%">Reason</th><th>Detail</th></tr>
+  <tr><td><strong>One database, one backup, one set of credentials</strong></td>
+      <td>Pinecone/Weaviate/Qdrant would be a second managed service with its own key, SDK, billing, uptime and backup story. The corpus here is 67 chunks of one policy document — that does not justify a second system.</td></tr>
+  <tr><td><strong>Security actually composes</strong></td>
+      <td>This is the decisive reason. <span class="mono">exit_docs</span> has RLS enabled with <em>zero</em> policies, so the browser's anon key reads nothing from it. And <code>match_exit_docs</code> is deliberately <strong>not</strong> <code>SECURITY DEFINER</code>, so it runs with the caller's rights and inherits that same denial. The only path to the corpus is the service-key <span class="mono">/ask</span> function — which makes /ask a genuine security boundary where questions can be logged, rate-limited and redacted, not a convenience wrapper around a table the browser could already read. An external vector DB would sit outside Postgres' permission model entirely, and you would have to rebuild that boundary by hand.</td></tr>
+  <tr><td><strong>No sync problem</strong></td>
+      <td>A separate vector store must be kept consistent with the relational data. Here a chunk is a row in the same database as everything else; there is nothing to drift.</td></tr>
+  <tr><td><strong>Joins are free</strong></td>
+      <td>A retrieved chunk can be joined to any other table in the same query. Across a network boundary that becomes application-side stitching.</td></tr>
+  <tr><td><strong>HNSW is good enough at this scale</strong></td>
+      <td>Dedicated vector DBs earn their keep at millions of vectors with sharding and filtered search. At 67 — or 67,000 — a Postgres HNSW index answers in single-digit milliseconds.</td></tr>
+</table>
+
+<!-- ==================================================================== -->
+<h2 class="pb">4. Architecture — hub and spoke</h2>
+
+<h3>The pattern</h3>
+<p>
+<strong>Hub-and-spoke</strong> means one <em>Supervisor</em> agent (the hub) owns the case and decides
+which specialist agent (a spoke) runs next. <strong>Spokes never talk to each other.</strong>
+The IT agent does not call the Finance agent; it returns to the hub, and the hub decides.
+</p>
+<p>
+This is a deliberate choice over letting agents call each other freely. With one hub there is exactly
+one place that knows the order of stages, one place that handles a rejection, and one ordered trace
+to read when something goes wrong. Free-form agent-to-agent messaging gives you emergent loops and
+no single point to reason about.
+</p>
+<div class="callout info">
+  <p><span class="lbl">Naming note, in case it comes up.</span> "Hub-and-spoke" here is an
+  <em>architecture pattern</em>. It has nothing to do with HubSpot — there is no CRM anywhere in this
+  project. Likewise the agent framework is <strong>LangGraph</strong>, not CrewAI.</p>
+</div>
+
+<h3>The Supervisor graph, as actually coded</h3>
+<p><span class="mono">agents/supervisor.py</span> builds a LangGraph <code>StateGraph</code> over a
+typed state <code>{ case_id, kt_text, interview_text, simulate_rejection, log }</code>:</p>
+
+<pre>
+                      ┌─────────────────────────────────────┐
+                      │   SUPERVISOR  (hub)                 │
+                      │   agents/supervisor.py              │
+                      │   LangGraph StateGraph, compiled    │
+                      └─────────────────────────────────────┘
+                                     │  entry point
+                                     ▼
+   ┌────────────────────────────────────────────────────────────────┐
+   │ hr            checklist_generator_agent.generate()             │
+   │               kt_document_reviewer_agent.review()  (if kt_text)│
+   │               smart_routing.pick_approver(case,'hr')   [tool]  │
+   └────────────────────────────────────────────────────────────────┘
+                                     ▼
+   ┌────────────────────────────────────────────────────────────────┐
+   │ manager_gate  smart_routing.pick_approver(case,'manager')      │
+   │               records 'approved' or 'rejected' to agent_runs   │
+   └────────────────────────────────────────────────────────────────┘
+              approved │                          │ rejected
+                       ▼                          ▼
+   ┌───────────────────────────────┐   ┌──────────────────────────────┐
+   │ it   it_deprovisioning_agent  │   │ escalate                     │
+   │      .generate()              │   │  insert exit_tasks row:      │
+   │      smart_routing('it')      │   │  "Escalated: manager         │
+   └───────────────────────────────┘   │   rejected KT plan"          │
+                       ▼               │  escalation_state='open'     │
+   ┌───────────────────────────────┐   │  → END  (a human picks it up)│
+   │ compliance                    │   └──────────────────────────────┘
+   │   compliance_agent            │
+   │     .run_for_case()           │       ── never auto-executes
+   │   multi_system_clearance          past a human gate
+   │     .consolidate()      [tool]│
+   └───────────────────────────────┘
+                       ▼
+   ┌───────────────────────────────┐
+   │ finance  finance_agent        │
+   │          .check_clearance()   │
+   └───────────────────────────────┘
+                       ▼
+   ┌───────────────────────────────┐
+   │ assess  exit_intel_agent      │
+   │           .run_per_case()     │
+   │         risk_agent            │
+   │           .run_for_case()     │
+   └───────────────────────────────┘
+                       ▼
+                      END
+</pre>
+
+<p>Two things in that diagram are worth naming explicitly:</p>
+<ul>
+  <li><strong>Tool calls vs. graph nodes.</strong> <span class="mono">smart_routing</span> (#11) and
+      <span class="mono">multi_system_clearance</span> (#15) are <em>not</em> top-level nodes. They are
+      invoked from inside the hr/manager/it and compliance nodes respectively — the same way a tool is
+      called from within a step, rather than being a step.</li>
+  <li><strong>Escalation does not loop back.</strong> A rejected gate writes a visible task row and ends
+      the graph. It does not retry or re-route itself. That is the same posture as the IT agent never
+      writing <code>status='done'</code>: <em>an agent proposes, a human disposes.</em></li>
+</ul>
+
+<h3>The business flow the graph implements</h3>
+<pre>
+ Resignation ──► HR / KT ──► Manager approval ──► IT ──► Compliance ──► Finance ──► Relieving
+     │              │               │              │          │            │            │
+  employee       LLM builds     HUMAN GATE      plan is    NDA +       HUMAN GATE     HR issues
+  submits        checklist +    manager signs   generated  assets +    finance marks  the letter;
+  last day       KT tasks;      off every KT    only when  access      dues settled   DB function
+  + reason       manager is     item            the gate   verified                   re-checks
+                 emailed                        opens                                 every stage
+</pre>
+
+<h3>Two ways the pipeline is driven</h3>
+<table>
+  <tr><th style="width:16%">Path</th><th style="width:26%">Entry point</th><th>Behaviour</th></tr>
+  <tr><td><strong>CLI / demo</strong></td>
+      <td><code>python -m agents.run_case &lt;case_id&gt;</code></td>
+      <td>Runs the <em>whole</em> supervisor graph in one go, streaming the live trace. The manager gate is auto-approved (or auto-rejected with <code>--reject</code>). This is the path you run in a terminal to show the hub→spoke→hub handoffs.</td></tr>
+  <tr><td><strong>Browser / real</strong></td>
+      <td>Nine routes on <span class="mono">agents/service.py</span> (localhost:8787)</td>
+      <td>Deliberately <strong>not</strong> the full graph. Running the whole graph on resignation would auto-approve the manager gate and complete IT, finance and risk the instant a case is opened — finishing an exit nobody has reviewed. Instead each real human action re-enters the pipeline at its own stage.</td></tr>
+</table>
+
+<div class="callout">
+  <p><span class="lbl">Why the browser path needed a <span class="mono">/manager-approve</span> route.</span>
+  Stage-gating only works if every gate can <em>open</em> later. The rejection branch had a trigger
+  (<span class="mono">/reject-manager-task</span>); the approval branch had none. A browser-created case
+  therefore got its HR checklist and stopped forever: nothing outside the graph ever called
+  <code>it_agent.generate_plan</code>, so no <span class="mono">stage='it'</span> rows were created,
+  compliance sat on "no IT task found", and the relieving gate could never open. That was a real bug,
+  fixed by adding the mirror route. It never performs the approval itself — it re-reads the case with
+  the service key and advances only when every non-escalation manager task is done and no escalation
+  is open.</p>
+</div>
+
+<h3>Observability — agents are visible, by design</h3>
+<p>Every agent node is wrapped in <code>@traced_node</code> from <span class="mono">agents/trace.py</span>,
+which prints live to the terminal as it runs: entry with inputs, every LLM call with model, latency and
+token counts, every DB write, then output and elapsed time — indented by call depth so hub→spoke→hub
+reads in order. Output is flushed per line so it appears as it happens, colours auto-disable when piped
+to a file, and field names in a redact list (<span class="mono">password, ssn, email, token, api_key</span>)
+are masked. <code>TRACE_LEVEL</code> switches between <span class="mono">full | summary | off</span>.</p>
+<pre>
+┌─ Supervisor -- HR stage  ▸ start
+│  inputs: {"case_id": "13eaa5fe-…", "simulate_rejection": false, "log": []}
+│  ┌─ Checklist Generator agent (#5)  ▸ start
+│  │  ↳ llm  @azure-openai-eus2/gpt-5.6-sol   2.41s  in=412 out=98 tok
+│  │  ↳ db   insert exit_tasks   (7 rows)
+│  └─ Checklist Generator agent (#5)  ✓ done  2.63s
+│  ↳ db   insert agent_runs  (1 rows)  hr: checklist + kt-review done
+└─ Supervisor -- HR stage  ✓ done  3.02s
+</pre>
+<p>Because the terminal trace is stdout only, the same stage transitions are also persisted to the
+<span class="mono">agent_runs</span> table, which is what the HR dashboard's <em>Agent activity</em>
+page reads — so a non-terminal user can still see that the agents ran.</p>
+
+<!-- ==================================================================== -->
+<div class="landscape">
+
+<h2>5. All 24 agents</h2>
+
+<p>The company brief (<span class="mono">agent_requirements.md</span>) specifies 24 capabilities.
+Those are delivered by <strong>~14 Python modules plus one Edge Function</strong> — several
+capabilities are different <em>modes or triggers</em> of one underlying agent rather than duplicated
+code. Where a capability is a thin named wrapper over another module, the table says so; that is the
+project's stated build rule ("reuse existing verified logic — wrap, don't duplicate").</p>
+
+<p><strong>Status legend:</strong>
+<span class="badge b-work">WORKING</span> real logic, real data, verified ·
+<span class="badge b-man">MANUAL</span> works, but only when a human runs it — no scheduler ·
+<span class="badge b-mock">MOCK / DEMO-SCALE</span> the external dependency is a stand-in ·
+<span class="badge b-human">HUMAN</span> a person, not an LLM agent.
+</p>
+
+<table>
+  <tr>
+    <th style="width:3%">#</th>
+    <th style="width:14%">Agent</th>
+    <th style="width:13%">File</th>
+    <th style="width:24%">What it does</th>
+    <th style="width:20%">Reads / writes</th>
+    <th style="width:14%">Trigger</th>
+    <th style="width:12%">Real status</th>
+  </tr>
+
+  <tr>
+    <td>1</td><td><strong>Manager</strong></td>
+    <td><span class="mono">service.py</span> routes + ManagerPages.jsx</td>
+    <td>The manager approval gate. Reviews each KT task, then signs one clearance per employee. Approve advances the case to IT; Reject opens an escalation for HR.</td>
+    <td>Reads <span class="mono">manager_case_view</span>, <span class="mono">exit_tasks</span>. Writes <span class="mono">exit_tasks.status</span>, <span class="mono">agent_runs</span>.</td>
+    <td>Human click → <span class="mono">/manager-approve</span> or <span class="mono">/reject-manager-task</span></td>
+    <td><span class="badge b-human">HUMAN GATE</span> — deliberately not an LLM</td>
+  </tr>
+
+  <tr>
+    <td>2</td><td><strong>HR Agent</strong></td>
+    <td><span class="mono">hr_agent.py</span></td>
+    <td>Two LangGraph subgraphs. <em>checklist</em>: role + department → 2–4 HR tasks and 2–4 manager KT tasks, with due dates at last-working-day −3 and −1 days. <em>kt-review</em>: reads a handover document and flags gaps. Fires the KT reminder email and books calendar events.</td>
+    <td>Reads <span class="mono">exit_cases</span>, <span class="mono">exit_tasks</span>. Writes <span class="mono">exit_tasks</span>, <span class="mono">kt_reviews</span>.</td>
+    <td>Per case — via supervisor, <span class="mono">/activate-exit</span>, or CLI</td>
+    <td><span class="badge b-work">WORKING</span></td>
+  </tr>
+
+  <tr>
+    <td>3</td><td><strong>IT Agent</strong></td>
+    <td><span class="mono">it_agent.py</span></td>
+    <td>LLM generates the deprovisioning plan as <span class="mono">stage='it'</span> tasks. Prompt is tuned so titles hit the IT dashboard's own keyword buckets (identity/SSO, source control, assets, SaaS). <strong>Never writes <code>status='done'</code></strong> — it only proposes.</td>
+    <td>Reads <span class="mono">exit_cases</span>, <span class="mono">exit_tasks</span>. Writes <span class="mono">exit_tasks</span>.</td>
+    <td>Supervisor <span class="mono">it</span> node, or <span class="mono">/manager-approve</span> once every KT task is signed. Idempotent.</td>
+    <td><span class="badge b-work">WORKING</span></td>
+  </tr>
+
+  <tr>
+    <td>4</td><td><strong>Finance Agent</strong></td>
+    <td><span class="mono">finance_agent.py</span></td>
+    <td>Deterministic clearance gate — <strong>no LLM</strong>. Clears only when hr + manager + it tasks are all done <em>and</em> <span class="mono">exit_cases.finance_cleared</span> is true. Otherwise blocks with the reason "dues/settlement not confirmed". Fires the completion email on the pending→done transition.</td>
+    <td>Reads <span class="mono">exit_cases</span>, <span class="mono">exit_tasks</span>. Writes <span class="mono">exit_tasks</span>.</td>
+    <td>Supervisor <span class="mono">finance</span> node, or <span class="mono">/finance-settle-check</span></td>
+    <td><span class="badge b-work">WORKING</span></td>
+  </tr>
+
+  <tr>
+    <td>5</td><td><strong>Exit Checklist Generator</strong></td>
+    <td><span class="mono">checklist_generator_agent.py</span></td>
+    <td>Named, individually traced wrapper over <code>hr_agent.generate_checklist</code>. Exists so the capability appears as its own line in the trace. Does not reimplement anything.</td>
+    <td>(delegates to #2)</td>
+    <td>Supervisor <span class="mono">hr</span> node</td>
+    <td><span class="badge b-work">WORKING</span> (wrapper)</td>
+  </tr>
+
+  <tr>
+    <td>6</td><td><strong>Email Drafting</strong></td>
+    <td><span class="mono">email_drafting_agent.py</span> over <span class="mono">notifications.py</span></td>
+    <td>The single routing point for all seven email types: KT reminder, overdue warning, resignation notice, completion notice, relieving-letter notice, SLA escalation, document reminder. Records every send to <span class="mono">agent_runs</span> with a real outcome — <span class="mono">smtp_accepted</span>, <span class="mono">dev_logged</span>, or <span class="mono">failed</span>, never a fabricated delivery claim.</td>
+    <td>Reads <span class="mono">profiles</span>, <span class="mono">exit_cases</span>. Writes <span class="mono">agent_runs</span>.</td>
+    <td>Event-driven — called by whichever agent reaches that stage</td>
+    <td><span class="badge b-work">WORKING</span> — real Gmail SMTP. <span class="badge b-man">Templated, not LLM-written</span></td>
+  </tr>
+
+  <tr>
+    <td>7</td><td><strong>FAQ Chatbot (RAG)</strong></td>
+    <td><span class="mono">supabase/functions/ask</span></td>
+    <td>Employee Q&amp;A over the exit policy. Embeds the question, retrieves top-4 chunks from pgvector, answers with citations, and classifies each answer as policy / general / refused. See §3.</td>
+    <td>Reads <span class="mono">exit_docs</span> via <code>match_exit_docs</code>. Writes nothing.</td>
+    <td>Employee types a question (Help page)</td>
+    <td><span class="badge b-work">WORKING</span> — deployed Edge Function</td>
+  </tr>
+
+  <tr>
+    <td>8</td><td><strong>Exit Interview Summarizer</strong></td>
+    <td><span class="mono">exit_intel_agent.py</span> (per-case mode)</td>
+    <td>LLM turns interview text into summary, sentiment, themes, rehire eligibility and a rationale. Two-node subgraph: analyze → persist.</td>
+    <td>Reads <span class="mono">exit_cases</span>. Writes <span class="mono">exit_interviews</span>.</td>
+    <td>Per case — employee submits the interview form → <span class="mono">/submit-exit-interview</span>; also the supervisor <span class="mono">assess</span> node</td>
+    <td><span class="badge b-work">WORKING</span></td>
+  </tr>
+
+  <tr>
+    <td>9</td><td><strong>SLA Escalation</strong></td>
+    <td><span class="mono">sla_escalation.py</span></td>
+    <td>Scans every pending task past its due date by <strong>≥ 5 days</strong>, and composes an escalation naming the specific blocker, the days overdue, and the downstream impact. Sends to the <em>blocker</em> (HR or the manager), not the employee. Pure arithmetic — no LLM.</td>
+    <td>Reads <span class="mono">exit_tasks</span>, <span class="mono">exit_cases</span>, <span class="mono">profiles</span>. Writes <span class="mono">agent_runs</span>; sends email.</td>
+    <td><code>python -m agents.sla_escalation</code></td>
+    <td><span class="badge b-man">MANUAL</span> — the brief says "monitors"; <strong>nothing schedules it</strong></td>
+  </tr>
+
+  <tr>
+    <td>10</td><td><strong>KT Document Reviewer</strong></td>
+    <td><span class="mono">kt_document_reviewer_agent.py</span></td>
+    <td>Named wrapper over <code>hr_agent.review_kt_document</code>. LLM checks a handover document for completeness by role, and splits the output: neutral actionable gap tasks the employee can see, evaluative summary into HR/manager-only <span class="mono">kt_reviews</span>.</td>
+    <td>(delegates to #2) Writes <span class="mono">exit_tasks</span>, <span class="mono">kt_reviews</span>.</td>
+    <td>Supervisor <span class="mono">hr</span> node, when KT text is supplied</td>
+    <td><span class="badge b-man">MANUAL INPUT</span> — <strong>there is no KT upload in the UI.</strong> The Knowledge-transfer page is read-only; document text is passed as a file path from the CLI</td>
+  </tr>
+
+  <tr>
+    <td>11</td><td><strong>Smart Routing</strong></td>
+    <td><span class="mono">smart_routing.py</span></td>
+    <td>Picks the real approver profile for a stage, preferring a department match and skipping anyone with <span class="mono">out_of_office = true</span> in favour of a real delegate account. Verified live: setting Siva out-of-office routed to "Divya (HR Delegate)"; reverting routed back.</td>
+    <td>Reads <span class="mono">profiles</span>, <span class="mono">exit_cases</span>. Writes <span class="mono">agent_runs</span>.</td>
+    <td><strong>Tool call</strong> from the hr / manager / it supervisor nodes</td>
+    <td><span class="badge b-work">WORKING</span> — but see note ▸ the department-match branch never fires today</td>
+  </tr>
+
+  <tr>
+    <td>12</td><td><strong>Exit Risk Assessment</strong></td>
+    <td><span class="mono">risk_agent.py</span></td>
+    <td>Deterministic weighted score, <strong>no LLM</strong>: tenure 0.2, department criticality 0.3, interview sentiment 0.3, outstanding tasks 0.2. ≥ 0.66 high, ≥ 0.4 medium, else low. Also derives <span class="mono">rehire_eligible</span>.</td>
+    <td>Reads <span class="mono">exit_cases</span>, <span class="mono">profiles</span>, <span class="mono">exit_interviews</span>, <span class="mono">exit_tasks</span>. Writes <span class="mono">exit_cases</span> (HR-only columns).</td>
+    <td>Supervisor <span class="mono">assess</span> node; or CLI per case / <code>--all</code></td>
+    <td><span class="badge b-work">WORKING</span> — but tenure is a proxy ▸ see note</td>
+  </tr>
+
+  <tr>
+    <td>13</td><td><strong>Compliance Verification</strong></td>
+    <td><span class="mono">compliance_agent.py</span></td>
+    <td>Verifies NDA, asset return and access revocation before final clearance — by deterministic keyword match over tasks <em>or</em> an OCR-validated <span class="mono">case_documents</span> row. Blocks by leaving a <span class="mono">stage='compliance'</span> task pending with the exact missing items named. Idempotent (updates the same row). Excludes its own summary task from the match so it cannot block on itself.</td>
+    <td>Reads <span class="mono">exit_tasks</span>, <span class="mono">case_documents</span>, <span class="mono">exit_cases</span>, <span class="mono">agent_runs</span>. Writes <span class="mono">exit_tasks</span>, <span class="mono">compliance_checks</span>.</td>
+    <td>Supervisor <span class="mono">compliance</span> node; also re-run by four service routes after each human action</td>
+    <td><span class="badge b-work">WORKING</span> — 78 real check rows</td>
+  </tr>
+
+  <tr>
+    <td>14</td><td><strong>Dashboard Insights</strong></td>
+    <td><span class="mono">analytics_agent.py</span></td>
+    <td>Three-node subgraph: aggregate → narrate → persist. <strong>All arithmetic is Python <code>Counter</code> work over real rows; the LLM only writes the prose.</strong> This is a hard project rule — counts in a narrative must match a manual SQL count.</td>
+    <td>Reads <span class="mono">exit_cases</span>, <span class="mono">exit_tasks</span>. Writes <span class="mono">analytics_insights</span> (<span class="mono">agent_type='dashboard_insights'</span>, 5 rows live).</td>
+    <td><code>python -m agents.analytics_agent</code></td>
+    <td><span class="badge b-man">MANUAL</span> — the brief says "weekly"; <strong>nothing schedules it</strong></td>
+  </tr>
+
+  <tr>
+    <td>15</td><td><strong>Multi-System Clearance</strong></td>
+    <td><span class="mono">multi_system_clearance.py</span></td>
+    <td>Consolidates clearance across "IT asset management", "HRMS" and "finance" into one status object via three adapters with a real contract: enforced timeout (<code>ThreadPoolExecutor.result(timeout=…)</code>, not cosmetic), retry, error capture, and CLEARED / PENDING / FAILED / TIMEOUT status.</td>
+    <td>Reads <span class="mono">exit_tasks</span>, <span class="mono">case_documents</span>. Writes <span class="mono">agent_runs</span> only.</td>
+    <td><strong>Tool call</strong> from the compliance supervisor node</td>
+    <td><span class="badge b-mock">DEMO STAND-IN</span> — <strong>the three "external systems" are our own Supabase tables.</strong> ▸ see note</td>
+  </tr>
+
+  <tr>
+    <td>16</td><td><strong>Document Collection</strong></td>
+    <td><span class="mono">doc_collection.py</span></td>
+    <td>Three-node subgraph: gather → remind → validate. Required docs are a deterministic Python list (NDA + Asset Return Form, plus Company Asset Declaration for IT/Engineering); "missing" is computed as a set difference at read time. Validation runs <strong>real Tesseract OCR</strong> on the uploaded bytes and keyword-checks the text, plus the employee's own name and a date.</td>
+    <td>Reads <span class="mono">case_documents</span>, <span class="mono">exit_cases</span>, Storage. Writes <span class="mono">case_documents</span>, <span class="mono">agent_runs</span>; sends reminder email.</td>
+    <td>Employee upload → <span class="mono">/validate-document</span>; full run via CLI</td>
+    <td><span class="badge b-work">WORKING</span> — OCR is real. Reminder sweep is <span class="badge b-man">MANUAL</span></td>
+  </tr>
+
+  <tr>
+    <td>17</td><td><strong>Exit Workflow Optimizer</strong></td>
+    <td><span class="mono">workflow_optimizer.py</span></td>
+    <td>Identifies bottlenecks — which stages and which departments accumulate the most overdue days — and proposes reconfigurations. Reuses <code>sla_escalation.find_breaches</code> for the arithmetic rather than recomputing it.</td>
+    <td>Reads via #9's breach scan. Writes <span class="mono">analytics_insights</span> (<span class="mono">agent_type='workflow_optimizer'</span>, 4 rows live).</td>
+    <td><code>python -m agents.workflow_optimizer</code></td>
+    <td><span class="badge b-man">MANUAL</span></td>
+  </tr>
+
+  <tr>
+    <td>18</td><td><strong>Automated IT Deprovisioning</strong></td>
+    <td><span class="mono">it_deprovisioning_agent.py</span></td>
+    <td>Full plan → approve → execute → verify → audit loop. <em>Generate</em> wraps #3. <em>Approval</em> is the real human click in the IT dashboard. <em>Execute</em> runs each approved task through an adapter, then <strong>independently re-derives the expected action</strong> so verification can genuinely catch a mismatch rather than re-reading its own write. One <span class="mono">agent_runs</span> row per task is both the audit trail and the idempotency guard.</td>
+    <td>Reads <span class="mono">exit_tasks</span>, <span class="mono">agent_runs</span>. Writes <span class="mono">agent_runs</span> (14 rows live).</td>
+    <td>IT clicks Approve → <span class="mono">/execute-deprovisioning</span></td>
+    <td><span class="badge b-mock">MOCK EXECUTION</span> — <code>MockITAdapter</code>; <strong>no real Okta/Jamf call, nothing is actually disabled</strong></td>
+  </tr>
+
+  <tr>
+    <td>19</td><td><strong>Exit Interview Trend Analyst</strong></td>
+    <td><span class="mono">exit_intel_agent.py</span> (longitudinal mode)</td>
+    <td>Counts themes across every interview on file, assigns a severity, and writes rising-theme alerts deduped by (theme, department). Verified live: a re-run inserted "management" and "management support".</td>
+    <td>Reads <span class="mono">exit_interviews</span>, <span class="mono">exit_cases</span>. Writes <span class="mono">trend_alerts</span> (4 rows live).</td>
+    <td><code>python -m agents.exit_intel_agent longitudinal</code></td>
+    <td><span class="badge b-man">MANUAL</span></td>
+  </tr>
+
+  <tr>
+    <td>20</td><td><strong>Exit Process Orchestrator (Supervisor)</strong></td>
+    <td><span class="mono">supervisor.py</span></td>
+    <td>The hub. Compiled LangGraph over the stage nodes, with a conditional edge at the manager gate so a rejection routes to escalation instead of crashing the run. Persists every stage transition to <span class="mono">agent_runs</span> so the HR dashboard can show it.</td>
+    <td>Writes <span class="mono">agent_runs</span>, <span class="mono">exit_tasks</span> (escalation row). Everything else via the spokes.</td>
+    <td><code>python -m agents.run_case &lt;case_id&gt;</code></td>
+    <td><span class="badge b-work">WORKING</span></td>
+  </tr>
+
+  <tr>
+    <td>21</td><td><strong>Intelligent Rehire Assessment</strong></td>
+    <td><span class="mono">rehire_agent.py</span></td>
+    <td>Wraps the <span class="mono">rehire_eligible</span> flag #12 computes, and adds the confidence and evidence the brief asks for, plus its own independent execution record so the assessment is not merely a side effect of the risk write. Rationale comes from <span class="mono">exit_interviews.rehire_reason</span>.</td>
+    <td>Reads <span class="mono">exit_interviews</span>. Writes <span class="mono">agent_runs</span>.</td>
+    <td><code>python -m agents.rehire_agent &lt;case_id&gt;</code></td>
+    <td><span class="badge b-man">MANUAL</span> — 1 run recorded live</td>
+  </tr>
+
+  <tr>
+    <td>22</td><td><strong>Policy Compliance Auditor</strong></td>
+    <td><span class="mono">policy_auditor.py</span></td>
+    <td>Three checks per active case, all pure Python against real rows: <em>sla_breach</em> (task ≥ 5 days overdue), <em>missing_approval</em> (case has IT/finance tasks but no <span class="mono">agent_runs</span> row recording the manager gate), <em>skipped_step</em> (a finance task exists but compliance never ran). Prints a formatted report and persists it.</td>
+    <td>Reads <span class="mono">exit_cases</span>, <span class="mono">exit_tasks</span>, <span class="mono">agent_runs</span>. Writes <span class="mono">analytics_insights</span> (<span class="mono">agent_type='policy_compliance_auditor'</span>, 6 rows live), surfaced on HR → Policy audit.</td>
+    <td><code>python -m agents.policy_auditor</code></td>
+    <td><span class="badge b-man">MANUAL</span> — the brief says "periodically"; <strong>it is on-demand only, nothing imports or schedules it</strong></td>
+  </tr>
+
+  <tr>
+    <td>23</td><td><strong>Predictive Attrition</strong></td>
+    <td><span class="mono">attrition_agent.py</span></td>
+    <td>Three-node pipeline matching the brief's Data Collector → Analyzer → Recommender: gathers signals from cases, trend alerts and profiles; identifies at-risk groups; narrates retention suggestions.</td>
+    <td>Reads <span class="mono">exit_cases</span>, <span class="mono">trend_alerts</span>, <span class="mono">profiles</span>. Writes <span class="mono">analytics_insights</span> (<span class="mono">agent_type='predictive_attrition'</span>, 3 rows live).</td>
+    <td><code>python -m agents.attrition_agent</code></td>
+    <td><span class="badge b-man">MANUAL</span> — the brief says "on scheduled triggers"; <strong>no scheduler</strong>. Risk is identified at <em>department</em> level, not per named individual</td>
+  </tr>
+
+  <tr>
+    <td>24</td><td><strong>End-to-End Exit Automation (Capstone)</strong></td>
+    <td><span class="mono">e2e_automation.py</span></td>
+    <td>Composition only — no new agent logic, no new LLM calls. Four nodes: <em>initiate</em> (real <code>service.activate_case</code>), <em>coordinate</em> (the full supervisor graph), <em>SLA check</em> (reuses #9's breach finder, scoped to this one case so it cannot escalate unrelated cases as a side effect), <em>finalize</em> (reads back the persisted compliance/finance rows to decide <span class="mono">exit_cases.status</span>).</td>
+    <td>Reads <span class="mono">exit_cases</span>, <span class="mono">exit_tasks</span>, <span class="mono">profiles</span>. Writes <span class="mono">exit_cases.status</span>, <span class="mono">agent_runs</span>.</td>
+    <td><code>python -m agents.e2e_automation &lt;case_id&gt;</code> (<code>--reject</code> exercises the escalation branch)</td>
+    <td><span class="badge b-work">WORKING</span> — 3 runs recorded live</td>
+  </tr>
+</table>
+
+</div><!-- /.landscape -->
+
+<h3>Notes the table could not hold — read these before the Q&amp;A</h3>
+
+<div class="callout">
+  <p><span class="lbl">#15 Multi-System Clearance — what "demo stand-in" precisely means.</span>
+  There is one Supabase project here, not three integrated enterprise platforms. So
+  <code>HRMSAdapter</code> queries our <span class="mono">exit_tasks</span> where stage = 'hr' (plus the
+  NDA document), <code>ITAMAdapter</code> queries stage = 'it' (plus asset documents), and
+  <code>FinanceAdapter</code> queries stage = 'finance'. <strong>Every query is a real live query — no
+  hardcoded status values.</strong> What is stand-in is <em>which system</em> is being asked. The
+  adapter contract above them is production-shaped, so swapping in a real HRMS means overriding one
+  <code>_fetch()</code> method per adapter and changing nothing else in the file. A live run produced:
+  <span class="mono">it=cleared, hrms=pending ["Complete exit interview"], finance=pending ["Clear final
+  settlement dues"], overall=pending</span>.</p>
+</div>
+
+<div class="callout">
+  <p><span class="lbl">#18 IT Deprovisioning — what is mock and what is not.</span>
+  Real: the LLM-generated plan, the human approval click, the RLS-scoped status write, the independent
+  verification logic, and the per-task audit row. Mock: the adapter that would call Okta / Jamf /
+  Google Workspace. The module's own docstring states the reason plainly — <em>"a task marked done is
+  not proof deprovisioning actually executed"</em> — so the execute/verify/audit layer was built even
+  though the provider behind it is a stand-in. Two fault-injection adapters
+  (<code>_AlwaysFailAdapter</code>, <code>_AlwaysTimeoutAdapter</code>) exist specifically to prove the
+  verification step can fail.</p>
+</div>
+
+<div class="callout">
+  <p><span class="lbl">#11 Smart Routing — the branch that never fires.</span>
+  Department-match is real code over a real column, but in the current dataset no HR / manager / IT
+  profile has a non-null <span class="mono">department</span> (only employees do), so that branch always
+  falls through to the full candidate pool. The out-of-office branch <em>is</em> exercised and verified.
+  Ordering of "primary" vs "delegate" comes from <span class="mono">profiles.created_at</span>, i.e. real
+  insert order, not a hardcoded name.</p>
+</div>
+
+<div class="callout">
+  <p><span class="lbl">#12 Risk — tenure is a proxy, and it matters.</span>
+  There is no <span class="mono">hire_date</span> column anywhere in the schema. Tenure risk is derived
+  from <span class="mono">profiles.created_at</span> instead. Because all seed profiles were created
+  recently, every case currently reads as short tenure (0.9). The weighting and thresholds are real;
+  that one input is not yet. If asked "is the risk score real?" — the arithmetic is, one of its four
+  inputs is a placeholder until onboarding data exists.</p>
+</div>
+
+<div class="callout">
+  <p><span class="lbl">#6 Email — "drafting" is templating, not generation.</span>
+  The brief describes LLM-drafted emails. In practice <span class="mono">notifications.py</span> composes
+  from structured templates with no LLM call, for the same reason the finance agent has none: these are
+  fixed transactional notices where a model adds cost and variance and no value. The
+  <span class="mono">email_drafting_agent</span> layer adds routing, tracing, and honest outcome
+  recording on top.</p>
+</div>
+
+<!-- ==================================================================== -->
+<h2 class="pb">6. Agent workflow, step by step</h2>
+
+<p>One complete exit case, from the employee clicking Submit to HR issuing the relieving letter.
+<strong>A = automatic (an agent acts unprompted). H = human gate (nothing proceeds until a person
+clicks).</strong></p>
+
+<table>
+  <tr><th style="width:4%">Step</th><th style="width:5%">A/H</th><th style="width:18%">Who acts</th><th style="width:38%">What happens</th><th>What it produces</th></tr>
+
+  <tr><td>1</td><td><strong>H</strong></td><td>Employee</td>
+      <td>Logs in. <span class="mono">EmployeeLayout.jsx</span> checks for an <span class="mono">exit_cases</span> row; if there is none the employee is <em>redirected</em> to <span class="mono">/employee/resignation</span> and the dashboard is unreachable. They pick a last working day and an optional reason.</td>
+      <td>A form submission.</td></tr>
+
+  <tr><td>2</td><td>A</td><td>Edge Function <span class="mono">submit-resignation</span></td>
+      <td>Creates the case. Identity — employee id, name, email, department — is derived <strong>server-side from the caller's JWT</strong>, never trusted from the request body, so it cannot be spoofed. Manager and HR are looked up. This function deliberately triggers <em>no</em> agent.</td>
+      <td>One <span class="mono">exit_cases</span> row, status <span class="mono">open</span>.</td></tr>
+
+  <tr><td>3</td><td>A</td><td>Frontend → <span class="mono">/activate-exit</span> → <strong>HR Agent (#2, #5)</strong></td>
+      <td>The browser calls the local agent service. The LLM generates the checklist from role and department; HR tasks get due dates at last-working-day −3, KT tasks at −1. IT-owned titles the model mis-files into <code>manager_tasks</code> are dropped by <code>IT_OWNED_TITLE_RE</code>. Status → <span class="mono">in_progress</span>.</td>
+      <td><span class="mono">exit_tasks</span> rows (hr + manager stages); resignation-notice email to the manager; a Google Calendar event per KT task.</td></tr>
+
+  <tr><td>4</td><td><strong>H</strong></td><td>Employee</td>
+      <td>Works their checklist: marks HR tasks done, uploads documents (NDA, Asset Return Form, and for IT/Engineering a Company Asset Declaration), completes the exit interview form.</td>
+      <td>Task status updates; <span class="mono">case_documents</span> rows; an <span class="mono">exit_interviews</span> row.</td></tr>
+
+  <tr><td>5</td><td>A</td><td><strong>Document Collection (#16)</strong></td>
+      <td>On each upload the browser calls <span class="mono">/validate-document</span>. The agent downloads the object with the service key, runs real Tesseract OCR, and checks the text contains the required keyword groups plus the employee's own name and a date.</td>
+      <td><span class="mono">case_documents.status</span> → <span class="mono">validated</span> or <span class="mono">rejected</span>, with the reason.</td></tr>
+
+  <tr><td>6</td><td>A</td><td><strong>Exit Interview Summarizer (#8)</strong></td>
+      <td>On submit, <span class="mono">/submit-exit-interview</span> runs the LLM over the response: summary, sentiment, themes, rehire eligibility and rationale.</td>
+      <td><span class="mono">exit_interviews</span> enriched. <strong>HR-only</strong> — the employee's own page shows only "submitted", via a view carrying just case id and timestamp.</td></tr>
+
+  <tr><td>7</td><td><strong>H</strong></td><td>Manager — <strong>GATE 1 (#1)</strong></td>
+      <td>Reviews each KT task (Review / Reject), then signs <em>one</em> clearance per employee. The Sign button only activates once every KT task for that employee is approved. Reject instead writes an escalation row with <span class="mono">escalation_state='open'</span> and the case stops.</td>
+      <td>KT tasks done, or an escalation for HR.</td></tr>
+
+  <tr><td>8</td><td>A</td><td><span class="mono">/manager-approve</span> → <strong>IT Agent (#3, #18)</strong></td>
+      <td>The service <em>re-checks the gate itself</em> with the service key — it advances only when every non-escalation manager task is done and no escalation is open. Then it records the gate to <span class="mono">agent_runs</span> (the only source compliance reads for manager approval) and generates the deprovisioning plan.</td>
+      <td><span class="mono">stage='it'</span> tasks appear in the IT queue, all pending.</td></tr>
+
+  <tr><td>9</td><td><strong>H</strong></td><td>IT</td>
+      <td>Reviews the plan and approves each item. The agent never marks its own tasks done.</td>
+      <td>IT tasks → done.</td></tr>
+
+  <tr><td>10</td><td>A</td><td><strong>IT Deprovisioning execute (#18)</strong></td>
+      <td>After each approval the browser calls <span class="mono">/execute-deprovisioning</span>. Each approved task runs through the adapter; the expected action is re-derived independently and compared. <span class="badge b-mock">The adapter is a mock — nothing real is disabled.</span></td>
+      <td>One audit row per task in <span class="mono">agent_runs</span>; the IT dashboard shows a verification status.</td></tr>
+
+  <tr><td>11</td><td>A</td><td><strong>Compliance (#13)</strong> + <strong>Multi-System (#15)</strong></td>
+      <td>Re-runs after <em>every</em> human action above. Checks NDA, asset return and access revocation — satisfied either by a matching completed task or an OCR-validated document. Multi-system consolidates the three stand-in sources.</td>
+      <td><span class="mono">compliance_checks</span> rows; a compliance task left pending <em>with the exact missing items named</em> if anything is short.</td></tr>
+
+  <tr><td>12</td><td><strong>H</strong></td><td>Finance — <strong>GATE 2</strong></td>
+      <td>Anfia sees the queue of cases where hr/manager/it are done but dues are not settled, and clicks "Mark dues settled". This writes through the <code>finance_mark_dues_settled</code> RPC, not a table update — see §8 for why.</td>
+      <td><span class="mono">exit_cases.finance_cleared = true</span> + a dues note.</td></tr>
+
+  <tr><td>13</td><td>A</td><td><strong>Finance Agent (#4)</strong></td>
+      <td><span class="mono">/finance-settle-check</span> re-evaluates: all three prior stages done <em>and</em> <code>finance_cleared</code>. On the pending→done transition it fires the completion notice.</td>
+      <td>Finance task → done; completion email to the employee and HR.</td></tr>
+
+  <tr><td>14</td><td>A</td><td><strong>Risk (#12)</strong> + <strong>Rehire (#21)</strong></td>
+      <td>Scores the case on the four weighted factors and derives rehire eligibility with a rationale. Written to HR-only columns.</td>
+      <td><span class="mono">exit_cases.risk_score / risk_level / rehire_eligible</span>.</td></tr>
+
+  <tr><td>15</td><td><strong>H</strong></td><td>HR — <strong>GATE 3</strong></td>
+      <td>Clicks "Issue relieving letter". The UI offers it only when the case is clear — and the <strong>database re-checks independently</strong>: the RLS policy's <code>WITH CHECK</code> calls <code>exit_case_cleared_for_relieving(id)</code>, which requires <code>finance_cleared</code>, zero non-done tasks across hr/manager/it/finance, and all four stages actually present. A tampered request is rejected by Postgres.</td>
+      <td><span class="mono">relieving_letter_issued = true</span>, <span class="mono">issued_at</span>, <span class="mono">issued_by</span>, status → <span class="mono">completed</span>.</td></tr>
+
+  <tr><td>16</td><td>A</td><td><strong>Email (#6)</strong></td>
+      <td><span class="mono">/issue-relieving-letter</span> sends the closing notice.</td>
+      <td>Relieving-letter email; the employee's dashboard switches to the exit-complete view.</td></tr>
+</table>
+
+<h3>Where an exit can stop, and what happens</h3>
+<table>
+  <tr><th style="width:26%">Exception</th><th>Handling</th></tr>
+  <tr><td>Manager rejects the KT plan</td>
+      <td>Graph branches to <span class="mono">escalate</span>: an <span class="mono">exit_tasks</span> row titled "Escalated: manager rejected KT plan — HR review needed" with <span class="mono">escalation_state='open'</span>, then END. It does <strong>not</strong> auto-retry. HR sees it on the Escalations page and can re-route or resolve, each transition audited.</td></tr>
+  <tr><td>Compliance short an item</td>
+      <td>The compliance task stays pending with the specific reason ("NDA: pending; …"). Finance cannot complete, so the relieving gate stays shut.</td></tr>
+  <tr><td>A task goes ≥ 5 days overdue</td>
+      <td>#9 composes an escalation naming the blocker, days overdue and impact, and emails the blocker. <span class="badge b-man">Only when someone runs it.</span></td></tr>
+  <tr><td>Agent service is not running</td>
+      <td>Frontend calls are best-effort: the RLS-scoped write still lands, the follow-on pipeline call fails silently rather than blocking the click. The exception is the manager's Sign clearance, where a failure or <code>advanced:false</code> is surfaced in the UI on purpose.</td></tr>
+  <tr><td>A capstone run that cannot complete</td>
+      <td>#24 returns a clear <span class="mono">{"status": "blocked", "reason": …}</span> — a valid terminal state, not a crash and not a false success.</td></tr>
+</table>
+
+<!-- ==================================================================== -->
+<h2 class="pb">7. File / code map</h2>
+<p>Enough to answer "what is this file?" for anything on screen.</p>
+
+<h3>7.1 Agent service — <span class="mono">/agents</span> (Python)</h3>
+<table>
+  <tr><th style="width:26%">File</th><th>What it is</th></tr>
+  <tr><td><span class="mono">supervisor.py</span></td><td><strong>The hub.</strong> The LangGraph <code>StateGraph</code> with all stage nodes and the conditional manager-gate edge. Start here when explaining the architecture.</td></tr>
+  <tr><td><span class="mono">run_case.py</span></td><td><strong>The terminal entry point.</strong> <code>python -m agents.run_case &lt;case_id&gt;</code>. Thin wrapper over the supervisor that streams the live trace; supplies default KT and interview text so a bare run still exercises those spokes.</td></tr>
+  <tr><td><span class="mono">service.py</span></td><td><strong>The browser bridge.</strong> stdlib HTTP server on localhost:8787 with nine POST routes: <span class="mono">/activate-exit, /submit-exit-interview, /issue-relieving-letter, /validate-document, /execute-deprovisioning, /finance-settle-check, /manager-approve, /reject-manager-task, /escalation-audit</span>. Most end by re-running compliance for that one case.</td></tr>
+  <tr><td><span class="mono">trace.py</span></td><td>The <code>@traced_node</code> decorator plus <code>log_llm</code> / <code>log_db</code>. Indentation, colours, truncation, redaction, <code>TRACE_LEVEL</code>.</td></tr>
+  <tr><td><span class="mono">config.py</span></td><td>Loads <span class="mono">.env</span> (with <code>override=True</code>) and creates the one Supabase client, using the <strong>service key</strong> — correct here because this is server-side and never shipped to a browser.</td></tr>
+  <tr><td><span class="mono">llm.py</span></td><td>The only place an LLM is called. Plain HTTP <code>POST {ANTHROPIC_BASE_URL}/v1/messages</code> through Portkey; handles thinking blocks and empty-content reasoning responses; <code>ask_claude</code> / <code>ask_claude_json</code>.</td></tr>
+  <tr><td><span class="mono">hr_agent.py</span></td><td>#2 / #5 / #10 — checklist and KT review subgraphs, <code>IT_OWNED_TITLE_RE</code>, due-date derivation.</td></tr>
+  <tr><td><span class="mono">it_agent.py</span></td><td>#3 — deprovisioning plan generation, prompt tuned to the IT dashboard's keyword buckets.</td></tr>
+  <tr><td><span class="mono">it_deprovisioning_agent.py</span></td><td>#18 — generate wrapper + execute / verify / audit + <code>MockITAdapter</code> and two fault-injection adapters.</td></tr>
+  <tr><td><span class="mono">finance_agent.py</span></td><td>#4 — deterministic clearance gate, no LLM.</td></tr>
+  <tr><td><span class="mono">compliance_agent.py</span></td><td>#13 — NDA / asset / access verification, item-level tracing, <span class="mono">compliance_checks</span> upsert.</td></tr>
+  <tr><td><span class="mono">risk_agent.py</span></td><td>#12 — weighted scoring, department criticality map, thresholds.</td></tr>
+  <tr><td><span class="mono">rehire_agent.py</span></td><td>#21 — rehire eligibility with confidence and evidence.</td></tr>
+  <tr><td><span class="mono">exit_intel_agent.py</span></td><td>#8 (per-case) and #19 (longitudinal) — two subgraphs in one module.</td></tr>
+  <tr><td><span class="mono">analytics_agent.py</span></td><td>#14 — aggregate (Python) → narrate (LLM) → persist.</td></tr>
+  <tr><td><span class="mono">workflow_optimizer.py</span></td><td>#17 — bottleneck stats reusing #9's breach finder.</td></tr>
+  <tr><td><span class="mono">attrition_agent.py</span></td><td>#23 — gather → identify → narrate &amp; persist.</td></tr>
+  <tr><td><span class="mono">policy_auditor.py</span></td><td>#22 — the three policy checks and the formatted report.</td></tr>
+  <tr><td><span class="mono">sla_escalation.py</span></td><td>#9 — <code>find_breaches</code> (a pure function reused by #17 and #22) plus compose &amp; send.</td></tr>
+  <tr><td><span class="mono">smart_routing.py</span></td><td>#11 — approver selection by department and out-of-office.</td></tr>
+  <tr><td><span class="mono">multi_system_clearance.py</span></td><td>#15 — <code>SystemAdapter</code> contract and the three stand-in adapters.</td></tr>
+  <tr><td><span class="mono">doc_collection.py</span></td><td>#16 — required-doc list, classification, real OCR, validation rules, test-image generator.</td></tr>
+  <tr><td><span class="mono">notifications.py</span></td><td>The seven email templates and the SMTP send, with the dev-log gate.</td></tr>
+  <tr><td><span class="mono">email_drafting_agent.py</span></td><td>#6 — the routing/tracing/recording layer over the above.</td></tr>
+  <tr><td><span class="mono">calendar_booking.py</span></td><td>Google Calendar event creation; writes <span class="mono">exit_tasks.kt_event_id</span>.</td></tr>
+  <tr><td><span class="mono">oauth_setup.py</span></td><td>One-time admin script to obtain the Google refresh token. Never writes <span class="mono">.env</span> itself.</td></tr>
+  <tr><td><span class="mono">e2e_automation.py</span></td><td>#24 — the capstone composition.</td></tr>
+  <tr><td><span class="mono">e2e_test.py</span></td><td>Integration test: picks a seeded employee with no case, creates one, runs the pipeline, then re-queries the exact columns each dashboard reads.</td></tr>
+</table>
+
+<h3>7.2 Edge Functions — <span class="mono">/supabase/functions</span> (Deno/TypeScript)</h3>
+<table>
+  <tr><th style="width:26%">File</th><th>What it is</th></tr>
+  <tr><td><span class="mono">ask/index.ts</span></td><td>The RAG endpoint. Embed → <code>match_exit_docs</code> → generate → <code>{answer, sources, refused, general}</code>. Holds the system prompt, the 0.35 similarity floor, the JSON-repair parser and the refusal heuristic.</td></tr>
+  <tr><td><span class="mono">submit-resignation/index.ts</span></td><td>Creates the exit case with server-derived identity. Returns the existing case if one already exists (idempotent). Triggers no agent.</td></tr>
+  <tr><td><span class="mono">forward-to-hr/index.ts</span></td><td>Emails an unanswered question to HR on explicit click only. On SMTP failure, logs to <span class="mono">agent_runs</span> and tells the employee the truth.</td></tr>
+</table>
+
+<h3>7.3 Frontend — <span class="mono">/src</span></h3>
+<table>
+  <tr><th style="width:26%">File</th><th>What it is</th></tr>
+  <tr><td><span class="mono">main.jsx</span> / <span class="mono">App.jsx</span></td><td>Entry point; session handling and role resolution.</td></tr>
+  <tr><td><span class="mono">routes/AppRoutes.jsx</span></td><td>The whole route tree. Every role branch is guarded by <code>role === '…'</code> with a redirect otherwise.</td></tr>
+  <tr><td><span class="mono">routes/&lt;role&gt;/&lt;Role&gt;Layout.jsx</span></td><td>Per-role shell: sidebar, and the data fetch shared with every child page via outlet context. <span class="mono">EmployeeLayout</span> also holds the resignation gate.</td></tr>
+  <tr><td><span class="mono">routes/&lt;role&gt;/&lt;Role&gt;Pages.jsx</span></td><td>Every page for that role as a named export. HR has 11, Employee 9, IT 7, Manager 6, Finance 1.</td></tr>
+  <tr><td><span class="mono">lib/supabase.js</span></td><td>The single browser client — URL and <strong>anon key only</strong>.</td></tr>
+  <tr><td><span class="mono">lib/ktScope.js</span></td><td><code>caseClearanceState</code> — shared by the manager dashboard card and Clearances page so both agree on whether an employee is ready to sign.</td></tr>
+  <tr><td><span class="mono">lib/clearanceStatus.js</span>, <span class="mono">financeStatus.js</span>, <span class="mono">agentRunText.js</span>, <span class="mono">format.js</span></td><td>Shared derivation and formatting helpers, kept out of the page files so two pages cannot disagree.</td></tr>
+  <tr><td><span class="mono">components/</span></td><td><span class="mono">LoginPage</span>, <span class="mono">Sidebar</span>, <span class="mono">PageHead</span>, <span class="mono">EmployeeGroup</span>, <span class="mono">RoleSwitcher</span>.</td></tr>
+  <tr><td><span class="mono">styles/tokens.css</span>, <span class="mono">dashboards.css</span></td><td>The design tokens and the dashboard component styles. The approved design lives here.</td></tr>
+</table>
+
+<h3>7.4 Migrations and scripts</h3>
+<table>
+  <tr><th style="width:26%">File</th><th>What it is</th></tr>
+  <tr><td><span class="mono">0001_schema.sql</span></td><td>All base tables, indexes, the <code>vector</code> extension, and the HNSW index.</td></tr>
+  <tr><td><span class="mono">0002_rls.sql</span></td><td><strong>The security model.</strong> <code>app_current_role()</code>, RLS on every table, and the first restricted views. Read this one to explain security.</td></tr>
+  <tr><td><span class="mono">0003_rag.sql</span></td><td><code>match_exit_docs</code>, deliberately not <code>SECURITY DEFINER</code>.</td></tr>
+  <tr><td><span class="mono">0005</span>, <span class="mono">0019</span>, <span class="mono">0025</span></td><td><span class="mono">it_task_view</span> and <span class="mono">manager_case_view</span> — creation and later fixes (IT's view gained a lateral join to the latest verification status).</td></tr>
+  <tr><td><span class="mono">0006</span>, <span class="mono">0007</span>, <span class="mono">0009</span>, <span class="mono">0011</span></td><td><span class="mono">analytics_insights</span>, <span class="mono">kt_reviews</span>, <span class="mono">agent_runs</span>, <span class="mono">case_documents</span>.</td></tr>
+  <tr><td><span class="mono">0013</span>, <span class="mono">0014</span>, <span class="mono">0027</span></td><td>The finance role: the two columns, <code>finance_mark_dues_settled</code>, and <code>finance_reject_dues</code>.</td></tr>
+  <tr><td><span class="mono">0017</span>, <span class="mono">0018</span></td><td>The relieving letter: <code>exit_case_cleared_for_relieving</code> and the HR update policy that calls it.</td></tr>
+  <tr><td><span class="mono">0020_role_views_security_invoker.sql</span></td><td><strong>Important.</strong> Re-asserts <code>security_invoker = false</code> on all five role views. Supabase's Advisor flags these as an error; applying its suggested fix has broken the dashboards three times. If a dashboard suddenly shows zero rows, re-run this file first.</td></tr>
+  <tr><td><span class="mono">0024</span></td><td>The private <span class="mono">exit-documents</span> Storage bucket and its policies, keyed on <code>storage.foldername(name)[1]</code> being a case the caller owns.</td></tr>
+  <tr><td><span class="mono">0028</span></td><td>Re-stages the three IT-owned tasks that the checklist LLM had mis-filed as manager tasks, guarded by an EXISTS so it only touches cases that already have an IT plan.</td></tr>
+  <tr><td><span class="mono">scripts/seed.js</span>, <span class="mono">seed_delegates.js</span></td><td>103 demo profiles, cases for Emp001–010, and one real delegate account per role. Always pass <span class="mono">DEMO_EMAIL_DOMAIN=company.com</span>.</td></tr>
+  <tr><td><span class="mono">scripts/ingest_docs.js</span></td><td>The RAG ingest: chunk → embed → insert. Idempotent per source.</td></tr>
+  <tr><td><span class="mono">scripts/exit_policy.md</span></td><td>The source corpus — the 67 chunks come from here.</td></tr>
+  <tr><td><span class="mono">scripts/verify_*.cjs</span>, <span class="mono">e1_browser_test.cjs</span></td><td>Playwright verification scripts. They create disposable cases, assert against a real browser, and purge afterwards.</td></tr>
+</table>
+
+<!-- ==================================================================== -->
+<h2 class="pb">8. Database and security model</h2>
+
+<h3>8.1 Tables</h3>
+<table>
+  <tr><th style="width:15%">Table</th><th style="width:36%">Key columns</th><th>Purpose and access</th></tr>
+  <tr><td><span class="mono">profiles</span></td>
+      <td>id (FK → auth.users), role, full_name, email, employee_id, department, out_of_office</td>
+      <td>One row per user. <code>role</code> drives every policy. You may read your own row; HR may read all.</td></tr>
+  <tr><td><span class="mono">exit_cases</span></td>
+      <td>id, employee_id, employee_name, department, role_title, manager_id, hr_id, last_working_day, status, resignation_reason, finance_cleared, dues_note, finance_rejected, relieving_letter_issued, issued_at, issued_by · <strong>risk_level, risk_score, rehire_eligible</strong></td>
+      <td>One row per offboarding. <strong>Exactly one SELECT policy exists, for HR.</strong> Every other role reaches it only through a restricted view.</td></tr>
+  <tr><td><span class="mono">exit_tasks</span></td>
+      <td>id, case_id, stage, title, status, due_date, kt_event_id, reason, escalation_state</td>
+      <td>The checklist. <code>stage</code> (hr / manager / it / finance / compliance) routes a task to a dashboard. All five roles have a scoped policy — a checklist is not sensitive.</td></tr>
+  <tr><td><span class="mono">exit_interviews</span></td>
+      <td>case_id, summary, sentiment, themes, rehire_eligible, rehire_reason, reason_for_leaving, feedback, would_recommend, comments</td>
+      <td><strong>HR only.</strong> The employee's own page checks submission through a view exposing just case_id and created_at.</td></tr>
+  <tr><td><span class="mono">exit_docs</span></td>
+      <td>id, source, section, content, embedding vector(1536)</td>
+      <td>The RAG chunk store. <strong>RLS on, zero policies</strong> — deliberately unreadable by anyone but the service key.</td></tr>
+  <tr><td><span class="mono">case_documents</span></td>
+      <td>case_id, doc_type, file_path, status, validation_detail</td>
+      <td>One row per <em>submitted</em> upload. "Missing" is a set difference computed at read time, never a stored status.</td></tr>
+  <tr><td><span class="mono">compliance_checks</span></td>
+      <td>case_id, item, status, source, evidence, failure_reason, checked_at</td>
+      <td>Item-level compliance results (78 rows live). <span class="badge b-man">No migration file creates this table</span> — see §10.</td></tr>
+  <tr><td><span class="mono">agent_runs</span></td>
+      <td>case_id, stage, detail, agent, status, metadata, created_at</td>
+      <td>The durable agent log (323 rows) behind HR → Agent activity, and the audit trail / idempotency guard for #18. <span class="badge b-man">agent, status, metadata exist live but not in migration 0009.</span></td></tr>
+  <tr><td><span class="mono">kt_reviews</span></td>
+      <td>case_id, summary, gaps, complete</td>
+      <td>Evaluative KT findings. HR and the owning manager only — deliberately not in <code>exit_tasks.title</code>, which the employee reads verbatim.</td></tr>
+  <tr><td><span class="mono">analytics_insights</span></td>
+      <td>narrative, stats, agent_type</td>
+      <td>Narrative outputs from #14 / #17 / #22 / #23, separated by <code>agent_type</code>. HR only.</td></tr>
+  <tr><td><span class="mono">trend_alerts</span></td>
+      <td>theme, department, severity, detail</td>
+      <td>Rising-theme alerts from #19. HR only.</td></tr>
+</table>
+
+<h3>8.2 The security model, and why it is built this way</h3>
+<p>
+The frontend holds the <strong>anon key</strong>, which any user can read out of the JavaScript bundle.
+So the frontend cannot be where permissions are decided. Postgres is.
+</p>
+
+<h4>Layer 1 — default deny</h4>
+<p>RLS is enabled on every table. A table with RLS on and no matching policy returns <strong>zero rows</strong>
+and rejects writes. Nothing is visible unless a policy says so.</p>
+
+<h4>Layer 2 — one role helper</h4>
+<p><code>app_current_role()</code> returns the caller's role. It is <code>SECURITY DEFINER</code> so it can read
+<span class="mono">profiles</span> while profiles is itself under RLS, and it sets <code>search_path = ''</code>
+with fully-qualified names — so an attacker cannot shadow <span class="mono">profiles</span> with an object in a
+schema they control and have the definer function resolve to it. Execute is granted to
+<span class="mono">authenticated</span> only.</p>
+
+<h4>Layer 3 — the HR-only columns</h4>
+<p><span class="mono">exit_cases</span> has <strong>one</strong> SELECT policy, for HR. There is no employee
+policy and no manager policy — deliberately. Adding one would hand that role the whole row, including
+<span class="mono">risk_score</span>, <span class="mono">risk_level</span> and
+<span class="mono">rehire_eligible</span>.</p>
+
+<h4>Layer 4 — restricted views as the only other way in</h4>
+<p>Five views run with <code>security_invoker = false</code>, i.e. as the view <em>owner</em>, so they can see
+past that HR-only policy — and their fixed SELECT list decides what the caller actually gets. Each view
+self-filters on <code>auth.uid()</code>.</p>
+<table>
+  <tr><th style="width:26%">View</th><th style="width:16%">For</th><th>Exposes</th></tr>
+  <tr><td><span class="mono">employee_exit_view</span></td><td>Employee</td><td>id, employee_name, department, role_title, last_working_day (+ relieving fields)</td></tr>
+  <tr><td><span class="mono">manager_case_view</span></td><td>Manager</td><td>Same safe columns, filtered to <code>manager_id = auth.uid()</code></td></tr>
+  <tr><td><span class="mono">it_task_view</span></td><td>IT</td><td><span class="mono">stage='it'</span> tasks + employee name/department + the latest verification status via a lateral join</td></tr>
+  <tr><td><span class="mono">finance_case_view</span></td><td>Finance</td><td>Safe columns + finance_cleared + dues_note</td></tr>
+  <tr><td><span class="mono">employee_interview_status_view</span></td><td>Employee</td><td>case_id + created_at only — enough for "have I submitted?", nothing more</td></tr>
+</table>
+<p><strong>None of these views may ever gain a risk or rehire column.</strong> That is stated in a comment on
+each view in the migration.</p>
+
+<div class="callout">
+  <p><span class="lbl">The Supabase Advisor warning you will be asked about.</span>
+  Supabase's Advisor reports "Security Definer View" as an <em>ERROR</em> on all five views and suggests
+  setting <code>security_invoker = on</code>. <strong>That suggestion is wrong for this schema and has broken
+  the dashboards three times.</strong> With invoker semantics the view runs as the caller, who has no policy on
+  <span class="mono">exit_cases</span> — so it returns zero rows and the dashboard goes blank. The views are
+  safe precisely because their column list is fixed and they self-filter on <code>auth.uid()</code>. The fix
+  for a zero-row dashboard is to re-run <span class="mono">0020_role_views_security_invoker.sql</span>.</p>
+</div>
+
+<h4>Layer 5 — write paths are narrower than read paths</h4>
+<ul>
+  <li><strong>Finance writes through an RPC, not an UPDATE policy.</strong> <span class="mono">exit_cases</span>
+      has no SELECT policy for finance by design. Postgres cannot apply an UPDATE's <code>WHERE</code> clause to
+      a row the caller cannot see — so a plain RLS UPDATE policy silently matches zero rows. Hence
+      <code>finance_mark_dues_settled</code>: <code>SECURITY DEFINER</code>, checks the caller's role itself, and
+      forward-only (always sets <code>finance_cleared = true</code>). This is a genuinely non-obvious
+      interaction and a good thing to be able to explain.</li>
+  <li><strong>Column-level grants.</strong> <code>GRANT UPDATE (finance_cleared, dues_note)</code> — an
+      authenticated caller can write those two columns and nothing else.</li>
+  <li><strong>Forward-only approvals.</strong> The finance UPDATE policy's <code>WITH CHECK</code> pins
+      <code>finance_cleared = true</code>, so the surface cannot be used to <em>un</em>-clear a case.</li>
+  <li><strong>The relieving gate is re-checked in the database.</strong> The HR update policy's
+      <code>WITH CHECK</code> calls <code>exit_case_cleared_for_relieving(id)</code>, which requires
+      <code>finance_cleared</code>, zero non-done tasks across all four stages, and all four stages present.
+      Bypassing the UI does not bypass this.</li>
+  <li><strong>Storage is scoped by path.</strong> The bucket policy checks
+      <code>storage.foldername(name)[1]</code> is a case the caller owns, so an employee cannot upload into,
+      or read, another person's folder.</li>
+  <li><strong>Identity is never taken from the request body.</strong> Both writing Edge Functions derive the
+      employee from the caller's own JWT.</li>
+</ul>
+
+<h4>Layer 6 — key discipline</h4>
+<table>
+  <tr><th style="width:20%">Key</th><th style="width:22%">Where it lives</th><th>Rule</th></tr>
+  <tr><td>Anon key</td><td>Browser bundle (<span class="mono">VITE_</span> prefixed)</td><td>The only key the frontend ever holds. RLS constrains everything it can do.</td></tr>
+  <tr><td>Service key</td><td>Python agent service; Edge Functions</td><td>Bypasses RLS. Server-side only, never in the bundle, never committed.</td></tr>
+  <tr><td>Portkey, Gmail app password, Google refresh token</td><td><span class="mono">.env</span> (gitignored) and Supabase Edge Function secrets</td><td>Deployed functions do <strong>not</strong> read the local <span class="mono">.env</span> — the same secret often has to be set in two places.</td></tr>
+</table>
+
+<!-- ==================================================================== -->
+<h2 class="pb">9. The five roles</h2>
+
+<table>
+  <tr><th style="width:11%">Role</th><th style="width:13%">Demo account</th><th style="width:30%">Pages</th><th style="width:22%">Can do</th><th>Cannot see</th></tr>
+
+  <tr>
+    <td><strong>Employee</strong></td>
+    <td>Emp001–Emp100<br><span class="mono">&lt;EmpId&gt;@</span></td>
+    <td>Dashboard, My exit, Tasks, Documents, Knowledge transfer, Exit interview, Timeline, Help</td>
+    <td>Submit resignation (forced first, via the gate); complete their own tasks; upload documents; submit the exit interview; ask the RAG assistant and forward an unanswered question to HR.</td>
+    <td>Their own risk score, rehire eligibility, interview sentiment or summary; the evaluative KT review; anyone else's case.</td>
+  </tr>
+
+  <tr>
+    <td><strong>HR</strong></td>
+    <td>Siva<br><span class="mono">siva@company.com</span></td>
+    <td>Dashboard, All exits, Escalations, Risk &amp; compliance, Exit interviews, Trends, Clearances, Policy audit, Reports, Agent activity, Settings</td>
+    <td>See every case and every assessment field; work escalations (re-route / resolve, each transition audited); issue the relieving letter once the DB agrees the case is clear; read agent activity and the analytics narratives.</td>
+    <td>Nothing — HR is the only role with a SELECT policy on <span class="mono">exit_cases</span>.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Manager</strong></td>
+    <td>Aravidhan<br><span class="mono">aravidhan@company.com</span></td>
+    <td>Dashboard, My team, Exiting reports, KT approvals, Clearances, Timeline, Help</td>
+    <td><strong>Gate 1.</strong> Review or reject each KT task; sign one clearance per employee, which opens the IT stage. Rejection creates an escalation for HR.</td>
+    <td>risk_level / risk_score / rehire_eligible; interview summary and sentiment; any case where they are not <span class="mono">manager_id</span>.</td>
+  </tr>
+
+  <tr>
+    <td><strong>IT</strong></td>
+    <td>Aswin</td>
+    <td>Dashboard, Deprovisioning, Asset recovery, Access reviews, Approvals, Audit log, Help</td>
+    <td>Review and approve the generated deprovisioning plan; approval triggers the execute/verify/audit pass and shows a verification status per task.</td>
+    <td>Everything except <span class="mono">stage='it'</span> tasks — the IT policy is literally <code>role = 'it' AND stage = 'it'</code>.</td>
+  </tr>
+
+  <tr>
+    <td><strong>Finance</strong></td>
+    <td>Anfia<br><span class="mono">anfiacj@gmail.com</span></td>
+    <td>Dashboard (a work queue), Help</td>
+    <td><strong>Gate 2.</strong> See cases where hr/manager/it are done but dues are unsettled; "Mark dues settled" (via RPC) or reject dues. Clearing fires the completion email.</td>
+    <td>Assessment columns — verified in a real browser: a direct read of <span class="mono">exit_cases</span> as Anfia returns zero rows.</td>
+  </tr>
+</table>
+
+<p class="meta">Demo passwords are deterministic and apply to fake seed data only — never production. Note for the demo: a duplicate
+<span class="mono">@comany.com</span> (misspelled) account pair was created by an accidental seed run and deleted on 2026-09-14;
+<span class="mono">@company.com</span> is the real data and owns all seeded cases.</p>
+
+<!-- ==================================================================== -->
+<h2 class="pb">10. Honest status — what is real, manual, or mocked</h2>
+
+<h3>10.1 Verified working end to end</h3>
+<ul>
+  <li>Schema, seed data (107 profiles), RLS and all five restricted views — including a browser-verified
+      denial test for the finance role.</li>
+  <li>RAG assistant: deployed Edge Function, 67 real chunks, citations, scope classification, forward-to-HR.</li>
+  <li>The supervisor hub and all clearance spokes, with a live terminal trace showing LLM model, latency
+      and token counts per call.</li>
+  <li>Real Google Calendar events with the event id written back to the task row.</li>
+  <li>Real Gmail SMTP delivery (currently enabled).</li>
+  <li>Real Tesseract OCR against an uploaded document, flipping <span class="mono">case_documents</span> to validated.</li>
+  <li>The full browser path for a case: resignation → HR checklist → manager KT approval → IT plan appears
+      → IT approves → finance settles → compliance clears → HR's "Issue relieving letter" becomes available.
+      Verified by <span class="mono">scripts/verify_manager_gate.cjs</span> with disposable cases, then purged.</li>
+  <li>Capstone #24, both branches: a completed run and a <code>--reject</code> run that exercised escalation
+      and ended in a clean blocked state rather than a crash.</li>
+</ul>
+
+<h3>10.2 Works, but only when a human runs it — no scheduler exists</h3>
+<p>I searched the entire repository: there is no cron, no <span class="mono">pg_cron</span>, no GitHub Actions
+workflow (<span class="mono">.github/</span> does not exist), and no timer in any Python module. Six agents
+whose briefs say "periodically", "weekly", "monitors", or "on scheduled triggers" are run by hand:
+<strong>#9 SLA escalation, #14 dashboard insights, #17 workflow optimizer, #19 trend analyst,
+#22 policy auditor, #23 predictive attrition.</strong> Each has a working
+<code>python -m agents.&lt;name&gt;</code> entry point and has produced real persisted output — the arithmetic
+and the writes are genuine, the <em>automatic recurrence</em> is not built. Adding it is a small job
+(a pg_cron job or a Windows scheduled task calling the existing entry points), just not done.</p>
+
+<h3>10.3 Mock or demo-scale</h3>
+<table>
+  <tr><th style="width:22%">Item</th><th style="width:30%">What is real</th><th>What is a stand-in</th></tr>
+  <tr><td><strong>#15 Multi-System Clearance</strong></td>
+      <td>The adapter contract (enforced timeouts, retries, status codes, error capture), and three live queries returning real consolidated status.</td>
+      <td>The "three external systems" are our own Supabase tables. No ITAM / HRMS / finance platform exists to integrate with.</td></tr>
+  <tr><td><strong>#18 execute step</strong></td>
+      <td>Plan generation, human approval, independent verification, per-task audit row, idempotency guard, fault-injection tests.</td>
+      <td><code>MockITAdapter</code> — no Okta / Jamf / Workspace call. Nothing is actually disabled.</td></tr>
+  <tr><td><strong>Google Calendar</strong></td>
+      <td>Real API, real events, real event ids persisted.</td>
+      <td>One shared demo account holds every booking; no per-user calendars. Production would use a service account.</td></tr>
+  <tr><td><strong>#10 KT Document Reviewer</strong></td>
+      <td>The LLM review, the gap tasks, the <span class="mono">kt_reviews</span> rows.</td>
+      <td><strong>No KT document upload exists in the UI.</strong> The employee's Knowledge-transfer page is a read-only task list; document text is supplied from a file path on the CLI.</td></tr>
+  <tr><td><strong>#12 tenure input</strong></td>
+      <td>The weighting, thresholds and the other three inputs.</td>
+      <td>No <span class="mono">hire_date</span> column exists; tenure is proxied from <span class="mono">profiles.created_at</span>, so every seeded case reads as short tenure.</td></tr>
+  <tr><td><strong>#11 department matching</strong></td>
+      <td>Out-of-office routing to a real delegate, verified both directions.</td>
+      <td>No HR/manager/IT profile has a department set, so that branch never fires today.</td></tr>
+  <tr><td><strong>#23 attrition granularity</strong></td>
+      <td>Real signals, real persisted narrative.</td>
+      <td>Risk is identified at department level, not per named individual.</td></tr>
+</table>
+
+<h3>10.4 Schema drift — the live database is ahead of the migration files</h3>
+<p>These objects exist and are in daily use in the live project, but no file in
+<span class="mono">supabase/migrations/</span> creates them. A database rebuilt purely from migrations would
+therefore be incomplete. Worth owning before someone else spots it:</p>
+<ul>
+  <li><strong><span class="mono">compliance_checks</span></strong> — the whole table (78 rows), written by #13.</li>
+  <li><strong><span class="mono">agent_runs.agent</span>, <span class="mono">.status</span>, <span class="mono">.metadata</span></strong>
+      — migration 0009 defines only case_id, stage, detail, created_at, but <span class="mono">it_task_view</span>
+      joins on <code>metadata-&gt;&gt;'task_id'</code>, so the live schema is required for IT's dashboard to work.</li>
+  <li><strong><span class="mono">exit_tasks.reason</span> and <span class="mono">.escalation_state</span></strong>
+      — used by the escalation flow; 0026 backfills <span class="mono">escalation_state</span> but nothing creates it.</li>
+  <li><strong>Migration 0023 is absent</strong> from the sequence (0022 → 0024).</li>
+  <li><strong><span class="mono">agents/requirements.txt</span></strong> omits <span class="mono">pytesseract</span>
+      and <span class="mono">Pillow</span>, which the OCR agent imports.</li>
+</ul>
+<p>None of this breaks the running system — it is a reproducibility gap, not a runtime bug.</p>
+
+<h3>10.5 Open items</h3>
+<table>
+  <tr><th style="width:10%">Item</th><th>Status</th></tr>
+  <tr><td><strong>E1</strong></td><td>The single complete real-browser end-to-end review across all five roles is <strong>not signed off</strong>. Individual flows are Playwright-verified; Phase 9 remains unticked in <span class="mono">blueprint1.md</span> on purpose, because this project's rule is that a box is ticked only after a human confirms in a real browser.</td></tr>
+  <tr><td><strong>Scheduler</strong></td><td>Named follow-up for the six manual agents (§10.2).</td></tr>
+  <tr><td><strong>KT upload</strong></td><td>The UI affordance for #10 does not exist yet.</td></tr>
+</table>
+
+<div class="callout info">
+  <p><span class="lbl">If you are asked one hard question, it will probably be one of these.</span></p>
+  <p><strong>"Is it really multi-agent, or one script?"</strong> — It is a LangGraph <code>StateGraph</code> with
+  seven nodes and a real conditional edge; each spoke is its own compiled subgraph in its own module,
+  individually runnable from the CLI, and <code>agent_runs</code> holds 323 real stage transitions from past runs.</p>
+  <p><strong>"Which parts are actually automated?"</strong> — Everything between the human gates. The three gates
+  (manager sign-off, finance dues, HR relieving letter) are deliberately human, and the IT agent never marks its
+  own work done. That is a design posture, not a missing feature: <em>an agent proposes, a human disposes.</em></p>
+  <p><strong>"Why doesn't the LLM compute the analytics numbers?"</strong> — Because a model doing arithmetic will
+  eventually produce a number that does not match the database, in a report HR acts on. Every count is Python or
+  SQL; the model only writes the sentence around it.</p>
+  <p><strong>"Can a manager see the risk score?"</strong> — No, and not because the UI hides it. There is no SELECT
+  policy for managers on <span class="mono">exit_cases</span> at all; their view exposes five safe columns. The
+  denial was tested directly against the database for the finance role and returns zero rows.</p>
+</div>
+
+</body>
+</html>
