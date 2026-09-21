@@ -1,3 +1,9 @@
+# ─── What this file does ─────────────────────────────────────────────────────
+# Calculates a risk score (0.0–1.0) for an exit case using a weighted formula.
+# The formula combines four factors: how long the employee worked here (tenure),
+# how critical their department is (role), what sentiment the exit interview showed,
+# and how many tasks are still outstanding. No AI is used -- all maths in Python.
+# ─────────────────────────────────────────────────────────────────────────────
 """Agent #8 -- Compliance & Risk.
 
 Deterministic scoring (tenure, role criticality, interview sentiment,
@@ -27,17 +33,23 @@ from ..core.trace import log_db, traced_node
 # this demo since seed data is all freshly created "today" (so every case
 # reads as low tenure). Upgrade: add a real hire_date column once onboarding
 # data exists.
+# How critical is each department to the business? Higher = more risk when they leave.
+# These are judgment-call constants; change them to tune the formula.
 DEPARTMENT_CRITICALITY = {
-    "Engineering": 0.9,
+    "Engineering": 0.9,   # high: unique technical knowledge is hard to replace
     "Sales": 0.6,
     "Marketing": 0.5,
-    "Finance": 0.8,
+    "Finance": 0.8,       # high: financial controls knowledge is sensitive
     "Support": 0.5,
     "Product": 0.8,
     "Operations": 0.6,
     "HR": 0.7,
 }
+# How much does exit interview sentiment contribute to risk?
+# A negative interview is a red flag; positive means the departure is amicable.
 SENTIMENT_RISK = {"negative": 1.0, "neutral": 0.5, "positive": 0.1}
+# How much each factor contributes to the final score (must add up to 1.0).
+# Adjust these weights to change what matters most in the scoring.
 WEIGHTS = {"tenure": 0.2, "role": 0.3, "sentiment": 0.3, "tasks": 0.2}
 
 
@@ -62,13 +74,16 @@ def _tasks_risk(total: int, done: int) -> float:
 
 
 def score(case: dict, profile: dict | None, interview: dict | None, tasks: list[dict]) -> dict:
+    # Each factor returns a value between 0.0 and 1.0 (higher = more risky).
     tenure = _tenure_risk(profile.get("created_at") if profile else None)
-    role = DEPARTMENT_CRITICALITY.get(case.get("department"), 0.5)
-    sentiment = SENTIMENT_RISK.get((interview or {}).get("sentiment"), 0.5)
+    role = DEPARTMENT_CRITICALITY.get(case.get("department"), 0.5)  # default 0.5 for unknown depts
+    sentiment = SENTIMENT_RISK.get((interview or {}).get("sentiment"), 0.5)  # default neutral
     total_tasks = len(tasks)
     done_tasks = sum(1 for t in tasks if t.get("status") == "done")
     tasks_risk = _tasks_risk(total_tasks, done_tasks)
 
+    # Weighted average of all four factors. Each weight scales its factor's
+    # contribution so the total is always between 0.0 and 1.0.
     risk_score = round(
         tenure * WEIGHTS["tenure"]
         + role * WEIGHTS["role"]
@@ -76,7 +91,10 @@ def score(case: dict, profile: dict | None, interview: dict | None, tasks: list[
         + tasks_risk * WEIGHTS["tasks"],
         3,
     )
+    # Bucket the continuous score into three labels for the HR dashboard.
     risk_level = "high" if risk_score >= 0.66 else "medium" if risk_score >= 0.4 else "low"
+    # Prefer the AI's explicit rehire verdict (from the exit interview) if it exists;
+    # otherwise infer: a high-risk departure is unlikely to be a good rehire candidate.
     rehire_eligible = (interview or {}).get("rehire_eligible", risk_level != "high")
 
     return {"risk_score": risk_score, "risk_level": risk_level, "rehire_eligible": rehire_eligible}

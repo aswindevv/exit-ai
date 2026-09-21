@@ -1,3 +1,9 @@
+# ─── What this file does ─────────────────────────────────────────────────────
+# This is the single place in the Python agent pipeline where we talk to the AI.
+# Any agent that needs to ask the AI something calls ask_claude() or
+# ask_claude_json() here. Those functions send an HTTP request to the Portkey
+# gateway, which routes to Azure OpenAI and returns the AI's response.
+# ─────────────────────────────────────────────────────────────────────────────
 """LLM access for the agents.
 
 Plain HTTP to the same gateway + model the /ask Edge Function calls
@@ -25,7 +31,13 @@ from .config import ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL, ANTHROPIC_MODEL
 from .trace import log_llm
 
 
+# _post is a private helper (the underscore prefix means "internal only").
+# It does the actual HTTP call to the AI gateway and returns the raw response.
+# Callers use ask_claude() or ask_claude_json() instead of calling _post directly.
 def _post(system: str, user: str, max_tokens: int) -> SimpleNamespace:
+    # Send the request to the Portkey gateway, which forwards it to Azure OpenAI.
+    # "system" tells the AI how to behave (its persona/rules).
+    # "user" is the actual question or task we're asking it to do.
     resp = requests.post(
         f"{ANTHROPIC_BASE_URL.rstrip('/')}/v1/messages",
         headers={
@@ -41,6 +53,8 @@ def _post(system: str, user: str, max_tokens: int) -> SimpleNamespace:
         },
         timeout=60,
     )
+    # raise_for_status() throws an exception if the server returned an error code
+    # (e.g. 401 Unauthorized, 429 Too Many Requests, 500 Server Error).
     resp.raise_for_status()
     body = resp.json()
     # Gateway model has extended thinking on, so content[0] is sometimes a
@@ -59,17 +73,25 @@ def _post(system: str, user: str, max_tokens: int) -> SimpleNamespace:
     # Wrapped as SimpleNamespace (not the raw dict) so trace.log_llm's
     # attribute-based introspection (resp.usage.input_tokens, resp.content[0].text)
     # works and the terminal trace shows real token counts, not "tokens n/a".
+    # SimpleNamespace turns a plain dict into an object with dot-notation access.
+    # trace.log_llm() reads resp.usage.input_tokens and resp.content[0].text
+    # as attributes, not as dict keys, so we wrap the raw dict in SimpleNamespace.
     return SimpleNamespace(
         content=[SimpleNamespace(text=text_block["text"])],
         usage=SimpleNamespace(**body.get("usage", {})),
     )
 
 
+# ask_claude: the main entry point for agents. Returns the AI's reply as a plain string.
+# log_llm wraps the call to print timing and token usage to the terminal trace.
 def ask_claude(system: str, user: str, max_tokens: int = 500) -> str:
     resp = log_llm(ANTHROPIC_MODEL, lambda: _post(system, user, max_tokens))
     return resp.content[0].text
 
 
+# ask_claude_json: same as ask_claude, but parses the response as JSON.
+# Use this when the system prompt instructs the AI to reply with a JSON object
+# (e.g. {"hr_tasks": [...], "manager_tasks": [...]}). Returns a Python dict.
 def ask_claude_json(system: str, user: str, max_tokens: int = 500) -> dict:
     """Same as ask_claude, but parses the JSON object the prompt asked for
     (tolerates ```-fenced output by grabbing the first {...} block)."""

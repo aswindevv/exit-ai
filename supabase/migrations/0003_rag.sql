@@ -1,3 +1,9 @@
+-- ─── What this file does ────────────────────────────────────────────────────
+-- Defines the match_exit_docs() SQL function that the /ask Edge Function calls
+-- to find exit policy chunks relevant to an employee's question.
+-- RAG = Retrieval-Augmented Generation: find real policy text first, then pass
+-- it to the AI so the answer is grounded in fact rather than AI guesswork.
+-- ────────────────────────────────────────────────────────────────────────────
 -- ============================================================
 -- 0003_rag.sql — the RAG search function.
 --

@@ -1,3 +1,8 @@
+# ─── What this file does ─────────────────────────────────────────────────────
+# Provides real-time terminal logging for the agent pipeline. When an agent
+# runs, it prints what's happening step by step: which function started, what
+# the AI returned, which database rows were written, how long each step took.
+# ─────────────────────────────────────────────────────────────────────────────
 """
 trace.py -- live, full-trace logging for the ExitAI LangGraph agents.
 
@@ -51,6 +56,8 @@ def _c(text: str, color: str) -> str:
     return f"{_C[color]}{text}{_C['reset']}"
 
 
+# ContextVar tracks how deeply nested the current call is (supervisor -> hr_agent -> etc.).
+# Each level of nesting adds indentation (│) so the terminal trace reads as a tree.
 _depth: ContextVar[int] = ContextVar("trace_depth", default=0)
 
 
@@ -76,6 +83,10 @@ def _fmt(value) -> str:
 
 # ---- public API ---------------------------------------------------------
 
+# @traced_node("Some Name") is a decorator: wrap any agent function with it to get
+# automatic start/end logging, timing, and input/output printing.
+# Decorators in Python are a way to add behaviour to a function without editing
+# the function itself -- "@traced_node(...)" above a def applies the wrapper.
 def traced_node(name: str):
     """Decorator for a LangGraph node. Logs start/inputs, then done/output/time
     (or the failure). Nested traced nodes indent under their caller."""

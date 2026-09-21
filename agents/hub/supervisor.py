@@ -1,3 +1,11 @@
+# ─── What this file does ─────────────────────────────────────────────────────
+# The supervisor is the "brain" of the exit pipeline. It runs a new employee's
+# exit case through every stage in order: HR checklist → manager approval gate
+# → IT deprovisioning → compliance check → finance clearance → risk assessment.
+# It uses LangGraph, a library that lets you wire Python functions together as
+# a directed graph (flowchart) where each function is a "node" and arrows
+# ("edges") define the order in which they run.
+# ─────────────────────────────────────────────────────────────────────────────
 """Agent #1 -- Supervisor / orchestrator.
 
 Top-level LangGraph whose nodes are the compiled subgraphs from Phase 6a
@@ -33,12 +41,15 @@ from ..spokes.exit_intel_agent import run_per_case
 from ..core.trace import log_db, traced_node
 
 
+# SupervisorState is the shared "notepad" that every stage reads from and writes to.
+# TypedDict is a Python way to define a dictionary with named, typed fields --
+# think of it as a structured record that gets passed through every graph node.
 class SupervisorState(TypedDict):
-    case_id: str
-    kt_text: str | None
-    interview_text: str | None
-    simulate_rejection: bool
-    log: list[str]
+    case_id: str          # the Supabase row id for this exit case
+    kt_text: str | None   # optional Knowledge Transfer document text
+    interview_text: str | None  # optional exit interview transcript
+    simulate_rejection: bool    # if True, the manager gate rejects the case
+    log: list[str]              # accumulates log messages as the pipeline runs
 
 
 def _record(state: SupervisorState, stage: str, detail: str) -> None:
@@ -68,6 +79,10 @@ def _activate(case_id: str) -> None:
         log_db("update", "exit_cases", rows=1, detail="status -> in_progress")
 
 
+# Each function below is a "node" in the LangGraph graph.
+# @traced_node adds terminal logging -- see agents/core/trace.py.
+# Every node receives the full state dict, optionally mutates it, and returns it.
+
 @traced_node("Supervisor -- HR stage")
 def _hr_stage(state: SupervisorState) -> SupervisorState:
     _activate(state["case_id"])
@@ -88,6 +103,9 @@ def _manager_gate(state: SupervisorState) -> SupervisorState:
     return state
 
 
+# Routing function: returns a string that selects which branch to follow next.
+# LangGraph calls this after the manager_gate node; the return value ("approved"
+# or "rejected") maps to the corresponding edge in add_conditional_edges below.
 def _route_after_manager(state: SupervisorState) -> str:
     return "rejected" if state["simulate_rejection"] else "approved"
 
@@ -141,6 +159,13 @@ def _assess_stage(state: SupervisorState) -> SupervisorState:
     return state
 
 
+# ── Build the LangGraph graph ────────────────────────────────────────────────
+# StateGraph wires the node functions above into a flowchart.
+# add_node("name", fn) registers a function as a named step in the graph.
+# add_edge("a", "b")        -- after "a" runs, always run "b".
+# add_conditional_edges     -- after "manager_gate", call _route_after_manager()
+#                              and jump to whichever node its return value names.
+# compile() locks the graph so it can be invoked (run) later.
 _graph = StateGraph(SupervisorState)
 _graph.add_node("hr", _hr_stage)
 _graph.add_node("manager_gate", _manager_gate)
@@ -150,15 +175,15 @@ _graph.add_node("compliance", _compliance_stage)
 _graph.add_node("finance", _finance_stage)
 _graph.add_node("assess", _assess_stage)
 
-_graph.set_entry_point("hr")
+_graph.set_entry_point("hr")                    # the pipeline always starts at the HR stage
 _graph.add_edge("hr", "manager_gate")
 _graph.add_conditional_edges("manager_gate", _route_after_manager, {"approved": "it", "rejected": "escalate"})
 _graph.add_edge("it", "compliance")
 _graph.add_edge("compliance", "finance")
 _graph.add_edge("finance", "assess")
-_graph.set_finish_point("assess")
-_graph.add_edge("escalate", END)
-supervisor_graph = _graph.compile()
+_graph.set_finish_point("assess")               # the pipeline ends after risk assessment
+_graph.add_edge("escalate", END)                # a rejected case stops here (no IT/finance)
+supervisor_graph = _graph.compile()             # compile() makes the graph executable
 
 
 def run_case(case_id: str, *, kt_text: str | None = None, interview_text: str | None = None,

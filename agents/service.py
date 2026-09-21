@@ -1,3 +1,9 @@
+# ─── What this file does ─────────────────────────────────────────────────────
+# Runs a small local web server (on port 8787) that the React frontend calls
+# after an employee submits their resignation. It receives a case ID and triggers
+# the right part of the Python agent pipeline -- generating checklists, emails,
+# IT deprovisioning plans, or running compliance checks, depending on the route.
+# ─────────────────────────────────────────────────────────────────────────────
 """agents.service -- local HTTP bridge that runs the exit pipeline when an
 employee submits their resignation.
 
@@ -322,6 +328,12 @@ def log_escalation_transition(case_id: str, task_id: str | None, action: str | N
     return {"ok": True}
 
 
+# ── HTTP request handler ─────────────────────────────────────────────────────
+# BaseHTTPRequestHandler is Python's built-in way to handle HTTP requests.
+# do_OPTIONS / do_POST are method names the framework calls automatically when
+# a request with that HTTP method arrives. CORS headers are needed because the
+# browser blocks cross-origin requests (from localhost:5173 to localhost:8787)
+# unless the server explicitly allows them.
 class Handler(BaseHTTPRequestHandler):
     def _cors(self) -> None:
         self.send_header("Access-Control-Allow-Origin", ALLOWED_ORIGIN)
@@ -342,6 +354,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self) -> None:  # noqa: N802
+        # Route table: maps each URL path to the function that handles it.
+        # lambda body: ... delays execution so the function only runs after
+        # the request body has been parsed and we know it's valid.
         routes = {
             "/activate-exit": lambda body: activate_case(body["case_id"]),
             "/submit-exit-interview": lambda body: submit_exit_interview(body["case_id"]),

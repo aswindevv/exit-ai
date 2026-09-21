@@ -1,3 +1,10 @@
+// ─── What this file does ─────────────────────────────────────────────────────
+// This is the RAG (Retrieval-Augmented Generation) assistant Edge Function.
+// When an employee types a question in the chat, the frontend calls this function.
+// It turns the question into a vector (numbers that capture meaning), finds the
+// closest matching chunks of the exit policy document, then asks the AI to answer
+// using only those chunks as its source -- so answers are grounded in real policy.
+// ─────────────────────────────────────────────────────────────────────────────
 // Phase 5 /ask: embed question -> retrieve top-k via match_exit_docs -> Claude
 // answers from retrieved context only -> return { answer, sources }.
 //
@@ -72,6 +79,10 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
+// embed() converts a text string into a vector of 1536 numbers.
+// Semantically similar texts produce similar vectors, so we can find
+// policy chunks that are "close in meaning" to the user's question.
+// This is called "text embedding" -- the foundation of RAG search.
 async function embed(input: string): Promise<number[]> {
   const res = await fetch(`${PORTKEY_BASE_URL}/v1/embeddings`, {
     method: 'POST',
@@ -183,8 +194,12 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Step 1: Turn the user's question into a vector (list of numbers).
     const queryEmbedding = await embed(question)
 
+    // Step 2: Find the 4 policy chunks whose vectors are closest to the question.
+    // match_exit_docs is a PostgreSQL function (0003_rag.sql) that does this
+    // vector similarity search using the pgvector extension.
     const { data: chunks, error } = await db.rpc('match_exit_docs', {
       query_embedding: queryEmbedding,
       match_count: 4,
@@ -192,15 +207,20 @@ Deno.serve(async (req) => {
     if (error) throw new Error(`match_exit_docs: ${error.message}`)
 
     if (!chunks || chunks.length === 0) {
+      // No relevant policy found -- return a safe refusal rather than letting the
+      // AI hallucinate an answer with no grounding.
       return new Response(JSON.stringify(REFUSAL), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
 
+    // Step 3: Build a "context" string by joining the retrieved chunks.
+    // Each chunk is labelled with its section title so the AI can cite it.
     const context = chunks
       .map((c: { section: string | null; source: string; content: string }) => `[${c.section || c.source}]\n${c.content}`)
       .join('\n\n')
 
+    // Step 4: Ask the AI to answer the question using only the retrieved context.
     const { answer, sections, scope } = parseReply(await askModel(context, question))
     // No scope means the model ignored the JSON contract -- fall back to the
     // wording heuristic so a refusal still reaches the Forward-to-HR path.
