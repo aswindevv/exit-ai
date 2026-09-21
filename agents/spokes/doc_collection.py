@@ -1,3 +1,6 @@
+# Agent #16: tracks which documents (NDA, Asset Return Form, etc.) an employee has uploaded,
+# sends email reminders for missing ones, and validates uploads using real Tesseract OCR —
+# checking that the file actually contains the expected keywords and the employee's own name.
 """Agent #16 -- Document Collection (docs/agent_requirements.md #16 / blueprint1.md #16).
 
 NEW. "Identifies required documents for an exit case, checks which are
