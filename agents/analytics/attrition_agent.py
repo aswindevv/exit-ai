@@ -27,6 +27,7 @@ from ..core.trace import log_db, traced_node
 # (profiles.role='employee') in a flagged department are the "at-risk" group -- a
 # department-level proxy for individual risk. Upgrade: score individuals directly
 # once real engagement/manager-feedback data exists per active employee.
+# Departments whose avg exit risk_score >= this threshold are flagged as at-risk.
 HIGH_RISK_AVG = 0.6
 
 SYSTEM_PROMPT = load_prompt("analytics/attrition_system.md")
@@ -35,15 +36,21 @@ SYSTEM_PROMPT = load_prompt("analytics/attrition_system.md")
 def identify_at_risk(cases: list[dict], alerts: list[dict], employees: list[dict]) -> dict:
     """Pure function: real signals in -> flagged departments + their current
     employees out. See module docstring for what each signal proxies."""
+    # Collect all exit risk_scores grouped by department (from departed employees).
     scores_by_dept: dict[str, list[float]] = defaultdict(list)
     for c in cases:
         if c.get("department") and c.get("risk_score") is not None:
             scores_by_dept[c["department"]].append(c["risk_score"])
+    # A department whose average departing-employee risk score is high is a proxy
+    # for systemic issues driving people out — flag it as at-risk for attrition.
     high_risk_depts = {
         d for d, scores in scores_by_dept.items() if sum(scores) / len(scores) >= HIGH_RISK_AVG
     }
+    # alert_depts is not used beyond this assignment — signals dict below is the
+    # real output. Kept for clarity (see module docstring re: two signal sources).
     alert_depts = {a["department"] for a in alerts if a.get("department") and a.get("severity") != "low"}
 
+    # Merge both signal sources into a single dict: dept -> list of signal strings.
     signals: dict[str, list[str]] = defaultdict(list)
     for d in high_risk_depts:
         avg = round(sum(scores_by_dept[d]) / len(scores_by_dept[d]), 2)
@@ -53,6 +60,7 @@ def identify_at_risk(cases: list[dict], alerts: list[dict], employees: list[dict
             signals[a["department"]].append(f"trend alert: {a['theme']} ({a['severity']})")
 
     at_risk_depts = sorted(signals)
+    # Current employees in any flagged department are the "at-risk" group.
     at_risk_employees = [e for e in employees if e.get("department") in signals]
     return {
         "at_risk_departments": [{"department": d, "signals": signals[d]} for d in at_risk_depts],
@@ -70,6 +78,8 @@ class AttritionState(TypedDict):
 
 @traced_node("Predictive Attrition -- gather signals")
 def _gather(state: AttritionState) -> AttritionState:
+    # Fetch all three data sources: departed cases (with risk scores),
+    # trend alerts (rising exit-interview themes), and current employees.
     state["cases"] = db.table("exit_cases").select("department, risk_score").execute().data or []
     state["alerts"] = db.table("trend_alerts").select("department, severity, theme").execute().data or []
     state["employees"] = (
@@ -80,6 +90,7 @@ def _gather(state: AttritionState) -> AttritionState:
 
 @traced_node("Predictive Attrition -- identify at-risk")
 def _identify(state: AttritionState) -> AttritionState:
+    # Pure function: no I/O, no LLM — all arithmetic and set comparisons.
     state["signals"] = identify_at_risk(state["cases"], state["alerts"], state["employees"])
     return state
 
@@ -88,6 +99,7 @@ def _identify(state: AttritionState) -> AttritionState:
 def _narrate_and_persist(state: AttritionState) -> AttritionState:
     signals = state["signals"]
     if signals["at_risk_departments"]:
+        # LLM writes the retention-intervention narrative from the flagged depts list.
         state["narrative"] = ask_claude(SYSTEM_PROMPT, f"At-risk departments:\n{signals['at_risk_departments']}")
     else:
         state["narrative"] = "No department currently shows a rising attrition signal."
@@ -100,6 +112,7 @@ def _narrate_and_persist(state: AttritionState) -> AttritionState:
     return state
 
 
+# Three-node graph: gather -> identify -> narrate+persist.
 _graph = StateGraph(AttritionState)
 _graph.add_node("gather", _gather)
 _graph.add_node("identify", _identify)

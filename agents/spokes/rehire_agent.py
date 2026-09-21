@@ -19,6 +19,9 @@ from __future__ import annotations
 
 import sys
 
+# risk_agent.run_for_case() already writes rehire_eligible to exit_cases.
+# This module adds its own execution record and enriches the result with
+# a confidence level and evidence list — without duplicating risk_agent logic.
 from . import risk_agent
 from ..core.config import db
 from ..core.trace import log_db, traced_node

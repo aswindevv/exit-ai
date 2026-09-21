@@ -46,12 +46,17 @@ if __name__ == "__main__":
         sys.exit(1)
 
     case_id = sys.argv[1]
+    # sys.argv[2:] contains all flags after the case_id, e.g. ["--kt-text", "path.txt", "--reject"].
     args = sys.argv[2:]
+    # args.index("--kt-text") finds where the flag appears, then +1 gets the file path right after it.
+    # If the flag isn't in args, fall back to the hardcoded demo text so KT-review still runs.
     kt_text = _read(args[args.index("--kt-text") + 1]) if "--kt-text" in args else DEFAULT_KT_TEXT
     interview_text = (
         _read(args[args.index("--interview-text") + 1]) if "--interview-text" in args else DEFAULT_INTERVIEW_TEXT
     )
 
+    # time.perf_counter() is the highest-resolution clock Python has — good for measuring
+    # how long the full pipeline takes (wall time, in seconds as a float).
     start = time.perf_counter()
     result = _run_case(case_id, kt_text=kt_text, interview_text=interview_text, simulate_rejection="--reject" in args)
     elapsed = time.perf_counter() - start

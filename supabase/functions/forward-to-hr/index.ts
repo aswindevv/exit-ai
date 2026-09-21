@@ -14,6 +14,8 @@ const EMAIL_APP_PASSWORD = Deno.env.get('EMAIL_APP_PASSWORD')!
 const HR_FORWARD_EMAIL = Deno.env.get('HR_FORWARD_EMAIL')!
 const SMTP_TIMEOUT_MS = 8000
 
+// Service-role client: bypasses RLS entirely. Used here only to write the fallback
+// agent_runs row when email fails — never to read user data (that uses the authed client below).
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
@@ -48,9 +50,12 @@ Deno.serve(async (req) => {
       return json({ error: 'question is required' }, 400)
     }
 
+    // Extract the JWT from the Authorization header — never trust identity from the request body.
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'not signed in' }, 401)
 
+    // Anon-key client seeded with the caller's own JWT: getUser() validates the token
+    // server-side and returns the real authenticated user, not what the client claims.
     const authed = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false },

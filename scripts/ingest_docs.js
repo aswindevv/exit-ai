@@ -27,9 +27,12 @@ const SOURCE = 'exit_policy.md'
 // clean 1:1 split is what keeps citations honest. A section that runs to
 // several paragraphs stays whole.
 function chunkText(text) {
+  // Split the markdown on blank lines to get individual paragraphs.
   const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
   const chunks = []
   for (const p of paragraphs) {
+    // A paragraph starting with §1.2 Title begins a new policy section — start a new chunk.
+    // Any paragraph without that marker is a continuation of the previous section, so append it.
     if (chunks.length === 0 || /^§[\d.]+\s+/.test(p)) chunks.push(p)
     else chunks[chunks.length - 1] += `\n\n${p}`
   }
@@ -37,11 +40,15 @@ function chunkText(text) {
 }
 
 function sectionOf(chunk) {
+  // Extract just the section title (the part after "§1.2 ") from the first line of a chunk.
+  // Returns null for chunks that don't start a section (shouldn't happen after chunkText).
   const match = chunk.match(/^§[\d.]+\s+(.+)$/m)
   return match ? match[1].trim() : null
 }
 
 async function embed(input) {
+  // POST to Portkey's embeddings endpoint — same API shape as OpenAI's /v1/embeddings.
+  // embedModel is the PORTKEY_VIRTUAL_KEY which maps to text-embedding-3-small (1536-dim).
   const res = await fetch(`${portkeyUrl}/v1/embeddings`, {
     method: 'POST',
     headers: {
@@ -52,6 +59,7 @@ async function embed(input) {
   })
   if (!res.ok) throw new Error(`embeddings ${res.status}: ${await res.text()}`)
   const json = await res.json()
+  // The API returns an array of embedding objects; [0].embedding is the float vector.
   return json.data[0].embedding
 }
 
@@ -60,14 +68,21 @@ async function main() {
   const chunks = chunkText(text)
   console.log(`chunked ${SOURCE} into ${chunks.length} chunks`)
 
+  // Delete all previous rows for this source first, so re-running stays idempotent
+  // (no duplicate chunks if the policy doc is updated and re-ingested).
   const { error: delErr } = await db.from('exit_docs').delete().eq('source', SOURCE)
   if (delErr) throw new Error(`exit_docs.delete: ${delErr.message}`)
 
   for (const chunk of chunks) {
     const embedding = await embed(chunk)
+    // Fail loudly if the embedding dimension doesn't match the pgvector column (1536).
+    // A silent dimension mismatch would silently write unusable vectors.
     if (embedding.length !== 1536) {
       throw new Error(`embedding dim mismatch: got ${embedding.length}, expected 1536`)
     }
+    // Insert the chunk text + its vector embedding together — the /ask Edge Function
+    // queries this table using match_exit_docs() (pgvector cosine similarity) to find
+    // the most relevant policy sections for a given employee question.
     const { error } = await db
       .from('exit_docs')
       .insert({ source: SOURCE, section: sectionOf(chunk), content: chunk, embedding })

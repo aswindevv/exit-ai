@@ -27,19 +27,24 @@ from ..core.llm import ask_claude_json
 from ..core.prompts import load_prompt
 from ..core.trace import log_db, traced_node
 
+# The system prompt tells the LLM to return a structured JSON with
+# summary, sentiment, themes, rehire_eligible, and rehire_reason fields.
 SYSTEM_PROMPT = load_prompt("interview/summary_system.md")
 
 
 # ---- per-case ---------------------------------------------------------
 
+# PerCaseState is the shared dict passed between nodes in this subgraph.
 class PerCaseState(TypedDict):
     case_id: str
     interview_text: str
-    result: dict
+    result: dict          # filled by _analyze; consumed by _persist
 
 
 @traced_node("Exit-Interview Intelligence -- analyze")
 def _analyze(state: PerCaseState) -> PerCaseState:
+    # ask_claude_json() sends the transcript to the LLM and parses the JSON reply.
+    # The LLM returns summary/sentiment/themes/rehire_eligible/rehire_reason.
     state["result"] = ask_claude_json(SYSTEM_PROMPT, f"Transcript:\n{state['interview_text']}")
     return state
 
@@ -55,6 +60,8 @@ def _persist(state: PerCaseState) -> PerCaseState:
         "rehire_eligible": r["rehire_eligible"],
         "rehire_reason": r["rehire_reason"],
     }
+    # Idempotency: if an interview row already exists for this case, update it;
+    # otherwise insert a new one. Prevents duplicate rows on re-submission.
     existing = db.table("exit_interviews").select("id").eq("case_id", state["case_id"]).execute()
     if existing.data:
         db.table("exit_interviews").update(row).eq("case_id", state["case_id"]).execute()
@@ -65,6 +72,7 @@ def _persist(state: PerCaseState) -> PerCaseState:
     return state
 
 
+# Two-node per-case subgraph: analyze (LLM) -> persist (DB write).
 _per_case = StateGraph(PerCaseState)
 _per_case.add_node("analyze", _analyze)
 _per_case.add_node("persist", _persist)
@@ -110,6 +118,8 @@ def _find_rising_themes(state: LongitudinalState) -> LongitudinalState:
             counts[theme] += 1
             depts_by_theme.setdefault(theme, set()).add(dept)
 
+    # Keep only themes that meet the rising threshold. If all mentions came from
+    # one department, tag the alert with it; otherwise department=None (org-wide).
     state["rising"] = [
         {
             "theme": theme,
@@ -123,6 +133,7 @@ def _find_rising_themes(state: LongitudinalState) -> LongitudinalState:
 
 
 def _severity(count: int) -> str:
+    # More mentions = higher severity. Thresholds are simple bands, not ML.
     if count >= 4:
         return "high"
     if count >= 3:
@@ -134,6 +145,8 @@ def _severity(count: int) -> str:
 def _write_trend_alerts(state: LongitudinalState) -> LongitudinalState:
     inserted = 0
     for r in state["rising"]:
+        # Idempotency: skip if a trend_alert row for this (theme, department) pair
+        # already exists — re-running should not create duplicate alerts.
         query = db.table("trend_alerts").select("id").eq("theme", r["theme"])
         query = query.eq("department", r["department"]) if r["department"] else query.is_("department", "null")
         if query.execute().data:
@@ -149,6 +162,7 @@ def _write_trend_alerts(state: LongitudinalState) -> LongitudinalState:
     return state
 
 
+# Two-node longitudinal subgraph: find_rising (count themes) -> write_alerts (DB).
 _longitudinal = StateGraph(LongitudinalState)
 _longitudinal.add_node("find_rising", _find_rising_themes)
 _longitudinal.add_node("write_alerts", _write_trend_alerts)

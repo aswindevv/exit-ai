@@ -45,17 +45,23 @@ def select_approver(candidates: list[dict], department: str | None) -> dict:
     if not candidates:
         return {"approver": None, "is_delegate": False, "all_ooo": False, "reason": "no profiles hold this stage's role"}
 
+    # Prefer a candidate from the same department as the exiting employee (if any).
+    # In practice, hr/manager/it profiles have no department set yet, so this
+    # always falls through to the full candidate list — see module docstring.
     dept_matches = [c for c in candidates if department and c.get("department") == department]
     pool = dept_matches or candidates
+    # Filter out anyone marked out_of_office; remaining list is in created_at order.
     available = [c for c in pool if not c.get("out_of_office")]
 
     if available:
         chosen = available[0]
+        # pool[0] is the "primary" (earliest-created); if we picked someone else, it's a delegate.
         is_delegate = chosen["id"] != pool[0]["id"]
         reason = (f"primary ({pool[0]['full_name']}) is out_of_office -> routed to delegate"
                   if is_delegate else "primary approver available")
         return {"approver": chosen, "is_delegate": is_delegate, "all_ooo": False, "reason": reason}
 
+    # All candidates are OOO — default to the primary rather than blocking the pipeline.
     chosen = pool[0]
     return {"approver": chosen, "is_delegate": False, "all_ooo": True,
             "reason": "every candidate is out_of_office -> defaulted to primary (no one actually available)"}
@@ -64,13 +70,15 @@ def select_approver(candidates: list[dict], department: str | None) -> dict:
 class RoutingState(TypedDict):
     case_id: str
     stage: str
-    department: str | None
-    _candidates: list[dict]
+    department: str | None   # filled by _fetch from the case row
+    _candidates: list[dict]  # all profiles whose role matches the stage
     decision: dict
 
 
 @traced_node("Smart Routing -- fetch case + candidate approvers")
 def _fetch(state: RoutingState) -> RoutingState:
+    # Read the case's department (to prefer a dept-matched approver) and
+    # all profiles for the requested stage role, ordered by creation date.
     case = db.table("exit_cases").select("department").eq("id", state["case_id"]).single().execute().data
     candidates = (
         db.table("profiles").select("id, full_name, email, department, out_of_office, created_at")
@@ -83,16 +91,20 @@ def _fetch(state: RoutingState) -> RoutingState:
 
 @traced_node("Smart Routing -- select approver")
 def _select(state: RoutingState) -> RoutingState:
+    # select_approver() is pure — all the decision logic lives there so it can
+    # be tested independently without needing a real database (see _demo()).
     decision = select_approver(state["_candidates"], state["department"])
     state["decision"] = decision
     approver = decision["approver"]
     detail = f"stage={state['stage']} approver={approver['full_name'] if approver else None} " \
              f"is_delegate={decision['is_delegate']} reason={decision['reason']}"
+    # Write one audit row so the supervisor and HR can see who was selected and why.
     db.table("agent_runs").insert({"case_id": state["case_id"], "stage": "smart_routing", "detail": detail}).execute()
     log_db("insert", "agent_runs", rows=1, detail=detail)
     return state
 
 
+# Two-node graph: fetch (DB read) -> select (pure logic + audit write).
 _graph = StateGraph(RoutingState)
 _graph.add_node("fetch", _fetch)
 _graph.add_node("select", _select)

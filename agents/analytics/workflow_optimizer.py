@@ -37,11 +37,15 @@ def bottleneck_stats(breaches: list[dict]) -> dict:
     overdue_days_by_department: Counter = Counter()
     stalled_cases: set[str] = set()
     for b in breaches:
+        # Accumulate overdue days per stage to find the slowest pipeline step.
         overdue_days_by_stage[b["stage"]] += b["days_overdue"]
+        # Department is embedded inside the impact string: "...for Alice (Engineering)".
+        # rsplit("(", 1)[-1].rstrip(")") extracts "Engineering" from that format.
         dept = b["impact"].rsplit("(", 1)[-1].rstrip(")") if "(" in b["impact"] else None
         if dept:
             overdue_days_by_department[dept] += b["days_overdue"]
         stalled_cases.add(b["case_id"])
+    # most_common(1) returns a list of [(stage, total_days)]; [0][0] is the stage name.
     worst_stage = overdue_days_by_stage.most_common(1)[0][0] if overdue_days_by_stage else None
     return {
         "breach_count": len(breaches),
@@ -59,6 +63,7 @@ class OptimizerState(TypedDict):
 
 @traced_node("Exit Workflow Optimizer -- aggregate (reuses sla_escalation.find_breaches)")
 def _aggregate(state: OptimizerState) -> OptimizerState:
+    # Reuse find_breaches() — same overdue arithmetic already tested by sla_escalation.
     tasks = db.table("exit_tasks").select("id, case_id, stage, title, status, due_date").eq("status", "pending").execute().data or []
     cases = {c["id"]: c for c in db.table("exit_cases").select("id, employee_name, department, hr_id, manager_id").execute().data or []}
     profiles = {p["id"]: p for p in db.table("profiles").select("id, full_name").execute().data or []}
@@ -69,6 +74,7 @@ def _aggregate(state: OptimizerState) -> OptimizerState:
 
 @traced_node("Exit Workflow Optimizer -- narrate")
 def _narrate(state: OptimizerState) -> OptimizerState:
+    # LLM turns the bottleneck numbers into a recommendation sentence.
     state["narrative"] = ask_claude(SYSTEM_PROMPT, f"Stats:\n{state['stats']}")
     return state
 
@@ -84,6 +90,7 @@ def _persist(state: OptimizerState) -> OptimizerState:
     return state
 
 
+# Three-node graph: aggregate (math) -> narrate (LLM) -> persist (DB write).
 _graph = StateGraph(OptimizerState)
 _graph.add_node("aggregate", _aggregate)
 _graph.add_node("narrate", _narrate)

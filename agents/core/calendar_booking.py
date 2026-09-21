@@ -35,18 +35,26 @@ from .config import (
 from .notifications import _profile_email
 from .trace import log_db, traced_node
 
+# The OAuth scope we request from Google — only calendar event creation, nothing broader.
 _SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+# Google's token refresh endpoint — used to exchange the stored refresh_token for a
+# short-lived access_token without requiring the user to log in again.
 _TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
 def _configured() -> bool:
+    # If any OAuth credential is missing from .env, treat calendar as unconfigured
+    # and fall through to dev-log mode (mirrors notifications.py's EMAIL_TEST_RECIPIENT gate).
     return bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_REFRESH_TOKEN)
 
 
 def _service():
+    # Build a Google Calendar API client using the stored OAuth credentials.
+    # Imports are deferred to avoid requiring google-auth when creds aren't set.
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
 
+    # token=None tells the library to refresh immediately using refresh_token.
     creds = Credentials(
         token=None,
         refresh_token=GOOGLE_REFRESH_TOKEN,
@@ -60,13 +68,16 @@ def _service():
 
 @traced_node("Calendar -- book KT event")
 def _create_event(case: dict, task: dict) -> dict:
+    # Dev-safety gate: if OAuth isn't configured, log instead of booking a real event.
     if not _configured():
         print(f"[calendar:dev-log] would book KT event for {case['employee_name']}: "
               f"\"{task['title']}\" (due {task.get('due_date', 'soon')})")
         return {"booked": False, "logged": True}
 
+    # Invite both the employee and their manager as calendar attendees.
     attendees = [e for e in (case.get("email"), _profile_email(case.get("manager_id"))) if e]
     day = task.get("due_date") or date.today().isoformat()
+    # Google Calendar all-day event: start and end both use {"date": "YYYY-MM-DD"}.
     event = {
         "summary": f"KT: {case['employee_name']} handover -- {task['title']}",
         "description": (
@@ -77,6 +88,7 @@ def _create_event(case: dict, task: dict) -> dict:
         "end": {"date": day},
         "attendees": [{"email": a} for a in attendees],
     }
+    # sendUpdates="all" emails the invite to all attendees immediately.
     created = (
         _service().events()
         .insert(calendarId=KT_CALENDAR_ID, body=event, sendUpdates="all")
