@@ -22,8 +22,10 @@
 -- these five views. If a dashboard reports 0 rows for a role that should
 -- have data, re-run this migration first -- it's a safe, idempotent no-op
 -- when nothing has drifted.
-alter view public.employee_exit_view            set (security_invoker = false);
-alter view public.manager_case_view              set (security_invoker = false);
-alter view public.it_task_view                   set (security_invoker = false);
-alter view public.finance_case_view              set (security_invoker = false);
-alter view public.employee_interview_status_view set (security_invoker = false);
+-- Each ALTER VIEW resets the flag to false in case Supabase tooling flipped it back to true.
+-- Running this migration again is always safe — ALTER VIEW SET is idempotent.
+alter view public.employee_exit_view            set (security_invoker = false); -- employee dashboard data
+alter view public.manager_case_view              set (security_invoker = false); -- manager dashboard data
+alter view public.it_task_view                   set (security_invoker = false); -- IT dashboard data
+alter view public.finance_case_view              set (security_invoker = false); -- finance dashboard data
+alter view public.employee_interview_status_view set (security_invoker = false); -- employee interview status
