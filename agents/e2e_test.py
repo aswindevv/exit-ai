@@ -12,7 +12,7 @@ reads for this case to prove the data is live, not placeholder.
 Picks whichever seeded employee has no exit_cases row yet, so it's
 re-runnable against a fresh case each time without touching Phase 2's demo
 cases. role_title is derived by reverse-mapping department -> title through
-the same (department, role_title) pairs scripts/seed.js used -- profiles
+the same (department, role_title) pairs scripts/seed/seed.js used -- profiles
 itself has no role_title column.
 
 Run (from repo root, with agents/.venv active):
@@ -22,9 +22,9 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from .config import db
-from .finance_agent import check_clearance
-from .supervisor import run_case
+from .core.config import db
+from .spokes.finance_agent import check_clearance
+from .hub.supervisor import run_case
 
 DEPARTMENT_TITLES = {
     "Engineering": "Software Engineer",

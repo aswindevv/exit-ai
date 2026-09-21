@@ -7,7 +7,7 @@
 -- was unreachable except via its own --make-test-doc helper. This adds the
 -- minimum surface for the real flow the plan requires: Employee Upload ->
 -- case_documents row (status='submitted' by column default) ->
--- agents.doc_collection OCR-validates it.
+-- agents.spokes.doc_collection OCR-validates it.
 --
 -- Storage path convention: '<case_id>/<doc_type>-<ms-timestamp>.<ext>' --
 -- always a fresh object (no overwrite, so no storage UPDATE policy needed);

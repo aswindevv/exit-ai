@@ -4,7 +4,7 @@ Runs one exit case through the full hub-and-spoke pipeline (HR -> manager
 gate -> IT -> finance -> assess) and streams the live @traced_node trace --
 every spoke's start, inputs, LLM calls (model/latency/tokens), DB writes,
 output, and total time, indented under the hub so the hub<->spoke handoffs
-read in order (see trace.py). Thin wrapper around agents.supervisor.run_case;
+read in order (see trace.py). Thin wrapper around agents.hub.supervisor.run_case;
 no agent logic duplicated here.
 
 Run (from repo root, with agents/.venv active, PYTHONIOENCODING=utf-8 on
@@ -22,7 +22,7 @@ from __future__ import annotations
 import sys
 import time
 
-from .supervisor import run_case as _run_case
+from .hub.supervisor import run_case as _run_case
 
 DEFAULT_KT_TEXT = (
     "Handover doc: covers the deployment runbook and on-call rotation. "

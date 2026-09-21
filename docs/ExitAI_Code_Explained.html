@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ExitAI — Codebase Explained for Beginners</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Mono:wght@400;500&display=swap');
+
+  :root {
+    --blue:    #2563eb;
+    --blue-lt: #dbeafe;
+    --green:   #16a34a;
+    --green-lt:#dcfce7;
+    --amber:   #d97706;
+    --amber-lt:#fef3c7;
+    --red:     #dc2626;
+    --red-lt:  #fee2e2;
+    --purple:  #7c3aed;
+    --purple-lt:#ede9fe;
+    --gray:    #374151;
+    --gray-lt: #f3f4f6;
+    --border:  #e5e7eb;
+    --ink:     #111827;
+    --muted:   #6b7280;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: var(--ink);
+    background: #fff;
+  }
+
+  /* ── PAGE LAYOUT ── */
+  @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+  @page :first { margin-top: 0; }
+
+  .cover {
+    page-break-after: always;
+    background: linear-gradient(145deg, #1e3a5f 0%, #2563eb 60%, #3b82f6 100%);
+    min-height: 297mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 32mm 20mm;
+    color: #fff;
+  }
+  .cover-tag { font-size: 9pt; letter-spacing: 2px; text-transform: uppercase; opacity: .7; margin-bottom: 14px; }
+  .cover h1 { font-size: 36pt; font-weight: 700; line-height: 1.15; margin-bottom: 12px; }
+  .cover .subtitle { font-size: 14pt; opacity: .85; margin-bottom: 32px; max-width: 420px; line-height: 1.5; }
+  .cover .meta { font-size: 9pt; opacity: .65; margin-top: auto; padding-top: 24px; }
+
+  /* ── TYPOGRAPHY ── */
+  h1 { font-size: 18pt; font-weight: 700; color: var(--blue); margin: 28px 0 10px; page-break-after: avoid; }
+  h2 { font-size: 13pt; font-weight: 700; color: var(--ink); margin: 24px 0 8px; page-break-after: avoid; }
+  h3 { font-size: 11pt; font-weight: 600; color: var(--gray); margin: 18px 0 6px; page-break-after: avoid; }
+  p  { margin-bottom: 9px; }
+
+  /* ── SECTION DIVIDERS ── */
+  .section-block {
+    page-break-before: always;
+    padding-top: 4px;
+  }
+  .section-block:first-of-type { page-break-before: avoid; }
+
+  .section-label {
+    display: inline-block;
+    background: var(--blue);
+    color: #fff;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+  }
+
+  /* ── CALLOUT BOXES ── */
+  .callout {
+    border-left: 4px solid var(--blue);
+    background: var(--blue-lt);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout.green  { border-color: var(--green);  background: var(--green-lt); }
+  .callout.amber  { border-color: var(--amber);  background: var(--amber-lt); }
+  .callout.red    { border-color: var(--red);    background: var(--red-lt); }
+  .callout.purple { border-color: var(--purple); background: var(--purple-lt); }
+  .callout strong { display: block; margin-bottom: 3px; font-size: 9.5pt; }
+
+  /* ── CODE ── */
+  code {
+    font-family: 'Fira Mono', 'Courier New', monospace;
+    font-size: 8.5pt;
+    background: var(--gray-lt);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #b91c1c;
+  }
+  pre {
+    font-family: 'Fira Mono', 'Courier New', monospace;
+    font-size: 8pt;
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin: 10px 0;
+    overflow: hidden;
+    line-height: 1.55;
+    page-break-inside: avoid;
+  }
+  pre .cm { color: #64748b; }   /* comment */
+  pre .kw { color: #93c5fd; }   /* keyword */
+  pre .fn { color: #6ee7b7; }   /* function name */
+  pre .st { color: #fbbf24; }   /* string */
+  pre .nm { color: #f9a8d4; }   /* number / constant */
+
+  /* ── TABLES ── */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 9.5pt; page-break-inside: avoid; }
+  th { background: var(--blue); color: #fff; text-align: left; padding: 7px 10px; font-weight: 600; }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: var(--gray-lt); }
+
+  /* ── PILL BADGES ── */
+  .pill {
+    display: inline-block;
+    font-size: 7.5pt;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin: 1px 2px;
+  }
+  .pill-blue   { background: var(--blue-lt);   color: var(--blue); }
+  .pill-green  { background: var(--green-lt);  color: var(--green); }
+  .pill-amber  { background: var(--amber-lt);  color: var(--amber); }
+  .pill-red    { background: var(--red-lt);    color: var(--red); }
+  .pill-purple { background: var(--purple-lt); color: var(--purple); }
+
+  /* ── FLOW DIAGRAM (text-based) ── */
+  .flow {
+    font-family: 'Fira Mono', monospace;
+    font-size: 8pt;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin: 12px 0;
+    line-height: 1.8;
+    page-break-inside: avoid;
+  }
+  .flow .node { font-weight: 600; color: var(--blue); }
+  .flow .edge { color: var(--muted); }
+  .flow .label { color: var(--green); font-style: italic; }
+
+  /* ── TWO-COL GRID ── */
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0; }
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    page-break-inside: avoid;
+  }
+  .card h4 { font-size: 10pt; font-weight: 700; margin-bottom: 6px; color: var(--blue); }
+
+  /* ── GLOSSARY ENTRY ── */
+  .glos {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 13px;
+    margin: 8px 0;
+    page-break-inside: avoid;
+  }
+  .glos-term { font-weight: 700; font-size: 10.5pt; color: var(--purple); }
+  .glos-why  { font-size: 9pt; color: var(--muted); margin-top: 4px; }
+
+  /* ── FILE ENTRY ── */
+  .file-block {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 14px 0;
+    page-break-inside: avoid;
+  }
+  .file-header {
+    background: var(--gray-lt);
+    padding: 8px 14px;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .file-path { font-family: 'Fira Mono', monospace; font-size: 8.5pt; font-weight: 600; color: var(--ink); }
+  .file-body { padding: 11px 14px; }
+  .file-body p { margin-bottom: 7px; font-size: 10pt; }
+
+  ul, ol { padding-left: 20px; margin-bottom: 9px; }
+  li { margin-bottom: 4px; }
+
+  .honest { background: #fffbeb; border: 1px dashed #d97706; border-radius: 6px; padding: 9px 13px; margin: 10px 0; font-size: 9.5pt; }
+  .honest::before { content: "⚠ Honest Note: "; font-weight: 700; color: var(--amber); }
+
+  hr.section-rule { border: none; border-top: 2px solid var(--blue-lt); margin: 18px 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     COVER PAGE
+═══════════════════════════════════════════════ -->
+<div class="cover">
+  <p class="cover-tag">Internal — Learning Document</p>
+  <h1>ExitAI<br/>Codebase Explained</h1>
+  <p class="subtitle">A plain-English walkthrough of every part of the project — written for someone new to coding who built it with AI and now needs to understand and present it.</p>
+  <p style="opacity:.8;font-size:10pt;margin-top:20px;">Covers: what it does · the tech stack · coding basics · every folder and key file · how agents work · how RAG works · the database · manager Q&amp;A.</p>
+  <p class="meta">Generated: 20 September 2026 &nbsp;|&nbsp; ExitAI project — Exit AI/</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     TABLE OF CONTENTS
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<h1 style="page-break-before:avoid;">Table of Contents</h1>
+<table>
+  <tr><th>#</th><th>Section</th></tr>
+  <tr><td>1</td><td>What Is This Project — plain English</td></tr>
+  <tr><td>2</td><td>The Big Picture — tech stack in beginner terms</td></tr>
+  <tr><td>3</td><td>Coding Basics — words you'll see everywhere</td></tr>
+  <tr><td>4</td><td>Folder-by-Folder Tour</td></tr>
+  <tr><td>5</td><td>File-by-File Explanations (all key files)</td></tr>
+  <tr><td>6</td><td>How the Agents Work — step by step</td></tr>
+  <tr><td>7</td><td>How RAG Works — the AI assistant explained</td></tr>
+  <tr><td>8</td><td>The Database — tables and security</td></tr>
+  <tr><td>9</td><td>Likely Manager Questions + Honest Answers</td></tr>
+</table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1 — WHAT IS THIS PROJECT
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 1</span>
+<h1>What Is This Project?</h1>
+
+<p>When someone resigns from a company, it normally involves weeks of back-and-forth emails, missed checklists, forgotten laptop returns, and HR staff manually chasing people across departments. Things fall through the cracks. The person leaves without a relieving letter. IT forgets to revoke their system access. Finance settles the wrong amount.</p>
+
+<p><strong>ExitAI</strong> is a software platform that manages this entire process — called <em>employee offboarding</em> — using artificial intelligence. It replaces the email chains and paper checklists with a structured, automated system that everyone can see in real time.</p>
+
+<h2>The Problem It Solves</h2>
+<div class="cols2">
+  <div class="card">
+    <h4>Without ExitAI</h4>
+    <ul>
+      <li>HR manually tracks each exit in spreadsheets</li>
+      <li>IT is notified late about access revocation</li>
+      <li>Finance doesn't know when dues are settled</li>
+      <li>Managers miss knowledge-transfer deadlines</li>
+      <li>No central view of where each exit stands</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>With ExitAI</h4>
+    <ul>
+      <li>AI automatically generates a checklist on resignation</li>
+      <li>Every department gets notified and has their own dashboard</li>
+      <li>Risk score is calculated automatically (HR-only)</li>
+      <li>AI reviews exit interview responses for themes</li>
+      <li>Everything tracked in one place, in real time</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Who Uses It?</h2>
+<table>
+  <tr><th>Role</th><th>What They Do on ExitAI</th></tr>
+  <tr><td><strong>Employee</strong></td><td>Submits resignation, fills exit interview, uploads documents, tracks their own exit timeline</td></tr>
+  <tr><td><strong>Manager</strong></td><td>Reviews and approves knowledge-transfer tasks, sees their team's exits</td></tr>
+  <tr><td><strong>HR</strong></td><td>Oversees all exits, sees risk scores, reads AI-generated insights, issues relieving letters</td></tr>
+  <tr><td><strong>IT</strong></td><td>Handles deprovisioning (revoking access, collecting laptop, disabling accounts)</td></tr>
+  <tr><td><strong>Finance</strong></td><td>Confirms final dues are settled before the employee is released</td></tr>
+</table>
+
+<div class="callout green">
+  <strong>One sentence summary:</strong>
+  ExitAI is an AI-powered employee exit management platform with five role-based dashboards, an AI assistant, and automated agents that generate checklists, assess risk, and coordinate every department — all stored securely in a cloud database.
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2 — THE BIG PICTURE
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 2</span>
+<h1>The Big Picture — Tech Stack in Beginner Terms</h1>
+
+<h2>What is a Frontend?</h2>
+<p>The <strong>frontend</strong> is everything you see in the browser — the dashboards, buttons, forms, and tables. It runs on your computer (inside the browser tab), not on any server. In ExitAI, the frontend is built with <strong>React</strong> (a JavaScript library for building web screens) and <strong>Vite</strong> (a tool that bundles all the code together so the browser can load it fast). We chose React because it breaks the UI into small reusable pieces called <em>components</em>, which makes it much easier to manage a complex app with five different dashboards.</p>
+
+<h2>What is a Backend?</h2>
+<p>The <strong>backend</strong> is code that runs on a server — not in your browser. It handles things the browser shouldn't do directly: writing to the database, sending emails, running the AI agents. In ExitAI, the backend has two parts: <strong>Supabase Edge Functions</strong> (small serverless functions that run in Supabase's cloud, written in TypeScript/JavaScript) and a <strong>Python agent service</strong> that runs locally on the developer's machine and orchestrates all the AI agents.</p>
+
+<h2>What is a Database?</h2>
+<p>A <strong>database</strong> is like a giant set of organized spreadsheets that can be searched very quickly. ExitAI uses <strong>Supabase</strong>, which gives us a PostgreSQL database (a popular, powerful type of database), user authentication, file storage, and serverless functions — all in one service. Every exit case, task, employee profile, and AI output is stored as rows in database tables.</p>
+
+<h2>What is an LLM?</h2>
+<p>An <strong>LLM (Large Language Model)</strong> is the AI that reads and writes text — the same kind of AI behind ChatGPT or Claude. ExitAI uses LLMs to generate exit checklists, review knowledge-transfer documents, analyse exit interviews, and produce risk narratives. The LLM is not running on the developer's computer — it is accessed via an API call to a gateway called <strong>Portkey</strong>, which currently routes requests to an Azure-hosted AI model using the Anthropic API format.</p>
+
+<h2>What is RAG?</h2>
+<p><strong>RAG (Retrieval-Augmented Generation)</strong> is a technique that lets the AI answer questions based on your own documents rather than just its general training. Instead of hoping the AI already knows your company's exit policy, you feed it the actual policy document. ExitAI uses RAG to power the "Ask a question" assistant — employees and HR can ask about exit procedures and get answers grounded in the real policy. (Explained in detail in Section 7.)</p>
+
+<h2>What is an Agent?</h2>
+<p>An <strong>agent</strong> is an AI-powered program that takes a task, decides what steps to take, calls tools (like querying the database or asking the LLM), and produces a result. ExitAI has a system of agents built with <strong>LangGraph</strong> — a framework for wiring agents together. There is one central <em>supervisor</em> agent that coordinates several specialist agents (HR, IT, Finance, Risk, etc.). This is called a <strong>hub-and-spoke architecture</strong>: the supervisor (hub) routes work to the specialist agents (spokes), and the spokes only talk back to the hub, never to each other.</p>
+
+<hr class="section-rule" />
+
+<h2>Stack Summary Table</h2>
+<table>
+  <tr><th>Layer</th><th>Tool Used</th><th>Why This Tool</th></tr>
+  <tr><td>UI / Frontend</td><td>React + Vite</td><td>Component-based; fast hot-reload during development</td></tr>
+  <tr><td>Database + Auth</td><td>Supabase (Postgres)</td><td>Managed DB + row-level security + file storage in one service</td></tr>
+  <tr><td>Edge Functions</td><td>Supabase Edge Functions (TypeScript)</td><td>Serverless — no server to manage; runs in Supabase's cloud</td></tr>
+  <tr><td>Agent Framework</td><td>LangGraph (Python)</td><td>Lets you wire agents as a graph; supervisor pattern built-in</td></tr>
+  <tr><td>LLM Access</td><td>Portkey gateway → Azure OpenAI</td><td>One gateway, one set of keys, works with multiple AI providers</td></tr>
+  <tr><td>Vector Store (RAG)</td><td>pgvector in Supabase</td><td>Stores document embeddings in the same DB — no extra service</td></tr>
+  <tr><td>Icons</td><td>Tabler Icons</td><td>Free, consistent, SVG icon set that looks clean at all sizes</td></tr>
+</table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3 — CODING BASICS GLOSSARY
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 3</span>
+<h1>Coding Basics — Words You'll See Everywhere</h1>
+<p>Before reading the file explanations, learn these building blocks. Every explanation in Section 5 uses these words — once you know them here, you'll recognise them in the code.</p>
+
+<div class="glos">
+  <p class="glos-term">const / let / var — storing a value with a name</p>
+  <p>These words <em>create a named box</em> to hold a value. <code>const</code> means the box can never be replaced (most common — use when you know the value won't change). <code>let</code> means it can. <code>var</code> is the old way — still works but rarely used now.</p>
+  <pre><span class="kw">const</span> role = <span class="st">'hr'</span>            <span class="cm">// role is always 'hr', can't change</span>
+<span class="kw">let</span> count = 0               <span class="cm">// count can be updated later</span>
+count = count + 1           <span class="cm">// now count is 1</span></pre>
+  <p class="glos-why"><strong>Why const is used most:</strong> It makes code easier to read and safer — you know that value will never accidentally be changed somewhere else in the file.</p>
+</div>
+
+<div class="glos">
+  <p class="glos-term">function — a reusable block that does a job</p>
+  <p>A function is a named set of instructions you can run over and over. You define it once, call it by name whenever you need it. Functions take <em>inputs</em> (called parameters) and can give back an <em>output</em> (called return value).</p>
+  <pre><span class="kw">function</span> <span class="fn">greet</span>(name) {
+  <span class="kw">return</span> <span class="st">'Hello, '</span> + name
+}
+greet(<span class="st">'Siva'</span>)  <span class="cm">// gives back: 'Hello, Siva'</span></pre>
+  <p class="glos-why"><strong>Why it's used:</strong> Instead of writing the same logic 10 times, write it once and call the function 10 times. Easier to fix bugs (fix in one place).</p>
+</div>
+
+<div class="glos">
+  <p class="glos-term">import / export — bringing code from another file</p>
+  <p><code>export</code> means "make this available to other files". <code>import</code> means "bring that thing in so I can use it here". This is how large projects stay organised — each file does one job, and other files can use it.</p>
+  <pre><span class="cm">// In supabase.js — exports the connection</span>
+<span class="kw">export const</span> supabase = createClient(URL, KEY)
+
+<span class="cm">// In App.jsx — imports it to use</span>
+<span class="kw">import</span> { supabase } <span class="kw">from</span> <span class="st">'./lib/supabase'</span></pre>
+  <p class="glos-why"><strong>Why it's used:</strong> Keeps files small and focused. A 5,000-line file would be unmanageable — splitting into imports keeps everything findable.</p>
+</div>
+
+<div class="glos">
+  <p class="glos-term">async / await — waiting for something slow to answer</p>
+  <p>Some operations take time — loading data from a database, sending an email, calling an AI. <code>async</code> marks a function as "this will do something that takes time". <code>await</code> means "pause here and wait for this to finish before moving on". Without await, the code would rush ahead before the database replied.</p>
+  <pre><span class="kw">async function</span> <span class="fn">getEmployee</span>(id) {
+  <span class="kw">const</span> result = <span class="kw">await</span> supabase.<span class="fn">from</span>(<span class="st">'profiles'</span>).<span class="fn">select</span>(<span class="st">'*'</span>).<span class="fn">eq</span>(<span class="st">'id'</span>, id)
+  <span class="kw">return</span> result.data
+}</pre>
+  <p class="glos-why"><strong>Why it's used:</strong> Database queries and API calls can take 100ms–2 seconds. await prevents the code from moving on before the answer arrives.</p>
+</div>
+
+<div class="glos">
+  <p class="glos-term">Variables — the basic data types</p>
+  <p>A <strong>variable</strong> is any named value. Its <em>type</em> describes what kind of value it holds:</p>
+  <ul>
+    <li><strong>String</strong> — text, wrapped in quotes: <code>"hello"</code> or <code>'Siva'</code></li>
+    <li><strong>Number</strong> — a number (no quotes): <code>42</code> or <code>0.75</code></li>
+    <li><strong>Boolean</strong> — true or false: <code>true</code>, <code>false</code>. Used for on/off decisions</li>
+    <li><strong>Array</strong> — a list of values: <code>["hr", "it", "finance"]</code> — accessed by position (0, 1, 2…)</li>
+    <li><strong>Object</strong> — a collection of named values: <code>{ name: "Siva", role: "hr" }</code></li>
+  </ul>
+  <pre><span class="kw">const</span> name = <span class="st">"Aravidhan"</span>         <span class="cm">// string</span>
+<span class="kw">const</span> score = <span class="nm">0.82</span>              <span class="cm">// number</span>
+<span class="kw">const</span> isActive = <span class="nm">true</span>           <span class="cm">// boolean</span>
+<span class="kw">const</span> roles = [<span class="st">'hr'</span>, <span class="st">'it'</span>]      <span class="cm">// array</span>
+<span class="kw">const</span> user = { name: <span class="st">'Siva'</span>, role: <span class="st">'hr'</span> } <span class="cm">// object</span></pre>
+</div>
+
+<div class="glos">
+  <p class="glos-term">if / else — making a decision</p>
+  <p>The computer checks a condition; if it's true it does one thing, otherwise (<code>else</code>) it does another. This is literally every decision in the code.</p>
+  <pre><span class="kw">if</span> (role === <span class="st">'hr'</span>) {
+  showAllCases()
+} <span class="kw">else if</span> (role === <span class="st">'employee'</span>) {
+  showOwnExit()
+} <span class="kw">else</span> {
+  showLogin()
+}</pre>
+  <p class="glos-why"><strong>Why it's used:</strong> Every role sees a different dashboard, every agent takes a different path based on conditions — all of that is <code>if/else</code>.</p>
+</div>
+
+<div class="glos">
+  <p class="glos-term">a "query" — asking the database for data</p>
+  <p>A query is an instruction to the database: "give me this data". In ExitAI, most queries use Supabase's JavaScript client, which reads like plain English: <code>.from('exit_tasks')</code> means "from the exit_tasks table", <code>.select('*')</code> means "give me all columns", <code>.eq('case_id', id)</code> means "where case_id equals this id".</p>
+  <pre>supabase.<span class="fn">from</span>(<span class="st">'exit_tasks'</span>)
+  .<span class="fn">select</span>(<span class="st">'*'</span>)
+  .<span class="fn">eq</span>(<span class="st">'case_id'</span>, caseId)
+  .<span class="fn">eq</span>(<span class="st">'status'</span>, <span class="st">'pending'</span>)</pre>
+  <p class="glos-why">This asks: "from exit_tasks, give me all columns where case_id matches AND status is pending." The database returns a list of matching rows.</p>
+</div>
+
+<div class="glos">
+  <p class="glos-term">an "API call" / fetch — asking another service for something</p>
+  <p>An <strong>API</strong> (Application Programming Interface) is a way for two programs to talk to each other. A <em>fetch</em> or API call is your code sending a request to another service (like the AI, or Supabase) and getting a response back. Think of it like texting someone and waiting for their reply.</p>
+  <pre><span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="st">'http://localhost:8787/activate-exit'</span>, {
+  method: <span class="st">'POST'</span>,
+  body: JSON.<span class="fn">stringify</span>({ case_id: id })
+})
+<span class="kw">const</span> result = <span class="kw">await</span> response.<span class="fn">json</span>()</pre>
+  <p class="glos-why">Here the frontend is "texting" the Python agent service to start the exit pipeline for a case.</p>
+</div>
+
+<div class="glos">
+  <p class="glos-term">JSON — a way to format data</p>
+  <p><strong>JSON</strong> (JavaScript Object Notation) is a standard text format for passing data between systems. It looks like a JavaScript object — key-value pairs, arrays, nested objects. When the frontend calls an API, it sends and receives JSON.</p>
+  <pre>{ <span class="st">"case_id"</span>: <span class="st">"abc-123"</span>, <span class="st">"status"</span>: <span class="st">"in_progress"</span>, <span class="st">"risk_score"</span>: <span class="nm">0.72</span> }</pre>
+  <p class="glos-why">Almost every API response — from Supabase, from the AI — comes back as JSON. JSON is language-neutral (Python and JavaScript both understand it), which is why it's used for all communication.</p>
+</div>
+
+<div class="glos">
+  <p class="glos-term">a component — a reusable piece of the UI (React)</p>
+  <p>In React, a <strong>component</strong> is a function that returns a piece of the screen. You can use it many times with different data — like a LEGO brick. In ExitAI, <code>Sidebar</code>, <code>LoginPage</code>, and <code>PageHead</code> are all components.</p>
+  <pre><span class="kw">function</span> <span class="fn">TaskCard</span>({ title, status }) {
+  <span class="kw">return</span> (
+    &lt;div&gt;
+      &lt;p&gt;{title}&lt;/p&gt;
+      &lt;span&gt;{status}&lt;/span&gt;
+    &lt;/div&gt;
+  )
+}
+<span class="cm">// Used like: &lt;TaskCard title="Return laptop" status="pending" /&gt;</span></pre>
+  <p class="glos-why">Without components, every page would have hundreds of lines of duplicated HTML. Components let you write a card once and reuse it everywhere.</p>
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4 — FOLDER TOUR
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 4</span>
+<h1>Folder-by-Folder Tour</h1>
+
+<table>
+  <tr><th>Folder / File</th><th>What It's For</th></tr>
+  <tr>
+    <td><code>src/</code></td>
+    <td><strong>All frontend code.</strong> Everything the browser runs: dashboards, login, navigation, components. Written in React (JSX files).</td>
+  </tr>
+  <tr>
+    <td><code>src/routes/</code></td>
+    <td>Each role has its own sub-folder: <code>employee/</code>, <code>hr/</code>, <code>manager/</code>, <code>it/</code>, <code>finance/</code>. Each folder has a Layout file (the sidebar + shell) and a Pages file (the actual content pages).</td>
+  </tr>
+  <tr>
+    <td><code>src/components/</code></td>
+    <td>Shared building blocks used across dashboards: <code>Sidebar.jsx</code>, <code>LoginPage.jsx</code>, <code>PageHead.jsx</code>.</td>
+  </tr>
+  <tr>
+    <td><code>src/lib/</code></td>
+    <td>Utility functions and the Supabase client. Things like <code>supabase.js</code> (the database connection), <code>format.js</code> (date formatting), <code>clearanceStatus.js</code> (logic for checking clearances).</td>
+  </tr>
+  <tr>
+    <td><code>src/styles/</code></td>
+    <td>CSS design tokens — colours, spacing, font sizes. All dashboards share these so they look consistent.</td>
+  </tr>
+  <tr>
+    <td><code>agents/</code></td>
+    <td><strong>All Python agent code.</strong> The AI pipeline that runs when someone submits a resignation. Has its own virtual environment (<code>.venv/</code>) and Python packages separate from the JavaScript frontend.</td>
+  </tr>
+  <tr>
+    <td><code>agents/hub/</code></td>
+    <td>The <strong>supervisor</strong> — the orchestrator that coordinates all agents. <code>supervisor.py</code> is the main file.</td>
+  </tr>
+  <tr>
+    <td><code>agents/spokes/</code></td>
+    <td>Each specialist agent lives here: <code>hr_agent.py</code>, <code>risk_agent.py</code>, <code>it_deprovisioning_agent.py</code>, <code>finance_agent.py</code>, <code>exit_intel_agent.py</code>, <code>compliance_agent.py</code>, and others.</td>
+  </tr>
+  <tr>
+    <td><code>agents/core/</code></td>
+    <td>Shared tools all agents use: <code>config.py</code> (secrets/database connection), <code>llm.py</code> (how to call the AI), <code>trace.py</code> (live terminal logging), <code>prompts.py</code> (loads prompt text files), <code>notifications.py</code> (email sending), <code>calendar_booking.py</code> (Google Calendar).</td>
+  </tr>
+  <tr>
+    <td><code>agents/service.py</code></td>
+    <td>The HTTP bridge — a small web server (running on your machine on port 8787) that the frontend calls to trigger agent actions.</td>
+  </tr>
+  <tr>
+    <td><code>supabase/</code></td>
+    <td><strong>Database migrations.</strong> Each <code>.sql</code> file is a change to the database structure — tables, security rules, views. Run in order (0001, 0002…). These files are the only source of truth for what the database looks like.</td>
+  </tr>
+  <tr>
+    <td><code>supabase/functions/</code></td>
+    <td>Supabase Edge Functions — serverless code that runs in Supabase's cloud. The <code>ask/</code> function powers the RAG assistant; <code>submit-resignation/</code> creates the exit case when an employee submits.</td>
+  </tr>
+  <tr>
+    <td><code>scripts/</code></td>
+    <td>Utility scripts: <code>seed.js</code> creates 103 demo employee profiles and exit cases; <code>ingest_docs.js</code> loads the exit policy documents into the RAG store; <code>exit_policy.md</code> is the actual company policy document.</td>
+  </tr>
+  <tr>
+    <td><code>docs/</code></td>
+    <td>Documentation files. <code>ExitAI_Code_Explained.pdf</code> — this document.</td>
+  </tr>
+  <tr>
+    <td><code>agents/core/prompts/</code></td>
+    <td>The instructions given to the AI for each task. Stored as markdown <code>.md</code> files — e.g. what to write in an exit checklist, how to evaluate a KT document. Loaded at runtime by <code>prompts.py</code>.</td>
+  </tr>
+  <tr>
+    <td><code>.env</code></td>
+    <td>Secret keys — database passwords, AI API keys. <strong>Never committed to git, never visible in the browser.</strong> Listed in <code>.gitignore</code>.</td>
+  </tr>
+</table>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5 — FILE-BY-FILE EXPLANATIONS
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 5</span>
+<h1>File-by-File Explanations</h1>
+<p>This section walks through every important file — what it does, why it exists, and what the key lines mean in plain English.</p>
+
+<!-- ── src/App.jsx ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-blue">Frontend</span>
+    <span class="file-path">src/App.jsx</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> This is the <em>root</em> of the entire web app. It runs first when someone opens the website. It checks whether the user is logged in, finds out their role (employee/HR/manager/IT/finance), and then shows the right dashboard for that role.</p>
+    <p><strong>Why it exists:</strong> Without this file, the app would have no starting point — it would not know who is logged in or where to send them.</p>
+    <pre><span class="kw">const</span> [session, setSession] = <span class="fn">useState</span>(undefined)  <span class="cm">// undefined = still loading</span>
+<span class="kw">const</span> [role, setRole] = <span class="fn">useState</span>(null)  <span class="cm">// will be 'hr', 'employee', etc.</span></pre>
+    <p>These two lines use <code>const</code> and <code>useState</code> (a React tool) to create two boxes: one holds the logged-in session, one holds the user's role. They start empty (<code>undefined</code> / <code>null</code>) and get filled in after the app loads.</p>
+    <pre>supabase.auth.<span class="fn">getSession</span>().<span class="fn">then</span>(({ data }) => <span class="fn">setSession</span>(data.session))</pre>
+    <p>This line asks Supabase: "is there a logged-in session right now?" When the answer comes back, it saves it in the <code>session</code> box. This is an <strong>async API call</strong> to Supabase Auth.</p>
+    <pre>supabase.<span class="fn">from</span>(<span class="st">'profiles'</span>).<span class="fn">select</span>(<span class="st">'role'</span>).<span class="fn">eq</span>(<span class="st">'id'</span>, session.user.id)</pre>
+    <p>Once logged in, this <strong>database query</strong> asks: "from the profiles table, give me the role column where the id matches this user." That tells the app whether to show the HR dashboard, IT dashboard, etc.</p>
+    <pre><span class="kw">if</span> (!session) <span class="kw">return</span> &lt;LoginPage /&gt;</pre>
+    <p>If there's no session (not logged in), show the login screen. This is an <strong>if statement</strong> that renders a React <strong>component</strong>.</p>
+  </div>
+</div>
+
+<!-- ── src/routes/AppRoutes.jsx ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-blue">Frontend</span>
+    <span class="file-path">src/routes/AppRoutes.jsx</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Maps web addresses (URLs) to the right page. When you go to <code>/employee/tasks</code>, this file shows the Tasks page. When you go to <code>/hr/all-exits</code>, it shows the All Exits page for HR.</p>
+    <p><strong>Why it exists:</strong> Without routing, the browser would have no idea which page to show for each URL. Every tab on every dashboard corresponds to a route defined here.</p>
+    <pre>&lt;Route path=<span class="st">"/employee/tasks"</span> element={role === <span class="st">'employee'</span> ? &lt;Employee.Tasks /&gt; : &lt;Navigate to={`/${role}`} /&gt;} /&gt;</pre>
+    <p>This says: "if the URL is <code>/employee/tasks</code>, check the role. If the user is an employee, show the Tasks component; otherwise redirect them to their own dashboard." This is how the app prevents a manager from visiting an employee's page.</p>
+  </div>
+</div>
+
+<!-- ── src/components/LoginPage.jsx ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-blue">Frontend</span>
+    <span class="file-path">src/components/LoginPage.jsx</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Shows the login screen. Handles email + password input and calls Supabase Auth to sign in.</p>
+    <p><strong>Why it exists:</strong> Every user must be authenticated before seeing any data. Supabase Auth handles the actual password checking — this component just provides the form.</p>
+  </div>
+</div>
+
+<!-- ── src/routes/employee/EmployeePages.jsx ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-blue">Frontend</span>
+    <span class="file-path">src/routes/employee/EmployeePages.jsx</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> All the pages an employee sees: their Dashboard, My Exit progress, Tasks list, Documents upload, Exit Interview form, and Timeline of their exit stages.</p>
+    <p><strong>Why it exists:</strong> This is the employee's entire experience in the app — the interface through which they submit their resignation and track their exit.</p>
+    <pre><span class="kw">const</span> STAGE_ORDER = [<span class="st">'hr'</span>, <span class="st">'manager'</span>, <span class="st">'it'</span>, <span class="st">'finance'</span>]</pre>
+    <p>This <strong>array</strong> (a list) defines the order of exit stages. The timeline on the employee's dashboard follows this order — HR comes first, finance last.</p>
+    <pre><span class="kw">function</span> <span class="fn">stageState</span>(tasks) {
+  <span class="kw">const</span> escalations = tasks.<span class="fn">filter</span>(t => t.title?.<span class="fn">startsWith</span>(<span class="st">'Escalated'</span>))
+  <span class="kw">const</span> work = tasks.<span class="fn">filter</span>(t => !t.title?.<span class="fn">startsWith</span>(<span class="st">'Escalated'</span>))
+  <span class="kw">return</span> {
+    blocked: escalations.<span class="fn">some</span>(e => (e.escalation_state ?? <span class="st">'open'</span>) === <span class="st">'open'</span>),
+    complete: work.length > <span class="nm">0</span> &amp;&amp; work.<span class="fn">every</span>(t => t.status === <span class="st">'done'</span>),
+  }
+}</pre>
+    <p>This <strong>function</strong> figures out whether a stage (like "Manager &amp; KT") is complete, blocked, or still in progress. It separates escalation tasks (manager rejected something) from normal work tasks, then checks: are all work tasks done? Is there an open escalation? The result drives the colour of the timeline dot (green = done, red = blocked, etc.).</p>
+  </div>
+</div>
+
+<!-- ── src/routes/hr/HrPages.jsx ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-blue">Frontend</span>
+    <span class="file-path">src/routes/hr/HrPages.jsx</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> The most complex frontend file — all pages for the HR dashboard: All Exits, Escalations, Risk &amp; Compliance, Exit Interviews, Trends, Clearances, Agent Activity, and more.</p>
+    <p><strong>Why it exists:</strong> HR is the power user of the system — they see everything, including the AI-generated risk scores, interview analysis, and agent activity logs.</p>
+    <pre><span class="kw">const</span> RISK_TONE = { low: <span class="st">'t-success'</span>, medium: <span class="st">'t-warning'</span>, high: <span class="st">'t-danger'</span> }</pre>
+    <p>This <strong>object</strong> maps risk level names to CSS colour classes. When the risk level is "high", the badge turns red (<code>t-danger</code>). This keeps the display logic consistent — change the colour in one place and it updates everywhere.</p>
+    <pre><span class="kw">const</span> humanizeStatKey = (key) =>
+  STAT_ACRONYMS[key] ?? key.<span class="fn">replace</span>(/_/g, <span class="st">' '</span>).<span class="fn">replace</span>(...)</pre>
+    <p>This <strong>function</strong> converts database column names (like <code>avg_completion_rate</code>) into readable English ("Avg completion rate"). The AI analytics agents store data in snake_case; this makes them readable for HR users without requiring the agents to worry about formatting.</p>
+  </div>
+</div>
+
+<!-- ── agents/core/config.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/core/config.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Loads all the secret keys from the <code>.env</code> file (passwords, API keys, database URL) and creates the Supabase database connection that every agent uses.</p>
+    <p><strong>Why it exists:</strong> Every agent needs the database and the AI. Rather than each agent file reading the <code>.env</code> file itself (and potentially reading the wrong value), they all import from this one file. Fix or change a key here, and it updates for all agents automatically.</p>
+    <pre><span class="fn">load_dotenv</span>(Path(__file__).resolve().parent.parent.parent / <span class="st">".env"</span>, override=<span class="nm">True</span>)</pre>
+    <p>This line finds and reads the <code>.env</code> file (the project's secret file) from three folders up from this file's location. <code>override=True</code> means "use these values even if the computer already has a setting with the same name" — this was needed because an old Windows system variable was causing the wrong gateway URL to be used.</p>
+    <pre>db: Client = <span class="fn">create_client</span>(SUPABASE_URL, SUPABASE_SERVICE_KEY)</pre>
+    <p>This creates the database connection using the <strong>service key</strong> (a key that bypasses all security rules — agents need this to write to tables that regular users can't touch). The <code>db</code> variable is then imported by every other agent file.</p>
+  </div>
+</div>
+
+<!-- ── agents/core/llm.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/core/llm.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> The single place in the codebase where the AI (LLM) is called. Every agent that needs the AI calls <code>ask_claude()</code> or <code>ask_claude_json()</code> from here — they never call the AI directly.</p>
+    <p><strong>Why it exists:</strong> Centralises all AI communication. If the gateway URL or model name changes, only this file needs updating.</p>
+    <pre>resp = requests.<span class="fn">post</span>(
+  f<span class="st">"{ANTHROPIC_BASE_URL}/v1/messages"</span>,
+  headers={ <span class="st">"Authorization"</span>: f<span class="st">"Bearer {ANTHROPIC_API_KEY}"</span>, ... },
+  json={ <span class="st">"model"</span>: ANTHROPIC_MODEL, <span class="st">"messages"</span>: [...] }
+)</pre>
+    <p>This is the actual <strong>API call</strong> to the AI gateway. It's a plain HTTP POST request (like filling a web form and pressing Submit) sent to the Portkey gateway URL. The gateway translates it and sends it to the Azure AI model. The result comes back as JSON.</p>
+    <pre>text_block = <span class="fn">next</span>((b <span class="kw">for</span> b <span class="kw">in</span> body[<span class="st">"content"</span>] <span class="kw">if</span> b.get(<span class="st">"type"</span>) == <span class="st">"text"</span>), <span class="nm">None</span>)</pre>
+    <p>Some AI models return a "thinking" block before the actual text. This line skips those and finds the real text answer. Without this, the code would crash when the model included reasoning steps.</p>
+    <pre><span class="kw">def</span> <span class="fn">ask_claude_json</span>(system, user, max_tokens=<span class="nm">500</span>):
+    text = <span class="fn">ask_claude</span>(system, user, max_tokens)
+    match = re.<span class="fn">search</span>(r<span class="st">"\{.*\}"</span>, text, re.DOTALL)
+    <span class="kw">return</span> json.<span class="fn">loads</span>(match.group(<span class="nm">0</span>))</pre>
+    <p>This function asks the AI and then extracts the JSON object from the response. The AI sometimes wraps its JSON in extra text or backticks — <code>re.search</code> is a regular expression that finds the <code>{...}</code> block regardless.</p>
+  </div>
+</div>
+
+<!-- ── agents/core/trace.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/core/trace.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Provides live, real-time logging in the terminal as agents run. Every agent is decorated with <code>@traced_node</code>, which prints when the agent starts, what data it received, when the AI was called (and how many tokens it used), what was written to the database, and when the agent finished — all colour-coded and indented so you can see the hub handing off to each spoke.</p>
+    <p><strong>Why it exists:</strong> Without this, running the agent pipeline is a black box — you'd submit a case and see nothing until it finished (or crashed). With trace.py, you watch every step live in the terminal.</p>
+    <pre><span class="kw">def</span> <span class="fn">traced_node</span>(name: str):
+    <span class="kw">def</span> <span class="fn">decorator</span>(fn):
+        <span class="kw">def</span> <span class="fn">wrapper</span>(state, *args, **kwargs):
+            start = time.<span class="fn">perf_counter</span>()
+            <span class="fn">_emit</span>(_c(f<span class="st">"┌─ {name}"</span>, <span class="st">"cyan"</span>) + <span class="st">"  ▸ start"</span>)
+            result = <span class="fn">fn</span>(state, *args, **kwargs)
+            elapsed = time.<span class="fn">perf_counter</span>() - start
+            <span class="fn">_emit</span>(_c(f<span class="st">"└─ {name}"</span>, <span class="st">"cyan"</span>) + f<span class="st">"  ✓ done  {elapsed:.2f}s"</span>)
+            <span class="kw">return</span> result
+        <span class="kw">return</span> wrapper
+    <span class="kw">return</span> decorator</pre>
+    <p><code>traced_node</code> is a <strong>decorator</strong> — a special function that wraps another function. When you write <code>@traced_node("HR agent")</code> above a function, Python automatically wraps it: print "start" when it's called, run the real function, print "done" with timing when it finishes. This is how all 14 agents get logging without any of them having to write their own print statements.</p>
+  </div>
+</div>
+
+<!-- ── agents/hub/supervisor.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/hub/supervisor.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> The <em>orchestrator</em> — the conductor of the entire agent orchestra. It defines the order in which agents run for an exit case, and handles the conditional path (manager approved vs. manager rejected).</p>
+    <p><strong>Why it exists:</strong> Without the supervisor, each agent would have to know about all the others and call them in sequence. Instead, they each do their own job, and the supervisor decides who goes next.</p>
+    <pre><span class="cm"># The flow:
+# entry -> hr -> manager_gate --[approved]--> it -> compliance -> finance -> assess -> END
+#                             `--[rejected]--> escalate -> END</span></pre>
+    <p>This comment describes the entire pipeline. After the HR stage, there's a <em>gate</em>: if the manager approved the knowledge transfer, the pipeline continues to IT, Compliance, Finance, then the Risk Assessment. If the manager rejected, it branches to Escalation and stops.</p>
+    <pre>_graph = <span class="fn">StateGraph</span>(SupervisorState)
+_graph.<span class="fn">add_node</span>(<span class="st">"hr"</span>, _hr_stage)
+_graph.<span class="fn">add_node</span>(<span class="st">"manager_gate"</span>, _manager_gate)
+_graph.<span class="fn">add_conditional_edges</span>(<span class="st">"manager_gate"</span>, _route_after_manager,
+    {<span class="st">"approved"</span>: <span class="st">"it"</span>, <span class="st">"rejected"</span>: <span class="st">"escalate"</span>})</pre>
+    <p>This builds the graph. <code>StateGraph</code> is a LangGraph object that holds the pipeline. Each <code>add_node</code> call registers a stage. <code>add_conditional_edges</code> is the decision point — if <code>_route_after_manager</code> returns "approved", go to "it"; if "rejected", go to "escalate". The graph is a living diagram you can follow step by step.</p>
+    <pre><span class="kw">class</span> <span class="fn">SupervisorState</span>(TypedDict):
+    case_id: str
+    kt_text: str | <span class="nm">None</span>
+    simulate_rejection: bool
+    log: list[str]</pre>
+    <p>This is the <strong>state</strong> — the data passed between all agents as the pipeline runs. <code>case_id</code> identifies which exit case we're processing. Every agent receives this state, does its work, and returns it (possibly with additions). Think of it as a baton in a relay race.</p>
+  </div>
+</div>
+
+<!-- ── agents/spokes/hr_agent.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/spokes/hr_agent.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Two jobs: (1) Generate an exit checklist — calls the AI with the employee's role and department to produce a list of HR and manager tasks; (2) Review a knowledge-transfer document — reads the submitted KT doc and asks the AI to identify gaps.</p>
+    <p><strong>Why it exists:</strong> The checklist is the very first output of an exit — it populates the task lists that HR, the manager, and IT all use throughout the exit process.</p>
+    <pre>@<span class="fn">traced_node</span>(<span class="st">"HR agent -- generate checklist"</span>)
+<span class="kw">def</span> <span class="fn">_generate_checklist</span>(state):
+    case = state[<span class="st">"case"</span>]
+    user = f<span class="st">"Role: {case['role_title']}\nDepartment: {case['department']}"</span>
+    state[<span class="st">"result"</span>] = <span class="fn">ask_claude_json</span>(CHECKLIST_SYSTEM_PROMPT, user)
+    <span class="kw">return</span> state</pre>
+    <p>This function tells the AI: "here's the employee's role and department — generate a checklist." The AI is given a system prompt (instructions about what format and content to produce) and the employee details. The response is a JSON object with HR tasks and manager tasks.</p>
+    <pre>IT_OWNED_TITLE_RE = re.<span class="fn">compile</span>(
+    r<span class="st">"^\s*(?:revoke|de-?provision|disable|deactivate)..."</span>, re.IGNORECASE
+)</pre>
+    <p>This is a <em>regular expression</em> — a pattern that matches text. It catches checklist items that belong to IT (like "Revoke access to GitHub") and removes them from the manager's task list. This prevents a manager from seeing tasks they can't perform, which was blocking the manager approval gate.</p>
+  </div>
+</div>
+
+<!-- ── agents/spokes/risk_agent.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/spokes/risk_agent.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Calculates a risk score for each exit — a number between 0 and 1 that tells HR how much of a risk this departure is to the organisation. Also decides whether the employee is eligible for rehire.</p>
+    <p><strong>Why it exists:</strong> HR needs to know which exits are high-risk (e.g. a critical engineer with bad sentiment leaving quickly) so they can prioritise attention.</p>
+    <div class="callout amber">
+      <strong>Important: No AI is used here.</strong> The risk score is calculated with pure maths — a weighted formula. The AI is NOT making this judgement. This was a deliberate decision: arithmetic is predictable, auditable, and never hallucinates.
+    </div>
+    <pre>WEIGHTS = {<span class="st">"tenure"</span>: <span class="nm">0.2</span>, <span class="st">"role"</span>: <span class="nm">0.3</span>, <span class="st">"sentiment"</span>: <span class="nm">0.3</span>, <span class="st">"tasks"</span>: <span class="nm">0.2</span>}</pre>
+    <p>The four factors and how much each one counts. Role criticality and interview sentiment each count for 30%; tenure and outstanding tasks each count for 20%. These weights add up to 1.0 (100%).</p>
+    <pre>risk_score = <span class="fn">round</span>(
+    tenure * WEIGHTS[<span class="st">"tenure"</span>]
+    + role * WEIGHTS[<span class="st">"role"</span>]
+    + sentiment * WEIGHTS[<span class="st">"sentiment"</span>]
+    + tasks_risk * WEIGHTS[<span class="st">"tasks"</span>],
+    <span class="nm">3</span>
+)</pre>
+    <p>The actual calculation. Each factor (a number between 0 and 1) is multiplied by its weight, then they're added together. <code>round(..., 3)</code> keeps only 3 decimal places. The result is a single number like <code>0.72</code>.</p>
+    <pre>risk_level = <span class="st">"high"</span> <span class="kw">if</span> risk_score >= <span class="nm">0.66</span> <span class="kw">else</span> <span class="st">"medium"</span> <span class="kw">if</span> risk_score >= <span class="nm">0.4</span> <span class="kw">else</span> <span class="st">"low"</span></pre>
+    <p>Converts the number to a label: ≥ 0.66 = high risk, ≥ 0.4 = medium, below 0.4 = low.</p>
+  </div>
+</div>
+
+<!-- ── agents/spokes/exit_intel_agent.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/spokes/exit_intel_agent.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Reads an employee's exit interview text and uses the AI to produce: a summary, a sentiment label (positive/neutral/negative), key themes (e.g. "poor management", "better compensation elsewhere"), and a rehire recommendation.</p>
+    <p><strong>Why it exists:</strong> HR cannot read every exit interview carefully. This agent distils each interview to a few key facts, and over time the longitudinal mode spots rising themes across all interviews (e.g. "compensation" is trending across Engineering).</p>
+    <pre>state[<span class="st">"result"</span>] = <span class="fn">ask_claude_json</span>(SYSTEM_PROMPT, f<span class="st">"Transcript:\n{state['interview_text']}"</span>)</pre>
+    <p>The AI gets the system prompt (instructions on what to analyse) plus the interview text. It returns a JSON object with summary, sentiment, themes, and rehire_eligible fields — all stored in the database for HR to view.</p>
+  </div>
+</div>
+
+<!-- ── agents/spokes/it_deprovisioning_agent.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/spokes/it_deprovisioning_agent.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Two stages. First, generate a deprovisioning plan (the list of IT tasks: revoke GitHub access, collect laptop, disable SSO account). Second, after the IT team approves each task, "execute" them through a mock adapter and record the audit trail.</p>
+    <div class="honest">The "Execute" step uses a <strong>MockITAdapter</strong> — it simulates revoking access but does not actually connect to Okta, Jamf, GitHub, or any real IT system. No real access is revoked by this code.</div>
+    <pre>ASSET_RE = re.<span class="fn">compile</span>(r<span class="st">"laptop|macbook|device|headset|card|asset|collect"</span>, re.I)
+IDENTITY_RE = re.<span class="fn">compile</span>(r<span class="st">"sso|identity|account"</span>, re.I)</pre>
+    <p>These patterns categorise tasks by keyword. A task titled "Collect MacBook" matches <code>ASSET_RE</code> and is classified as an asset-return action. A task with "SSO" is an identity action. The mock adapter uses this classification to simulate the right type of action.</p>
+  </div>
+</div>
+
+<!-- ── agents/spokes/finance_agent.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/spokes/finance_agent.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Checks whether finance has been cleared for an exit. Requires two things: all other stages done (HR, Manager, IT tasks all complete) AND the Finance dashboard shows dues marked as settled. Only then marks the finance task as done.</p>
+    <p><strong>Why it exists:</strong> The relieving letter cannot be issued until finance confirms the employee owes nothing. This agent enforces that gate programmatically.</p>
+    <div class="callout">
+      <strong>No LLM here either.</strong> Finance clearance is a simple checklist: are all prior tasks done? Is the dues flag set? Pure logic, no AI.
+    </div>
+  </div>
+</div>
+
+<!-- ── agents/service.py ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-purple">Python / Agents</span>
+    <span class="file-path">agents/service.py</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> A small web server (HTTP server) running on your local machine on port 8787. The browser cannot directly run Python — so this service acts as a bridge. The React frontend sends requests to this service, which then runs the Python agent pipeline.</p>
+    <p><strong>Why it exists:</strong> Supabase Edge Functions run in Supabase's cloud and cannot call Python code on your laptop. The frontend can call localhost, so this service is the connection point between the browser and the Python agents.</p>
+    <pre>routes = {
+    <span class="st">"/activate-exit"</span>: <span class="kw">lambda</span> body: <span class="fn">activate_case</span>(body[<span class="st">"case_id"</span>]),
+    <span class="st">"/submit-exit-interview"</span>: <span class="kw">lambda</span> body: <span class="fn">submit_exit_interview</span>(body[<span class="st">"case_id"</span>]),
+    <span class="st">"/manager-approve"</span>: <span class="kw">lambda</span> body: <span class="fn">manager_approve</span>(body[<span class="st">"case_id"</span>]),
+    ...
+}</pre>
+    <p>This <strong>object</strong> maps URL paths to Python functions. When the frontend calls <code>POST /activate-exit</code>, the service runs <code>activate_case()</code>, which generates the HR checklist and emails the manager. Each route triggers a specific agent action.</p>
+    <pre><span class="cm"># ponytail: stdlib http.server, not Flask/FastAPI -- neither is a project</span>
+<span class="cm"># dependency and this is one route.</span></pre>
+    <p>The comment explains why plain Python's built-in web server was used instead of a popular framework like Flask. Flask would be unnecessary weight for a single-machine development server with 9 routes.</p>
+  </div>
+</div>
+
+<!-- ── supabase/migrations/0001_schema.sql ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-green">Database</span>
+    <span class="file-path">supabase/migrations/0001_schema.sql</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Creates all the main database tables: <code>profiles</code>, <code>exit_cases</code>, <code>exit_tasks</code>, <code>exit_interviews</code>, <code>exit_docs</code>, and <code>trend_alerts</code>.</p>
+    <p><strong>Why it exists:</strong> A database has no tables until you create them. This file is run once (by Supabase) to set up the entire structure the app relies on.</p>
+    <pre><span class="kw">create table if not exists</span> exit_cases (
+    id               uuid <span class="kw">primary key default</span> gen_random_uuid(),
+    status           text <span class="kw">not null default</span> <span class="st">'open'</span> check (status in (<span class="st">'open'</span>, <span class="st">'in_progress'</span>, <span class="st">'completed'</span>)),
+    risk_level       text check (risk_level in (<span class="st">'low'</span>, <span class="st">'medium'</span>, <span class="st">'high'</span>)),
+    ...
+);</pre>
+    <p>This creates the <code>exit_cases</code> table. Each column has a type (<code>uuid</code>, <code>text</code>, <code>numeric</code>) and optional constraints (<code>not null</code> means this column must always have a value, <code>check</code> means only these specific values are allowed). The <code>risk_level</code> column can only hold "low", "medium", or "high" — the database rejects anything else.</p>
+  </div>
+</div>
+
+<!-- ── supabase/migrations/0002_rls.sql ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-green">Database</span>
+    <span class="file-path">supabase/migrations/0002_rls.sql</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Implements Row Level Security (RLS) — the database security model. Defines which roles can read or write which rows. This is why an employee cannot see their own risk score, and a manager cannot see another manager's exits.</p>
+    <p><strong>Why it exists:</strong> The UI hides sensitive columns, but that's not enough — a determined user could bypass the UI and query the database directly. RLS enforces the rules at the database level: even if you bypass the app, you see 0 rows for tables you're not allowed to access.</p>
+    <pre><span class="cm">-- exit_cases: ONE policy. HR only. No employee policy, no manager policy.</span>
+<span class="kw">create policy</span> exit_cases_hr_select <span class="kw">on</span> public.exit_cases
+    <span class="kw">for select to</span> authenticated
+    <span class="kw">using</span> (public.<span class="fn">app_current_role</span>() = <span class="st">'hr'</span>);</pre>
+    <p>Only HR can select (read) rows from the <code>exit_cases</code> table directly. Employees and managers have no policy on this table — they get 0 rows no matter what they query. Their only view of cases is through restricted database views that hide the risk and assessment columns.</p>
+  </div>
+</div>
+
+<!-- ── scripts/ingest_docs.js ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-amber">Scripts</span>
+    <span class="file-path">scripts/ingest_docs.js</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Reads the exit policy document (<code>scripts/exit_policy.md</code>), chops it into small chunks (pieces of text), converts each chunk into an embedding (a list of numbers representing its meaning), and saves both the text and the numbers into the <code>exit_docs</code> database table. This is the RAG setup step.</p>
+    <p><strong>Why it exists:</strong> The AI cannot "read" a document — it needs the document converted into a mathematical format (embeddings) that it can search. Run this script once to load the policy; after that the RAG assistant can answer questions about it.</p>
+  </div>
+</div>
+
+<!-- ── scripts/seed/seed.js ── -->
+<div class="file-block">
+  <div class="file-header">
+    <span class="pill pill-amber">Scripts</span>
+    <span class="file-path">scripts/seed/seed.js</span>
+  </div>
+  <div class="file-body">
+    <p><strong>What it does:</strong> Creates 103 fake employee profiles (Emp001–Emp100 plus named demo accounts for HR, Manager, IT, Finance) and 15 demo exit cases, all with realistic data. This populates the database so there's something to demonstrate.</p>
+    <p><strong>Why it exists:</strong> Without seed data, the dashboards would be empty. The seed provides a realistic demo environment for presentations and testing.</p>
+    <div class="honest">All 103 profiles are fake. No real employee data is in this system. Passwords are deterministic and demo-only (e.g. <code>Emp001@</code>) — never use this pattern in production.</div>
+  </div>
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 6 — HOW THE AGENTS WORK
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 6</span>
+<h1>How the Agents Work — Step by Step</h1>
+
+<h2>What is an "agent" in plain English?</h2>
+<p>An agent is a program that uses AI to make decisions and take actions — reading from the database, calling the AI, writing results back, and deciding what to do next. Think of it as a very capable employee who can read instructions, think about them using AI, and fill in forms in the database — all automatically.</p>
+
+<p>ExitAI uses a <strong>hub-and-spoke</strong> pattern. The <em>Supervisor</em> is the hub — it decides the order of work. The specialist agents (HR, IT, Finance, Risk, etc.) are the spokes — they each do one specific job and report back to the hub.</p>
+
+<h2>A Full Exit: From Resignation to Relieving Letter</h2>
+
+<div class="flow">
+<span class="node">EMPLOYEE</span> submits resignation form in browser
+  <span class="edge">↓</span>
+<span class="node">Supabase Edge Function</span> <span class="cm">(submit-resignation/index.ts)</span>
+  — creates exit_case row in database
+  — sets status = 'open'
+  <span class="edge">↓ calls localhost:8787/activate-exit</span>
+<span class="node">Agent Service</span> <span class="cm">(agents/service.py)</span>
+  — receives the case_id
+  <span class="edge">↓</span>
+<span class="node">HR Agent</span> <span class="cm">(hr_agent.py)</span>    <span class="label">← AUTOMATIC</span>
+  — asks AI: generate a checklist for this role/department
+  — AI returns list of tasks (HR tasks + manager/KT tasks)
+  — tasks are saved to exit_tasks table in database
+  — sends email reminder to employee + manager about KT deadlines
+  — books Google Calendar events for KT meetings
+  — case status flipped to 'in_progress'
+  <span class="edge">↓ pipeline pauses — waits for human action</span>
+<span class="node">MANAGER</span> reviews KT tasks in Manager dashboard    <span class="label">← HUMAN</span>
+  — marks each KT task as done (or rejects with reason)
+  — if rejected → Escalation agent creates escalation row → HR sees it
+  — if all done → manager clicks "Approve"
+  <span class="edge">↓ frontend calls /manager-approve</span>
+<span class="node">IT Agent</span> <span class="cm">(it_deprovisioning_agent.py)</span>    <span class="label">← AUTOMATIC</span>
+  — asks AI: generate IT deprovisioning plan for this employee
+  — creates IT tasks in database (revoke access, collect laptop, etc.)
+  <span class="edge">↓ waits for IT team action</span>
+<span class="node">IT TEAM</span> approves each task in IT dashboard    <span class="label">← HUMAN</span>
+  — clicks Approve on each task
+  — MockITAdapter "executes" the action and records audit log
+  <span class="edge">↓</span>
+<span class="node">Compliance Agent</span> <span class="cm">(compliance_agent.py)</span>    <span class="label">← AUTOMATIC</span>
+  — checks: manager approved? IT tasks done? Documents validated?
+  — updates compliance status
+  <span class="edge">↓</span>
+<span class="node">Finance Agent</span> <span class="cm">(finance_agent.py)</span>    <span class="label">← AUTOMATIC</span>
+  — checks: all prior stages done? Dues settled flag set?
+  — marks finance task done if cleared
+  <span class="edge">↓ waits for Finance action</span>
+<span class="node">FINANCE TEAM</span> marks dues settled in Finance dashboard    <span class="label">← HUMAN</span>
+  <span class="edge">↓</span>
+<span class="node">Risk Agent</span> <span class="cm">(risk_agent.py)</span>    <span class="label">← AUTOMATIC</span>
+  — calculates risk score (formula, no AI)
+  — writes risk_level, risk_score, rehire_eligible to exit_cases
+  — HR can now see these fields (not visible to employee/manager)
+  <span class="edge">↓</span>
+<span class="node">HR</span> issues Relieving Letter from HR dashboard    <span class="label">← HUMAN</span>
+  — clicks "Issue Relieving Letter"
+  — frontend updates database, calls /issue-relieving-letter
+  — Email sent to employee with relieving notice
+  — Case status → 'completed'
+  <span class="edge">↓</span>
+<span class="node">EMPLOYEE</span> sees "Relieving letter issued" in their dashboard
+</div>
+
+<div class="cols2">
+  <div class="card">
+    <h4>Automatic Steps</h4>
+    <ul>
+      <li>Checklist generation (AI)</li>
+      <li>KT reminder emails + calendar booking</li>
+      <li>IT deprovisioning plan (AI)</li>
+      <li>IT task execution (mock)</li>
+      <li>Compliance check</li>
+      <li>Finance clearance check</li>
+      <li>Risk score calculation (formula)</li>
+      <li>Exit interview analysis (AI)</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>Human Steps</h4>
+    <ul>
+      <li>Employee submits resignation form</li>
+      <li>Employee fills exit interview</li>
+      <li>Employee uploads documents</li>
+      <li>Manager approves/rejects KT tasks</li>
+      <li>IT team approves each deprovisioning task</li>
+      <li>Finance marks dues settled</li>
+      <li>HR reviews + issues relieving letter</li>
+    </ul>
+  </div>
+</div>
+
+<h2>What is LangGraph?</h2>
+<p>LangGraph is the framework that lets you connect agents into a graph (a flowchart). Each agent is a <em>node</em>. Edges connect nodes and control the order. <em>Conditional edges</em> let you branch: if the manager approved, go to IT; if rejected, go to escalation. The supervisor.py file builds this graph in about 20 lines of code — the graph handles all the routing automatically after that.</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 7 — HOW RAG WORKS
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 7</span>
+<h1>How RAG Works — The AI Assistant Explained</h1>
+
+<h2>What is RAG?</h2>
+<p><strong>RAG = Retrieval-Augmented Generation.</strong> In plain English: instead of asking the AI to answer from its general knowledge (which might be wrong or outdated), you first search your own documents for the relevant pieces, then give those pieces to the AI along with the question. The AI answers based on your actual content.</p>
+
+<h2>Step-by-Step Diagram</h2>
+
+<div class="flow">
+<span class="cm">── SETUP (done once, by running scripts/ingest_docs.js) ──</span>
+
+<span class="node">exit_policy.md</span>  <span class="cm">(the real company exit policy document)</span>
+  <span class="edge">↓ split into chunks</span>
+<span class="node">Chunk 1:</span> "An employee must return all company assets within 3 days..."
+<span class="node">Chunk 2:</span> "Final settlement is processed within 30 days of last working day..."
+<span class="node">Chunk 3:</span> "Knowledge transfer must be completed before the exit date..."
+  <span class="edge">↓ each chunk → OpenAI Embedding API</span>
+<span class="node">Embedding:</span> [0.12, -0.34, 0.87, ... 1536 numbers]  <span class="cm">(meaning as maths)</span>
+  <span class="edge">↓ saved to database</span>
+<span class="node">exit_docs table:</span>  source | section | content | embedding(vector)
+  — chunk text and its 1536-number vector stored together
+
+<span class="cm">── QUERY (every time someone asks the assistant a question) ──</span>
+
+<span class="node">USER QUESTION:</span>  "How long do I have to return my laptop?"
+  <span class="edge">↓ → OpenAI Embedding API</span>
+<span class="node">Question Embedding:</span>  [0.11, -0.33, 0.89, ...]  <span class="cm">(same format)</span>
+  <span class="edge">↓ cosine similarity search in exit_docs</span>
+<span class="node">match_exit_docs()</span>  <span class="cm">(SQL function in 0003_rag.sql)</span>
+  — compares question vector to all chunk vectors
+  — returns 4 most similar chunks
+  <span class="edge">↓</span>
+<span class="node">Top match:</span>  "An employee must return all company assets within 3 days..."
+  <span class="edge">↓ question + matching chunks sent to AI</span>
+<span class="node">AI (Claude / Azure OpenAI via Portkey)</span>
+  — "Based on the exit policy: you have 3 days to return your laptop..."
+  <span class="edge">↓</span>
+<span class="node">ANSWER shown to user</span>
+</div>
+
+<h2>The Real Files</h2>
+<table>
+  <tr><th>What</th><th>Where in the Code</th></tr>
+  <tr><td>Policy document (source)</td><td><code>scripts/exit_policy.md</code></td></tr>
+  <tr><td>Ingestion script (runs once)</td><td><code>scripts/ingest_docs.js</code></td></tr>
+  <tr><td>Where chunks+embeddings are stored</td><td><code>exit_docs</code> table in Supabase (created in <code>0001_schema.sql</code>)</td></tr>
+  <tr><td>The search function</td><td><code>match_exit_docs()</code> in <code>0003_rag.sql</code></td></tr>
+  <tr><td>The Edge Function that answers questions</td><td><code>supabase/functions/ask/index.ts</code></td></tr>
+  <tr><td>Embedding model used</td><td>OpenAI <code>text-embedding-3-small</code> (1536 dimensions)</td></tr>
+  <tr><td>Index type for fast search</td><td>HNSW index on the vector column (fast approximate nearest-neighbour search)</td></tr>
+</table>
+
+<h2>What are "embeddings" and "cosine similarity"?</h2>
+<p>An <strong>embedding</strong> is a list of 1,536 numbers that represents the <em>meaning</em> of a piece of text — not just its exact words. Two sentences that mean the same thing (even with different words) will have similar numbers. <strong>Cosine similarity</strong> is a way of measuring how close two lists of numbers are. A similarity of 1.0 = identical meaning, 0.0 = completely unrelated. The <code>match_exit_docs</code> function finds the chunks with highest similarity to the question — those are the most likely to contain the answer.</p>
+
+<div class="callout green">
+  <strong>Why this matters for a demo:</strong> The RAG assistant only knows what was ingested. If the exit policy says "3 days for laptop return", the assistant says "3 days". If you change the policy document and re-ingest, the assistant's answers change automatically.
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 8 — THE DATABASE
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 8</span>
+<h1>The Database — Tables and Security</h1>
+
+<h2>Main Tables (Plain English)</h2>
+<table>
+  <tr><th>Table</th><th>One row = ...</th><th>Key columns</th><th>Who sees it</th></tr>
+  <tr>
+    <td><strong>profiles</strong></td>
+    <td>One person (employee, HR, manager, IT, finance)</td>
+    <td>role, full_name, email, employee_id, department</td>
+    <td>Your own row: everyone. All rows: HR only</td>
+  </tr>
+  <tr>
+    <td><strong>exit_cases</strong></td>
+    <td>One exit case (one resignation)</td>
+    <td>employee_name, department, status, last_working_day, risk_level*, risk_score*, rehire_eligible*</td>
+    <td>* = HR only. Managers/employees access safe columns only via restricted views</td>
+  </tr>
+  <tr>
+    <td><strong>exit_tasks</strong></td>
+    <td>One checklist item</td>
+    <td>case_id, stage (hr/manager/it/finance), title, status (pending/done), due_date</td>
+    <td>Everyone sees tasks for their stage. Employees see their own only</td>
+  </tr>
+  <tr>
+    <td><strong>exit_interviews</strong></td>
+    <td>One exit interview submission</td>
+    <td>summary, sentiment, themes, rehire_eligible, rehire_reason</td>
+    <td>HR only (the AI-generated fields are sensitive assessment data)</td>
+  </tr>
+  <tr>
+    <td><strong>exit_docs</strong></td>
+    <td>One chunk of a policy document + its embedding</td>
+    <td>source, section, content, embedding (1536 numbers)</td>
+    <td>Only accessible via the service-key /ask Edge Function — not the browser directly</td>
+  </tr>
+  <tr>
+    <td><strong>agent_runs</strong></td>
+    <td>One agent activity log entry</td>
+    <td>case_id, stage, detail, created_at</td>
+    <td>HR (agent activity dashboard)</td>
+  </tr>
+  <tr>
+    <td><strong>kt_reviews</strong></td>
+    <td>One KT document review result (AI output)</td>
+    <td>summary, gaps, complete</td>
+    <td>HR and manager only</td>
+  </tr>
+  <tr>
+    <td><strong>trend_alerts</strong></td>
+    <td>One rising theme across exit interviews</td>
+    <td>theme, department, severity</td>
+    <td>HR only</td>
+  </tr>
+</table>
+
+<h2>Row Level Security — Why an Employee Can't See Their Own Risk Score</h2>
+
+<p>The risk score (<code>risk_level</code>, <code>risk_score</code>, <code>rehire_eligible</code>) lives in the <code>exit_cases</code> table alongside safe columns like the employee's name and last working day. So why can't the employee just query the table and see their own risk score?</p>
+
+<p><strong>Because of Row Level Security (RLS)</strong> — a PostgreSQL feature that filters rows <em>inside the database</em>, before any data is returned.</p>
+
+<div class="flow">
+Employee logs in → queries exit_cases table directly
+  <span class="edge">↓ RLS checks: what policy exists for this user?</span>
+<span class="node">exit_cases_hr_select</span> policy:  only if role = 'hr'
+  <span class="edge">↓ employee's role is 'employee', not 'hr'</span>
+<span class="node">Result: 0 rows returned.</span>  Even though their case is there.
+  <span class="edge">↓ employee's only path to their case data is through:</span>
+<span class="node">employee_exit_view</span>  (a restricted database view)
+  — deliberately excludes risk_level, risk_score, rehire_eligible
+  — only exposes: status, last_working_day, department, role_title
+</div>
+
+<p>The views (<code>employee_exit_view</code>, <code>manager_case_view</code>, <code>it_task_view</code>, <code>finance_case_view</code>) are like windows into the table — each window only shows the columns that role is allowed to see. They run as <code>security_invoker = false</code> (the view has permission to see past the RLS rules on the base table, but it explicitly selects a safe column list, so no sensitive data leaks through).</p>
+
+<div class="callout red">
+  <strong>Non-negotiable:</strong> These five views must NEVER be changed to <code>security_invoker = on</code>. That setting breaks them — the view would be blocked by the same HR-only RLS that protects the table, returning 0 rows for every non-HR user. This has accidentally broken every dashboard three times already.
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 9 — MANAGER Q&A
+═══════════════════════════════════════════════ -->
+<div class="section-block">
+<span class="section-label">Section 9</span>
+<h1>Likely Manager Questions + Simple Honest Answers</h1>
+<p>These are questions a manager, director, or technical reviewer might ask in a demo or presentation, with answers you can say out loud.</p>
+
+<hr class="section-rule" />
+
+<h3>Q1: What is RAG, in one sentence?</h3>
+<div class="callout green">
+RAG means the AI searches your own company documents for the relevant part of the policy before answering — so it answers from the real policy, not from general internet knowledge.
+</div>
+
+<h3>Q2: Is this "real AI" or just pre-written answers?</h3>
+<div class="callout green">
+It's real AI. The exit checklist, the KT document review, and the exit interview analysis are all generated live by an LLM (a language model — the same technology as ChatGPT). Every checklist is freshly generated for each employee's actual role and department. The risk score is not AI — it's a fixed weighted formula — which is intentional, so it's predictable and auditable.
+</div>
+
+<h3>Q3: What did you build vs. what was automated/mock?</h3>
+<div class="callout amber">
+  <strong>Built and real:</strong> The five dashboards (employee/HR/manager/IT/finance), the database schema, all security rules (RLS), the AI checklist/KT/interview agents, the risk scoring, the RAG assistant, Google Calendar booking, email logging via Gmail SMTP.
+  <br/><br/>
+  <strong>Partially real:</strong> Emails are sent via Gmail SMTP — but only when the <code>EMAIL_TEST_RECIPIENT</code> environment variable is set. Without it, emails are logged to the terminal but not delivered.
+  <br/><br/>
+  <strong>Mock / simulated:</strong> The IT deprovisioning "execution" step uses a MockITAdapter — it records the action in the audit log but does not actually connect to Okta, Jamf, or any real identity provider. No real employee access is revoked by this system.
+</div>
+
+<h3>Q4: Where is the data stored? Is it secure?</h3>
+<div class="callout green">
+All data is stored in <strong>Supabase</strong> — a managed cloud database (hosted by Supabase on AWS). Authentication is handled by Supabase Auth (industry standard). Access is enforced by PostgreSQL Row Level Security — the database itself enforces who can see what, not just the application code. All secrets (API keys, database password) are stored in a <code>.env</code> file that is never committed to git.
+</div>
+
+<h3>Q5: What is the tech stack? Is it industry-standard?</h3>
+<div class="callout green">
+Yes. React (frontend) is one of the most widely used UI libraries in the world. Supabase/PostgreSQL is a mature, widely used database platform. LangGraph is a well-established Python framework for building agent pipelines. The LLM access uses the Anthropic API format (the same format used by Claude). Python is the dominant language for AI/ML work.
+</div>
+
+<h3>Q6: How does the system know which dashboard to show each person?</h3>
+<div class="callout green">
+When a user logs in, the app reads their role from the <code>profiles</code> table (set when the account was created). The role — employee, hr, manager, it, or finance — determines which dashboard they see and which routes they can access. If you try to visit a different role's URL, you are redirected to your own dashboard.
+</div>
+
+<h3>Q7: What happens if the manager rejects the knowledge transfer?</h3>
+<div class="callout green">
+An escalation record is created in the database. HR can see it in their Escalations page. HR can either re-route it back to the manager with instructions, or resolve it themselves. The exit pipeline stops at the manager gate — IT and finance agents do not run until the escalation is resolved and the manager approves.
+</div>
+
+<h3>Q8: Can the employee see their own risk score?</h3>
+<div class="callout green">
+No. The risk score (<code>risk_level</code>, <code>risk_score</code>, <code>rehire_eligible</code>) is an HR-only field. It is enforced at the database level — even if an employee queries the database directly, they get 0 rows from the <code>exit_cases</code> table because Row Level Security blocks them. Their only view of their case is through a restricted view that does not include those columns.
+</div>
+
+<h3>Q9: How many exit cases can this handle at once?</h3>
+<div class="callout amber">
+  <strong>Current state (development):</strong> The Python agent service runs on a single machine. It can handle concurrent requests (the HTTP server uses threading), but for high volume it would need to be deployed to a cloud server or containerised (e.g. Docker on AWS/GCP). The database (Supabase/Postgres) can handle thousands of concurrent cases without changes. The current setup is sufficient for a pilot or department-level rollout.
+</div>
+
+<h3>Q10: How do you restart or re-run the agents if something fails?</h3>
+<div class="callout green">
+Each agent is designed to be idempotent — running it twice produces the same result as running it once (it checks if data already exists before inserting). You can re-run any individual agent or the full pipeline for a case with: <code>python -m agents.run_case &lt;case_id&gt;</code>. The terminal shows a live trace of everything that ran.
+</div>
+
+<h3>Q11: What is a "migration" and why are there 30 of them?</h3>
+<div class="callout green">
+A database migration is a versioned change to the database structure — adding a column, creating a table, adding a security rule. They are numbered (0001, 0002…) and run in order. Starting with 30 migrations is normal for a project that evolved over time — it means the database was built incrementally as features were added, which is the correct approach (versus changing the database in an ad-hoc way with no history).
+</div>
+
+<h3>Q12: What is the Portkey gateway?</h3>
+<div class="callout green">
+Portkey is an LLM gateway — a service that sits between our code and the actual AI model. We send requests to Portkey in the Anthropic API format, and Portkey translates them and sends them to whichever AI model is configured (currently Azure OpenAI). This means if we want to switch AI providers, we change one configuration in Portkey, not all the code.
+</div>
+
+<h3>Q13: How long does the full exit pipeline take to run automatically?</h3>
+<div class="callout green">
+The automatic steps (checklist generation, interview analysis, risk scoring) each take 2–10 seconds, depending on the AI response time. The full automated pipeline (not counting human approval steps) takes about 30–60 seconds to complete. Human steps (manager approval, IT approvals, finance confirmation) are the main time-consuming steps in a real exit — those take hours or days, not seconds.
+</div>
+
+<h3>Q14: What would need to happen to use this in production?</h3>
+<div class="callout amber">
+  <strong>Remaining for production readiness:</strong><br/>
+  1. Replace the MockITAdapter with real integrations (Okta for SSO, Jamf for device management, GitHub API for repo access).<br/>
+  2. Deploy the Python agent service to a cloud server (currently runs only on the developer's laptop).<br/>
+  3. Real employee data needs to be loaded (and demo data removed).<br/>
+  4. Email delivery needs the <code>EMAIL_TEST_RECIPIENT</code> flag removed and proper email templates designed.<br/>
+  5. A full end-to-end browser review of all five dashboards across all user journeys.<br/>
+  6. Legal/compliance review of what data is stored (risk scores, rehire flags) and data retention policies.
+</div>
+
+<h3>Q15: What is the difference between the anon key and the service key?</h3>
+<div class="callout green">
+Supabase gives you two API keys. The <strong>anon key</strong> is safe to use in the browser — it is subject to Row Level Security (the database filters what you can see based on who you are). The <strong>service key</strong> bypasses all RLS and can read and write everything — it is used only in the Python agent service and Edge Functions on the server side, never in the browser. Exposing the service key in the frontend would be a critical security hole.
+</div>
+
+<hr class="section-rule" />
+
+<div class="callout purple" style="margin-top:24px;">
+  <strong>Prepared by:</strong> ExitAI project, September 2026. All code inspected from the actual repository — no assumptions. For technical questions, run <code>python -m agents.run_case &lt;case_id&gt;</code> from the project root with the agents virtual environment active to see the live agent trace.
+</div>
+</div>
+
+</body>
+</html>

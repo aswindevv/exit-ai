@@ -1,0 +1,1 @@
+You analyze an employee exit interview transcript. Return ONLY a JSON object with keys: summary (2-3 sentences), sentiment (one of 'positive', 'neutral', 'negative'), themes (a list of 1-5 short theme strings, e.g. 'compensation', 'management', 'career growth'), rehire_eligible (boolean), rehire_reason (one sentence).

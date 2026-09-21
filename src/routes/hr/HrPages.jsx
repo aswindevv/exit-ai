@@ -4,6 +4,7 @@ import PageHead from '../../components/PageHead'
 import Placeholder from '../shared/Placeholder'
 import { withEmployeeHeaders, tieredByCompletion, caseTaskSummary, completionChip, CASE_GATE_STAGES, EmployeeGroupHeader } from '../../components/EmployeeGroup'
 import { taskClearanceStatus, CLEARANCE_TAG } from '../../lib/clearanceStatus'
+import { auditCases } from '../../lib/policyAudit'
 import { RUNS_LIMIT } from './HrLayout'
 import { runSummary, runOutcome, runStepLabel, runStepIcon } from '../../lib/agentRunText'
 import { supabase } from '../../lib/supabase'
@@ -31,7 +32,10 @@ const SENTIMENT_TONE = { positive: 't-success', neutral: 't-neutral', negative: 
 const STAT_ACRONYMS = { hr: 'HR', it: 'IT', kt: 'KT', sla: 'SLA' }
 const humanizeStatKey = (key) =>
   STAT_ACRONYMS[key] ?? key.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
-const isBreakdown = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0
+// Shape-based, not "has entries": an empty {} is still a breakdown (e.g. zero
+// current bottlenecks), not a headline value — fmtStatValue would otherwise
+// print it as the literal string "[object Object]".
+const isBreakdown = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
 function fmtStatValue(key, value) {
   if (value == null) return '—'
   if (Array.isArray(value)) return value.join(', ')
@@ -292,7 +296,7 @@ export function AllExits() {
 }
 
 // Escalations are still just a special exit_tasks row (title prefix is the
-// signal, per agents.supervisor._escalate / agents.service.reject_manager_task)
+// signal, per agents.hub.supervisor._escalate / agents.service.reject_manager_task)
 // -- but 0025 gave that row real reason/escalation_state columns, so the
 // resolution actions below can be genuine RLS-gated writes instead of display-only.
 const isEscalation = (t) => Boolean(t.title?.startsWith('Escalated'))
@@ -646,7 +650,7 @@ export function Clearances() {
 }
 
 // Policy Compliance Auditor (#22). Its three checks, in the order the CLI's
-// format_report prints them (agents/policy_auditor.py CHECKS) so the page and
+// format_report prints them (agents/analytics/policy_auditor.py CHECKS) so the page and
 // the terminal read the same way. Listed even at zero, so "checked, clean" is
 // distinguishable from "not checked".
 const AUDIT_CHECKS = [
@@ -656,34 +660,26 @@ const AUDIT_CHECKS = [
 ]
 
 export function PolicyAudit() {
-  // HrLayout pins this read to agent_type='policy_compliance_auditor' (0029),
-  // so #14/#17/#23's rows in the same table can never show up here.
-  const { audit } = useOutletContext()
-  if (!audit) {
-    return (
-      <Placeholder
-        title="Policy audit"
-        body="No audit has been run yet — generate one with `python -m agents.policy_auditor` (agent #22)."
-      />
-    )
-  }
-  const stats = audit.stats && typeof audit.stats === 'object' ? audit.stats : {}
-  const byCheck = stats.breaches_by_check ?? {}
-  const breaches = Array.isArray(stats.breaches) ? stats.breaches : []
-  const total = stats.breach_count ?? 0
-  const ran = new Date(audit.created_at)
+  // Breach counts are computed live from the same cases/tasks/approvals
+  // every other HR page already has (src/lib/policyAudit.js, a JS port of
+  // agents/analytics/policy_auditor.py::audit_cases) rather than read from
+  // the auditor's last CLI run -- a task closed, or a new breach opened,
+  // since that run showed up here immediately instead of staying stale.
+  // `audit` (HrLayout pins this to agent_type='policy_compliance_auditor',
+  // 0029) still supplies the LLM's Recommendation text, labeled with its own
+  // generation time since that part IS periodic, not live.
+  const { cases, tasks, approvedCaseIds, audit } = useOutletContext()
+  const stats = auditCases(cases, tasks, approvedCaseIds)
+  const { breaches_by_check: byCheck, breaches, breach_count: total } = stats
 
   return (
     <>
       <div className="kpi-row mb">
         <span className="kpi">
-          Cases audited <b>{stats.cases_audited ?? 0}</b>
+          Cases audited <b>{stats.cases_audited}</b>
         </span>
         <span className="kpi">
           Breaches found <b className={total ? 'c-danger' : 'c-success'}>{total}</b>
-        </span>
-        <span className="kpi">
-          Last run <b>{fmtDate(audit.created_at)}</b>
         </span>
       </div>
 
@@ -705,18 +701,8 @@ export function PolicyAudit() {
         </div>
       </div>
 
-      <div className="strip strip--top mb">
-        <span className="strip-icon">
-          <i className="ti ti-shield-search" aria-hidden="true" />
-        </span>
-        <div className="grow">
-          <p className="strip-title">Recommendation</p>
-          <p className="strip-body">{audit.narrative}</p>
-        </div>
-      </div>
-
       {breaches.length > 0 && (
-        <div className="card card--pad">
+        <div className="card card--pad mb">
           <p className="card-title">Breach detail</p>
           <div className="list">
             {breaches.map((b, i) => (
@@ -734,9 +720,28 @@ export function PolicyAudit() {
         </div>
       )}
 
-      <p className="sub c-muted" style={{ marginTop: 10 }}>
-        Audit generated {ran.toLocaleString('en-GB')} by the Policy Compliance Auditor, on demand.
-      </p>
+      {audit ? (
+        <>
+          <div className="strip strip--top mb">
+            <span className="strip-icon">
+              <i className="ti ti-shield-search" aria-hidden="true" />
+            </span>
+            <div className="grow">
+              <p className="strip-title">Recommendation</p>
+              <p className="strip-body">{audit.narrative}</p>
+            </div>
+          </div>
+          <p className="sub c-muted" style={{ marginTop: 10 }}>
+            AI recommendation generated {new Date(audit.created_at).toLocaleString('en-GB')} by the Policy Compliance
+            Auditor — the counts above are live, this recommendation is from that run.
+          </p>
+        </>
+      ) : (
+        <Placeholder
+          title="Recommendation"
+          body="No AI recommendation has been generated yet — run `python -m agents.analytics.policy_auditor` (agent #22). The breach counts above are already live."
+        />
+      )}
     </>
   )
 }
@@ -746,6 +751,83 @@ export function PolicyAudit() {
 function auditBreachDetail(d) {
   if (!d || typeof d !== 'object') return String(d ?? '')
   return `"${d.title ?? '?'}" (${d.stage ?? '?'}) — ${d.days_overdue ?? '?'} days overdue, blocked by ${d.blocker ?? '?'}`
+}
+
+// Exit Workflow Optimizer (#17). Reuses the exact stats shape Reports()
+// already renders generically (plain values as KPIs, nested objects as bar
+// breakdowns) -- workflow_optimizer.bottleneck_stats emits breach_count/
+// stalled_case_count/worst_stage (headline) and overdue_days_by_stage/
+// overdue_days_by_department (breakdowns). No new stats or algorithm here,
+// just a consumer for a table #17 already writes to.
+export function WorkflowOptimization() {
+  const { optimization } = useOutletContext()
+  if (!optimization) {
+    return (
+      <Placeholder
+        title="Workflow optimization"
+        body="No optimization report generated yet — run `python -m agents.analytics.workflow_optimizer` (agent #17)."
+      />
+    )
+  }
+  const entries = optimization.stats && typeof optimization.stats === 'object' ? Object.entries(optimization.stats) : []
+  const headline = entries.filter(([, v]) => !isBreakdown(v) && v != null)
+  // Drop breakdowns with zero entries (e.g. no overdue stage right now) so the
+  // two-col area shows the "nothing right now" line instead of an empty card.
+  const breakdowns = entries.filter(([, v]) => isBreakdown(v) && Object.keys(v).length > 0)
+
+  return (
+    <>
+      <div className="card card--pad mb">
+        <p className="card-title">Workflow optimization</p>
+        <p className="c-secondary">{optimization.narrative}</p>
+        {optimization.created_at && (
+          <p className="c-muted" style={{ fontSize: 11, marginBottom: 0, marginTop: 8 }}>
+            Generated {new Date(optimization.created_at).toLocaleString('en-GB', {
+              day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+            })}
+          </p>
+        )}
+      </div>
+
+      {headline.length > 0 && (
+        <div className="kpi-row mb">
+          {headline.map(([k, v]) => (
+            <span className="kpi" key={k}>
+              {humanizeStatKey(k)} <b>{fmtStatValue(k, v)}</b>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="two-col two-col--even" style={{ alignItems: 'start' }}>
+        {breakdowns.map(([key, value]) => {
+          const rows = Object.entries(value).sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
+          const max = Math.max(1, ...rows.map(([, n]) => Number(n) || 0))
+          return (
+            <div className="card card--pad" key={key}>
+              <p className="card-title">{humanizeStatKey(key)}</p>
+              <div className="bars">
+                {rows.map(([rowKey, count]) => (
+                  <div key={rowKey}>
+                    <div className="bar-head">
+                      <span>{humanizeStatKey(rowKey)}</span>
+                      <span className="c-muted">{count}</span>
+                    </div>
+                    <div className="bar-track">
+                      <div className="bar-fill" style={{ width: `${Math.round(((Number(count) || 0) / max) * 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+        {breakdowns.length === 0 && (
+          <p className="sub c-muted">No stalled stages or departments right now.</p>
+        )}
+      </div>
+    </>
+  )
 }
 
 export function Reports() {

@@ -2,9 +2,9 @@
 -- 0009_agent_runs.sql — B2: persisted agent-run log for the HR dashboard's
 -- "agent activity" view.
 --
--- The terminal trace (agents/trace.py, B1) is stdout-only -- nothing to read
+-- The terminal trace (agents/core/trace.py, B1) is stdout-only -- nothing to read
 -- from the browser. This table gives the same hub/spoke stage transitions a
--- durable home: one row per supervisor stage (agents/supervisor.py), reusing
+-- durable home: one row per supervisor stage (agents/hub/supervisor.py), reusing
 -- the exact message it already builds for state["log"]. No separate LLM/DB
 -- sub-step rows -- that granularity stays terminal-only, this is a
 -- non-terminal user's "did the agents run for this case" feed.

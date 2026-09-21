@@ -4,7 +4,7 @@ An AI-assisted employee offboarding platform: four role-based dashboards
 (Employee, HR, Manager, IT) over one Supabase backend, a RAG assistant, a
 LangGraph multi-agent workflow, email notifications, and calendar-based
 Knowledge-Transfer (KT) scheduling. Build history and phase-by-phase specs
-live in `blueprint.md`.
+live in `blueprint1.md`.
 
 ## Setup
 
@@ -43,7 +43,7 @@ live in `blueprint.md`.
    Reads the same root `.env` the Edge Functions use -- no separate secrets.
    Run any agent directly, e.g.:
    ```
-   agents/.venv/Scripts/python.exe -m agents.supervisor <case_id>
+   agents/.venv/Scripts/python.exe -m agents.hub.supervisor <case_id>
    ```
    On Windows, set `PYTHONIOENCODING=utf-8` first -- the live trace's
    box-drawing characters don't fit the default console codepage.
@@ -111,5 +111,5 @@ in local seed/ingest scripts and the backend agent service.
 - **RAG**: `/ask` Edge Function embeds the question, retrieves via
   `match_exit_docs`, and answers only from retrieved context.
 - **Agents** (`/agents`, LangGraph, Python): nine agents behind a supervisor
-  graph -- see `blueprint.md`'s agent table for what each reads/writes.
+  graph -- see `blueprint1.md`'s agent table for what each reads/writes.
   Every node is `@traced_node`-wrapped for a live terminal trace.

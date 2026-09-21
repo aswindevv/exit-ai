@@ -531,7 +531,7 @@ export function Tasks() {
   )
 }
 
-// Mirrors agents/doc_collection.py's BASE_REQUIRED_DOCS/DEPT_EXTRA_DOCS --
+// Mirrors agents/spokes/doc_collection.py's BASE_REQUIRED_DOCS/DEPT_EXTRA_DOCS --
 // same source of truth, kept in sync by hand since the required list is
 // deterministic and rarely changes (see that module's docstring).
 const REQUIRED_DOCS_BASE = ['NDA', 'Asset Return Form']
@@ -561,7 +561,7 @@ const DOC_STATUS_META = {
   rejected: { label: 'Rejected', tone: 't-danger', action: 'Re-upload' },
 }
 
-// agents/doc_collection.py's _validate_row writes validation_detail as
+// agents/spokes/doc_collection.py's _validate_row writes validation_detail as
 // "matched=[...] missing=[...]" -- pull out the missing list and phrase it
 // as the reason an employee can act on, without touching the OCR agent that
 // produced it. Falls back to the raw string for any shape it doesn't match.

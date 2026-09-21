@@ -106,7 +106,7 @@ function useApprove(reload) {
 
 // Reject has no RLS path of its own (exit_tasks has no INSERT policy and
 // 0008's UPDATE policies pin status to 'done') -- it goes through the local
-// agent service, which mirrors agents.supervisor._escalate's insert. Unlike
+// agent service, which mirrors agents.hub.supervisor._escalate's insert. Unlike
 // useApprove's fetch calls elsewhere in this app, this one is NOT non-fatal:
 // there is no other write, so a service failure must surface as a failure.
 function useReject(reload) {
@@ -216,7 +216,7 @@ function TeamExitsTable({ reports, limit }) {
 // One KT task row, shared by the dashboard card and the KT approvals page so
 // the two queues can't drift apart (they were duplicated line for line). The
 // `.row` class, the Review/Reject labels and the Escalated/Approved tag text
-// are read by scripts/verify_manager_kt_clearances.cjs -- keep them.
+// are read by scripts/verify/verify_manager_kt_clearances.cjs -- keep them.
 function KtTaskRow({ task, tasks, actioning, approveTask, rejecting, rejectTask }) {
   const escalated = isEscalationRow(task) || hasOpenEscalation(task.case_id, tasks)
   const done = task.status === 'done'

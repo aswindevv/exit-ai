@@ -23,10 +23,10 @@ The hub + core clearance already run end-to-end. Confirm before building on top.
 
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 20 | Exit Process Orchestrator (Supervisor/hub) | supervisor.py | LangGraph routes hr→manager gate→it→finance→assess; exception/escalation branch | DONE |
-| 2 | HR Agent | hr_agent.py | LLM checklist + KT review; books calendar; idempotent. `manager_tasks` are knowledge-transfer/handover items ONLY — `IT_OWNED_TITLE_RE` drops IT deprovisioning titles the LLM mis-files there (they would otherwise sit on the manager's KT queue as un-doable work and hold the manager→IT gate shut); the IT agent generates those properly at the gate | DONE |
-| 3 | IT Agent | it_agent.py | LLM deprovisioning tasks; human-approved. Triggered by supervisor.py's `it` stage node on a `run_case`, and on the browser path by service.py's `/manager-approve` once the manager has approved every KT task (idempotent — skips when stage='it' rows exist) | DONE |
-| 4 | Finance Agent | finance_agent.py | deterministic clearance gate: clears only when hr/manager/it are all done AND `exit_cases.finance_cleared` is true (the real dues flag, written by the Finance dashboard's "Mark dues settled" button); otherwise blocked with reason "dues/settlement not confirmed". Completion email fires on the pending→done transition | DONE |
+| 20 | Exit Process Orchestrator (Supervisor/hub) | hub/supervisor.py | LangGraph routes hr→manager gate→it→finance→assess; exception/escalation branch | DONE |
+| 2 | HR Agent | spokes/hr_agent.py | LLM checklist + KT review; books calendar; idempotent. `manager_tasks` are knowledge-transfer/handover items ONLY — `IT_OWNED_TITLE_RE` drops IT deprovisioning titles the LLM mis-files there (they would otherwise sit on the manager's KT queue as un-doable work and hold the manager→IT gate shut); the IT agent generates those properly at the gate | DONE |
+| 3 | IT Agent | spokes/it_agent.py | LLM deprovisioning tasks; human-approved. Triggered by hub/supervisor.py's `it` stage node on a `run_case`, and on the browser path by service.py's `/manager-approve` once the manager has approved every KT task (idempotent — skips when stage='it' rows exist) | DONE |
+| 4 | Finance Agent | spokes/finance_agent.py | deterministic clearance gate: clears only when hr/manager/it are all done AND `exit_cases.finance_cleared` is true (the real dues flag, written by the Finance dashboard's "Mark dues settled" button); otherwise blocked with reason "dues/settlement not confirmed". Completion email fires on the pending→done transition | DONE |
 | 1 | Manager | (manager-gate node) | human role — approval gate, NOT an LLM agent. Both branches are reachable from the browser: Reject → service.py `/reject-manager-task` (escalation row), Approve → `/manager-approve` (records the gate in agent_runs and advances to IT). `/manager-approve` has two UI triggers, both idempotent and both server-re-checked: the per-task Review button, and the Manager dashboard's single per-employee "Sign clearance" action (one sign-off per employee, active only once every one of that employee's KT tasks is approved) | DONE |
 
 **Verify:** run one case via run_case.py; trace shows hub→hr→manager gate→it→finance.
@@ -61,7 +61,7 @@ it_deprovisioning writes it-stage tasks, all pending until approved.
 ## PHASE 2 — communication agents (2)
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 6 | Email Drafting | email_drafting.py | stage-specific emails (KT reminder, overdue, completion) via templates. REUSE notifications.py compose | REUSE |
+| 6 | Email Drafting | email_drafting.py | stage-specific emails (KT reminder, overdue, completion) via templates. REUSE core/notifications.py compose | REUSE |
 | 7 | FAQ Chatbot (RAG) | supabase/functions/ask | employee Q&A over exit_docs, cites sources, refuses out-of-scope | DONE (Edge Fn) |
 
 **Verify:** trigger each email type (real send to EMAIL_TEST_RECIPIENT — confirm inbox,
@@ -72,7 +72,7 @@ not dev-log); ask the chatbot a real question → cited answer, and an out-of-sc
 ## PHASE 3 — interview intelligence (2)
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 8 | Exit Interview Summarizer | exit_intel_agent.py (per-case) | LLM → summary, sentiment, themes, recommendations | DONE |
+| 8 | Exit Interview Summarizer | spokes/exit_intel_agent.py (per-case) | LLM → summary, sentiment, themes, recommendations | DONE |
 | 10 | KT Document Reviewer | kt_reviewer.py | LLM reviews KT doc for completeness, flags gaps by role. REUSE hr_agent kt-review | REUSE |
 
 **Verify:** submit an interview → exit_interviews row gets summary+sentiment; give a KT
@@ -83,9 +83,9 @@ doc with a missing topic → gap task + kt_reviews row.
 ## PHASE 4 — risk & compliance (2–3)
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 12 | Exit Risk Assessment | risk_agent.py | deterministic weighted risk score + mitigations | DONE |
-| 13 | Compliance Verification | compliance_agent.py | verify asset return, NDA, access revoked before final clearance. NEW (split from risk/finance) | DONE |
-| 21 | Intelligent Rehire Assessment | rehire_agent.py | eligibility from performance + sentiment + manager feedback. REUSE risk rehire field, own module | DONE |
+| 12 | Exit Risk Assessment | spokes/risk_agent.py | deterministic weighted risk score + mitigations | DONE |
+| 13 | Compliance Verification | spokes/compliance_agent.py | verify asset return, NDA, access revoked before final clearance. NEW (split from risk/finance) | DONE |
+| 21 | Intelligent Rehire Assessment | spokes/rehire_agent.py | eligibility from performance + sentiment + manager feedback. REUSE risk rehire field, own module | DONE |
 
 **Verify:** risk fields show on HR dashboard; compliance blocks final clearance when NDA
 missing (with reason); rehire flag set with rationale.
@@ -95,9 +95,9 @@ missing (with reason); rehire flag set with rationale.
 ## PHASE 5 — analytics family (2–3)
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 14 | Dashboard Insights | analytics_agent.py | trends/bottlenecks/dept patterns → narrative (arithmetic in Python, LLM writes narrative) | DONE |
-| 17 | Exit Workflow Optimizer | workflow_optimizer.py | which stages/depts delay → proposed reconfigurations. REUSE analytics aggregation | DONE |
-| 23 | Predictive Attrition | attrition_agent.py | signals → at-risk employees → retention suggestions, scheduled | DONE |
+| 14 | Dashboard Insights | analytics/analytics_agent.py | trends/bottlenecks/dept patterns → narrative (arithmetic in Python, LLM writes narrative) | DONE |
+| 17 | Exit Workflow Optimizer | analytics/workflow_optimizer.py | which stages/depts delay → proposed reconfigurations. REUSE analytics aggregation | DONE |
+| 23 | Predictive Attrition | analytics/attrition_agent.py | signals → at-risk employees → retention suggestions, scheduled | DONE |
 
 **Verify:** each writes an analytics_insights/report row; counts in the narrative match a
 manual SQL count.
@@ -107,8 +107,8 @@ manual SQL count.
 ## PHASE 6 — escalation & scheduled monitors (2)
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 9 | SLA Escalation | sla_escalation.py | scans clearances >5 days overdue → escalation message (who's blocking, how long, impact). REUSE notifications overdue scan, own agent | DONE |
-| 22 | Policy Compliance Auditor | policy_auditor.py | audit of active cases vs policy (SLA breaches, missing approvals, skipped steps) → report. ON-DEMAND, not periodic: `python -m agents.policy_auditor` prints a formatted report and writes `analytics_insights` with `agent_type='policy_compliance_auditor'`; HR → Policy audit shows the latest row. No scheduler exists (follow-up) | DONE |
+| 9 | SLA Escalation | analytics/sla_escalation.py | scans clearances >5 days overdue → escalation message (who's blocking, how long, impact). REUSE notifications overdue scan, own agent | DONE |
+| 22 | Policy Compliance Auditor | analytics/policy_auditor.py | audit of active cases vs policy (SLA breaches, missing approvals, skipped steps) → report. ON-DEMAND, not periodic: `python -m agents.analytics.policy_auditor` prints a formatted report and writes `analytics_insights` with `agent_type='policy_compliance_auditor'`; HR → Policy audit shows the latest row. No scheduler exists (follow-up) | DONE |
 
 **Verify:** create an overdue case → SLA agent composes a real escalation naming the
 blocker; run auditor → report row listing any breaches across active cases.
@@ -118,8 +118,8 @@ blocker; run auditor → report row listing any breaches across active cases.
 ## PHASE 7 — trend & document intelligence (2)
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 19 | Exit Interview Trend Analyst | exit_intel_agent.py (longitudinal) | longitudinal analysis, rising-theme alerts per dept | DONE |
-| 16 | Document Collection | doc_collection.py | required docs, track submitted/missing, reminders, validate uploads via REAL OCR (pytesseract + Tesseract binary) | DONE |
+| 19 | Exit Interview Trend Analyst | spokes/exit_intel_agent.py (longitudinal) | longitudinal analysis, rising-theme alerts per dept | DONE |
+| 16 | Document Collection | spokes/doc_collection.py | required docs, track submitted/missing, reminders, validate uploads via REAL OCR (pytesseract + Tesseract binary) | DONE |
 
 **Verify:** longitudinal run inserts a trend_alerts row (re-run live: inserted "management" +
 "management support", 2 new rows); doc agent lists required vs submitted/missing for a
@@ -133,17 +133,17 @@ test image (agents/test_docs/nda_test.png) -- OCR text shown in the trace, conte
 ## PHASE 8 — routing & multi-system (2)
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 11 | Smart Routing | smart_routing.py | picks the real approver profile for a stage (hr/manager/it) by department match + out_of_office (0012_profiles_out_of_office.sql), routing to a real delegate profile when the primary is OOO. Wired as a tool call from supervisor.py's hr/manager/it stage nodes | DONE |
-| 15 | Multi-System Clearance | multi_system_clearance.py | consolidates clearance across IT asset mgmt/HRMS/finance. DEMO STAND-IN: no external systems exist, so it queries OUR exit_tasks (by stage) + case_documents live and consolidates for real -- labeled as such in the module docstring. Wired as a tool call from supervisor.py's compliance stage node | DONE-demo-scale |
+| 11 | Smart Routing | spokes/smart_routing.py | picks the real approver profile for a stage (hr/manager/it) by department match + out_of_office (0012_profiles_out_of_office.sql), routing to a real delegate profile when the primary is OOO. Wired as a tool call from hub/supervisor.py's hr/manager/it stage nodes | DONE |
+| 15 | Multi-System Clearance | spokes/multi_system_clearance.py | consolidates clearance across IT asset mgmt/HRMS/finance. DEMO STAND-IN: no external systems exist, so it queries OUR exit_tasks (by stage) + case_documents live and consolidates for real -- labeled as such in the module docstring. Wired as a tool call from hub/supervisor.py's compliance stage node | DONE-demo-scale |
 
 **Verify:** marked siva@company.com (primary hr approver) out_of_office=true, ran
 `smart_routing` live for a real Engineering case → routed to the real delegate profile
-"Divya (HR Delegate)" (scripts/seed_delegates.js), reason "primary (Siva) is
+"Divya (HR Delegate)" (scripts/seed/seed_delegates.js), reason "primary (Siva) is
 out_of_office -> routed to delegate"; reverted the flag, re-ran → routed back to Siva
 ("primary approver available"). Ran `multi_system_clearance` live for the same case →
 real consolidated object across the three stand-in sources (it=cleared, hrms=pending
 ["Complete exit interview"], finance=pending ["Clear final settlement dues"],
-overall=pending). Full `python -m agents.supervisor <case_id>` pipeline re-run
+overall=pending). Full `python -m agents.hub.supervisor <case_id>` pipeline re-run
 afterward, trace shows both tools firing inside the hr/manager/it/compliance stage
 nodes, run completed hr→manager→it→compliance→finance→assess with no errors.
 
@@ -152,14 +152,14 @@ nodes, run completed hr→manager→it→compliance→finance→assess with no e
 ## PHASE 9 — capstone (1)
 | # | Agent | File | Does | Status |
 |---|-------|------|------|--------|
-| 24 | End-to-End Exit Automation | e2e_automation.py | fully autonomous: initiates exit (service.activate_case), coordinates all stages via supervisor.run_case (hr→manager gate→it→compliance→finance→assess), checks this case's own tasks for SLA breaches (reuses sla_escalation.find_breaches + its _escalate node, scoped to one case not a global scan), then reads back the persisted compliance/finance task rows to decide exit_cases.status. REUSE supervisor + all above | DONE |
+| 24 | End-to-End Exit Automation | hub/e2e_automation.py | fully autonomous: initiates exit (service.activate_case), coordinates all stages via supervisor.run_case (hr→manager gate→it→compliance→finance→assess), checks this case's own tasks for SLA breaches (reuses sla_escalation.find_breaches + its _escalate node, scoped to one case not a global scan), then reads back the persisted compliance/finance task rows to decide exit_cases.status. REUSE supervisor + all above | DONE |
 
-**Verify:** `python -m agents.e2e_automation <case_id>` ran a full exit start→finish live
+**Verify:** `python -m agents.hub.e2e_automation <case_id>` ran a full exit start→finish live
 (case 13eaa5fe...: initiate [resignation-notice email fired] → hr→manager gate approved→it→
 compliance→finance→assess, all real DB writes/LLM calls → SLA check 0 breaches → finalize),
 ending in a clear `{"status": "blocked", "reason": "Final clearance blocked: NDA: pending; ..."}`
 (compliance/finance hadn't actually cleared for that case -- a valid, non-crashing terminal
-state, not a silent failure). `python -m agents.e2e_automation <case_id> --reject` on a second
+state, not a silent failure). `python -m agents.hub.e2e_automation <case_id> --reject` on a second
 case (e075f375...) exercised the escalation branch live: hr ran, manager gate recorded
 "rejected", the existing `_route_after_manager`/`_escalate` branch fired (exit_tasks +
 agent_runs rows inserted, graph ended via END, IT/compliance/finance/assess never reached),

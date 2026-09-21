@@ -1,4 +1,3 @@
-@"
 .env
 .env.*
 .mcp.json
@@ -9,4 +8,6 @@ dist/
 graphify-out/
 __pycache__/
 *.pyc
-"@ | Out-File -FilePath .gitignore -Encoding utf8
+*.log
+agents/.scratch/
+scripts/_review/

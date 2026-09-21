@@ -17,7 +17,7 @@ const { pathToFileURL } = require('url')
       '<div style="font-size:7pt;color:#8a90a0;width:100%;padding:0 12mm;font-family:Segoe UI,Arial">ExitAI &mdash; Project Documentation</div>',
     footerTemplate:
       '<div style="font-size:7pt;color:#8a90a0;width:100%;padding:0 12mm;font-family:Segoe UI,Arial;display:flex;justify-content:space-between">' +
-      '<span>Generated from the repository, 17 Sep 2026</span>' +
+      '<span>Generated from the repository, 19 Sep 2026</span>' +
       '<span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>',
   })
   await browser.close()

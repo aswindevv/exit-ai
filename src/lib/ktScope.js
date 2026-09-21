@@ -7,7 +7,7 @@
 // A task whose TITLE reads like IT work but is stored as stage='manager'
 // (the HR checklist LLM used to write "Revoke access to ..." into
 // manager_tasks) is fixed where it is wrong -- at the row's stage, by
-// agents/hr_agent.py's IT_OWNED_TITLE_RE guard and migration 0028 -- never
+// agents/spokes/hr_agent.py's IT_OWNED_TITLE_RE guard and migration 0028 -- never
 // by hiding it here. Hiding it in the UI would orphan it: nobody could
 // action it, and agents/service.py's manager_approve requires EVERY
 // manager-stage row to be done before it advances the case, so an invisible

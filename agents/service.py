@@ -3,7 +3,7 @@ employee submits their resignation.
 
 Why this exists: submit-resignation/index.ts is a Supabase Edge Function --
 it runs in Supabase's cloud and has no network path to this machine, where
-the Python agent pipeline lives (CLI-only: agents.run_case / agents.supervisor
+the Python agent pipeline lives (CLI-only: agents.run_case / agents.hub.supervisor
 are invoked locally, there's no HTTP wrapper). So the frontend -- which IS on
 this machine in dev -- calls the Edge Function to create the case, then calls
 this local service directly to run the pipeline. CLAUDE.md's own NON-NEGOTIABLES
@@ -50,9 +50,9 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import compliance_agent, doc_collection, email_drafting_agent, exit_intel_agent, finance_agent, hr_agent, it_deprovisioning_agent
-from .config import db
-from .trace import log_db
+from .spokes import compliance_agent, doc_collection, email_drafting_agent, exit_intel_agent, finance_agent, hr_agent, it_deprovisioning_agent, risk_agent
+from .core.config import db
+from .core.trace import log_db
 
 PORT = 8787
 ALLOWED_ORIGIN = "http://localhost:5173"
@@ -142,13 +142,22 @@ def finance_settle_check(case_id: str) -> dict:
     # done) and compliance_agent.run_for_case updates its own
     # finance_approval item. Both are idempotent, single-case re-checks --
     # not the full pipeline.
+    #
+    # risk_agent.run_for_case is also just an entry-point call, same shape as
+    # the two above -- this is the browser-triggered path's mirror of
+    # supervisor._assess_stage's position in the CLI graph (last node, right
+    # after finance clears). Without this, risk_score/risk_level/
+    # rehire_eligible -- which HrPages.jsx shows unconditionally for every
+    # case -- stayed permanently null for any case never manually run through
+    # `run_case`. A plain UPDATE, safe to re-run.
     finance = finance_agent.check_clearance(case_id)
     compliance = compliance_agent.run_for_case(case_id)
-    return {"ok": True, "finance": finance, "compliance": compliance}
+    risk = risk_agent.run_for_case(case_id)
+    return {"ok": True, "finance": finance, "compliance": compliance, "risk": risk["result"]}
 
 
 def manager_approve(case_id: str) -> dict:
-    # The APPROVED branch of agents/supervisor.py's manager gate, made callable
+    # The APPROVED branch of agents/hub/supervisor.py's manager gate, made callable
     # for one case -- the mirror of reject_manager_task below, and the same
     # "re-run one stage for one case" shape as finance_settle_check above.
     #
@@ -222,7 +231,7 @@ def reject_manager_task(case_id: str, task_id: str | None, reason: str | None) -
     # side-effect: exit_tasks has no INSERT policy for any role (0002/0004)
     # and its UPDATE policies (0008) pin status to 'done', so a manager's
     # anon-key client has no RLS path to record a rejection at all. This
-    # mirrors agents.supervisor._escalate's exact insert -- not a second
+    # mirrors agents.hub.supervisor._escalate's exact insert -- not a second
     # implementation, just that same DB write made callable for one already
     # in-progress task instead of only from a full graph run.
     if not task_id:
@@ -276,7 +285,7 @@ def log_escalation_transition(case_id: str, task_id: str | None, action: str | N
     # UPDATE to HR and to a valid open->{rerouted,resolved} transition, so
     # "only HR can resolve/re-route" is enforced by Postgres, not by this
     # service. This call just appends the audit trail (who + when) to
-    # agent_runs, same spirit as every _record() call in agents.supervisor --
+    # agent_runs, same spirit as every _record() call in agents.hub.supervisor --
     # and like most calls in this file, it's non-fatal: the real transition
     # already happened before this was called.
     if action not in ("rerouted", "resolved"):
@@ -290,6 +299,26 @@ def log_escalation_transition(case_id: str, task_id: str | None, action: str | N
         "metadata": {"task_id": task_id, "actor_name": actor_name},
     }).execute()
     log_db("insert", "agent_runs", rows=1, detail=f"escalation {action}")
+
+    # Close the escalation row once HR has RESOLVED it. The UI's update only
+    # moves escalation_state; the row's own status stays 'pending' forever,
+    # and because it is a stage='manager' row it keeps counting as outstanding
+    # prior-stage work in src/lib/financeStatus.js -- so a case whose
+    # escalation was resolved could never reach finance. Four other consumers
+    # (ktScope.caseClearanceState, manager_approve, EmployeePages.stageState,
+    # KtTaskRow) already exclude escalation rows; this makes the row itself
+    # agree with them instead of changing five call sites.
+    #
+    # Only 'resolved' closes it. 'rerouted' means the work went back to the
+    # manager and is genuinely still outstanding, so that row stays pending.
+    #
+    # Guarded on escalation_state='resolved' so this can only ever close a row
+    # whose RLS-enforced open->resolved transition (0025) already succeeded.
+    if action == "resolved":
+        closed = db.table("exit_tasks").update({"status": "done"}) \
+            .eq("id", task_id).eq("escalation_state", "resolved").execute().data
+        if closed:
+            log_db("update", "exit_tasks", rows=1, detail="escalation resolved -> status done")
     return {"ok": True}
 
 
