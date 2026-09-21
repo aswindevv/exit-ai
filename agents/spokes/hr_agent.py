@@ -1,3 +1,10 @@
+# ─── What this file does ─────────────────────────────────────────────────────
+# The HR agent does two things: (1) asks the AI to generate a role-appropriate
+# exit checklist and saves those items to the database as tasks, and (2) reads a
+# Knowledge Transfer document and asks the AI to identify gaps, then creates
+# follow-up tasks for the manager. Both flows are implemented as small LangGraph
+# "subgraphs" (mini-pipelines with a generate step and a persist/save step).
+# ─────────────────────────────────────────────────────────────────────────────
 """Agent #2 -- HR agent.
 
 Two compiled LangGraph subgraphs, same "generate -> persist" shape as the
@@ -40,6 +47,9 @@ from ..core.llm import ask_claude_json
 from ..core.prompts import load_prompt
 from ..core.trace import log_db, traced_node
 
+# Load the AI's instruction files from agents/core/prompts/. These tell the AI
+# how to behave and what format to reply in. The file content becomes the
+# "system" message -- the AI's persona and rules for this task.
 CHECKLIST_SYSTEM_PROMPT = load_prompt("hr/checklist_system.md")
 
 # The prompt above tells the model the rule; this enforces it. The checklist
@@ -59,6 +69,11 @@ CHECKLIST_SYSTEM_PROMPT = load_prompt("hr/checklist_system.md")
 # "Share access credentials for analytics tools" and "Transfer access to
 # marketing platforms" are handover work and are kept; "Revoke access to ..."
 # and "Collect company laptop" are not.
+# This regex (regular expression) pattern matches task titles that belong to IT,
+# not HR/manager -- things like "Revoke access to..." or "Collect company laptop".
+# Any AI-generated checklist item whose title matches this pattern gets dropped
+# from the manager queue, because the manager cannot do IT work and it would
+# block the manager-approval gate forever (the manager can only approve KT tasks).
 IT_OWNED_TITLE_RE = re.compile(
     r"^\s*(?:revoke|de-?provision|disable|deactivate|terminate|remove)\b[^.]*?\b"
     r"(?:access|account|credential|login|sso|permission|licen[cs]e|key)s?\b"
@@ -70,12 +85,14 @@ IT_OWNED_TITLE_RE = re.compile(
 KT_REVIEW_SYSTEM_PROMPT = load_prompt("hr/kt_review_system.md")
 
 
-# ---- checklist ----------------------------------------------------------
+# ─── Checklist subgraph ─────────────────────────────────────────────────────
+# Two-node mini-pipeline: _generate_checklist asks the AI, _persist_checklist
+# saves the results to the database. LangGraph wires them together below.
 
 class ChecklistState(TypedDict):
-    case_id: str
-    case: dict
-    result: dict
+    case_id: str    # the UUID of the exit case being processed
+    case: dict      # the full exit_cases row (role, department, last_working_day, etc.)
+    result: dict    # filled in by the generate step; consumed by the persist step
 
 
 @traced_node("HR agent -- generate checklist")
@@ -124,6 +141,8 @@ def _persist_checklist(state: ChecklistState) -> ChecklistState:
     return state
 
 
+# Build and compile the checklist subgraph: generate → persist.
+# compile() locks the graph so it can be .invoke()'d by the supervisor or directly.
 _checklist = StateGraph(ChecklistState)
 _checklist.add_node("generate", _generate_checklist)
 _checklist.add_node("persist", _persist_checklist)
@@ -133,6 +152,9 @@ _checklist.set_finish_point("persist")
 checklist_graph = _checklist.compile()
 
 
+# generate_checklist is the public entry point for the checklist subgraph.
+# "Idempotent" means: safe to call multiple times -- if tasks already exist in
+# the database, the function skips work rather than creating duplicates.
 def generate_checklist(case_id: str, force: bool = False) -> dict:
     """Idempotent unless force=True: skips if hr/manager tasks already exist
     for this case (seeded or already agent-generated)."""
@@ -146,12 +168,15 @@ def generate_checklist(case_id: str, force: bool = False) -> dict:
     return checklist_graph.invoke({"case_id": case_id, "case": case, "result": {}})
 
 
-# ---- KT review ------------------------------------------------------------
+# ─── KT review subgraph ─────────────────────────────────────────────────────
+# Two-node mini-pipeline: _review_kt asks the AI to evaluate the KT document,
+# _persist_kt_review saves the gaps as tasks (for the manager) and the full
+# evaluation to the kt_reviews table (visible to HR/manager, not to employees).
 
 class KtReviewState(TypedDict):
-    case_id: str
-    kt_text: str
-    result: dict
+    case_id: str    # the UUID of the exit case being processed
+    kt_text: str    # the full text of the Knowledge Transfer document
+    result: dict    # filled in by the review step; consumed by the persist step
 
 
 @traced_node("HR agent -- review KT document")

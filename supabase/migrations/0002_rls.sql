@@ -1,3 +1,10 @@
+-- ─── What this file does ────────────────────────────────────────────────────
+-- Sets up Row Level Security (RLS) -- PostgreSQL's way of enforcing per-user
+-- data access rules directly in the database. With RLS, a query like
+-- SELECT * FROM exit_cases returns ONLY the rows the current user is allowed
+-- to see, even if they somehow send the query directly (not via the app).
+-- This is the safety net that makes the anon key safe to use in the browser.
+-- ────────────────────────────────────────────────────────────────────────────
 -- ============================================================
 -- 0002_rls.sql — the access-control model, as runnable SQL.
 --
@@ -40,8 +47,11 @@ revoke all on function public.app_current_role() from public;
 grant execute on function public.app_current_role() to authenticated;
 
 -- ------------------------------------------------------------
--- RLS on every table. Default-deny: a table with RLS on and no matching
--- policy returns 0 rows and rejects writes.
+-- Enable RLS on every table. Once enabled, the table is "locked": only rows
+-- that match at least one policy below will be visible/writable. A table
+-- with RLS on but zero matching policies returns 0 rows to everyone (except
+-- the service-role key, which always bypasses RLS). Default-deny means
+-- forgetting to add a policy is safe -- users just see nothing.
 -- ------------------------------------------------------------
 alter table public.profiles        enable row level security;
 alter table public.exit_cases      enable row level security;
@@ -128,11 +138,16 @@ create policy exit_tasks_hr_select on public.exit_tasks
     for select to authenticated
     using (public.app_current_role() = 'hr');
 
+-- IT staff can only see tasks in the 'it' stage -- they have no reason to see
+-- HR checklist items or finance settlement rows.
 drop policy if exists exit_tasks_it_select on public.exit_tasks;
 create policy exit_tasks_it_select on public.exit_tasks
     for select to authenticated
     using (public.app_current_role() = 'it' and stage = 'it');
 
+-- Employees can see tasks for their own case only.
+-- The EXISTS subquery joins through exit_cases to confirm the task belongs to
+-- the currently logged-in user's case (matched via their employee_id in profiles).
 drop policy if exists exit_tasks_employee_select on public.exit_tasks;
 create policy exit_tasks_employee_select on public.exit_tasks
     for select to authenticated
@@ -141,7 +156,7 @@ create policy exit_tasks_employee_select on public.exit_tasks
         from public.exit_cases ec
         join public.profiles p on p.employee_id = ec.employee_id
         where ec.id = exit_tasks.case_id
-          and p.id = auth.uid()
+          and p.id = auth.uid()   -- auth.uid() is the logged-in user's auth ID
     ));
 
 drop policy if exists exit_tasks_manager_select on public.exit_tasks;

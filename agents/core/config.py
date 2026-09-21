@@ -1,3 +1,8 @@
+# ─── What this file does ─────────────────────────────────────────────────────
+# Loads all secret values (API keys, URLs, passwords) from the .env file and
+# makes them available to every agent as named variables. Also creates the shared
+# Supabase database client (db) that agents use to read and write case data.
+# ─────────────────────────────────────────────────────────────────────────────
 """Shared config/clients for the ExitAI Python agent service (Phase 6a/6b).
 
 Reads secrets from the project's root .env -- the SAME Portkey/Anthropic
@@ -18,11 +23,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
-# override=True: a stale Windows User-level ANTHROPIC_BASE_URL
+# load_dotenv reads the .env file and sets each line as an environment variable.
+# Environment variables are how secrets (API keys, passwords) are passed to the
+# program without being hardcoded in source code. override=True: a stale Windows User-level ANTHROPIC_BASE_URL
 # (https://portkey.ai/, wrong host) was shadowing this file's correct value
 # and load_dotenv() never overrides pre-existing env vars by default.
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env", override=True)
 
+# os.environ["KEY"] reads a required variable -- throws a clear error if it's missing.
+# os.environ.get("KEY") reads an optional variable and returns None if absent.
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 ANTHROPIC_BASE_URL = os.environ["ANTHROPIC_BASE_URL"]
@@ -56,4 +65,9 @@ GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:87
 GOOGLE_REFRESH_TOKEN = os.environ.get("GOOGLE_REFRESH_TOKEN")
 KT_CALENDAR_ID = os.environ.get("KT_CALENDAR_ID", "primary")
 
+# Create the shared Supabase database client using the service-role key.
+# The service-role key bypasses Row Level Security (RLS), giving the Python
+# agent pipeline full read/write access to all tables -- appropriate for a
+# backend service, never for the browser. Agents import `db` from this module
+# and call db.table("exit_cases").select("*")... etc.
 db: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)

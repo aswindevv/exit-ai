@@ -1,3 +1,9 @@
+# ─── What this file does ─────────────────────────────────────────────────────
+# The Finance agent checks whether a departing employee's financial dues are
+# cleared. It uses NO AI -- the check is purely deterministic: all prior stages
+# (HR, manager, IT) must be done AND the Finance team must have manually marked
+# dues as settled. If both conditions are met, it marks the finance task done.
+# ─────────────────────────────────────────────────────────────────────────────
 """Agent #4 -- Finance agent.
 
 Blueprint calls this one out as *not* a heavy reasoning agent -- "a tool-using
@@ -40,27 +46,35 @@ class FinanceState(TypedDict):
 @traced_node("Finance agent -- check clearance")
 def _check_clearance(state: FinanceState) -> FinanceState:
     case_id = state["case_id"]
+    # Fetch all HR, manager, and IT tasks for this case.
+    # "all(...)" returns True only if every task's status is "done".
     other_tasks = db.table("exit_tasks").select("status, stage").eq("case_id", case_id).in_(
         "stage", ["hr", "manager", "it"]
     ).execute().data or []
     stages_done = bool(other_tasks) and all(t["status"] == "done" for t in other_tasks)
 
     case = db.table("exit_cases").select("*").eq("id", case_id).single().execute().data or {}
+    # finance_cleared is set by the Finance dashboard's "Mark dues settled" button.
     dues_settled = bool(case.get("finance_cleared"))
+    # Both conditions must be true: all prior work done AND finance manually confirmed.
     cleared = stages_done and dues_settled
     reason = None if cleared else ("dues/settlement not confirmed" if stages_done else "prior stages not complete")
     title = "Clear final settlement dues" if cleared else f"Clear final settlement dues -- blocked: {reason}"
 
     finance_tasks = db.table("exit_tasks").select("id, status").eq("case_id", case_id).eq("stage", "finance").execute().data or []
     if not finance_tasks:
+        # No finance task exists yet -- create one with the right initial status.
         db.table("exit_tasks").insert({
             "case_id": case_id, "stage": "finance", "title": title,
             "status": "done" if cleared else "pending",
         }).execute()
         log_db("insert", "exit_tasks", rows=1)
-        newly_cleared = cleared
+        newly_cleared = cleared   # it's a new "done" row, so this is a fresh clearance
     else:
         new_status = "done" if cleared else "pending"
+        # newly_cleared: True only on the first time we flip from pending -> done.
+        # If it was already "done" on every previous run, this evaluates to False
+        # and we skip the completion email -- avoiding re-sends on every re-check.
         newly_cleared = cleared and any(t["status"] != new_status for t in finance_tasks)
         for t in finance_tasks:
             db.table("exit_tasks").update({"status": new_status, "title": title}).eq("id", t["id"]).execute()

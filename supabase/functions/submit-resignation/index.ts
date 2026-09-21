@@ -1,3 +1,10 @@
+// ─── What this file does ─────────────────────────────────────────────────────
+// This is a Supabase Edge Function (runs in Supabase's cloud, not on our machine).
+// When an employee submits their resignation form, the frontend calls this function.
+// It creates a row in exit_cases for that employee and returns the new case ID.
+// The actual pipeline (checklists, emails, etc.) is triggered separately by the
+// frontend calling the local agent service at localhost:8787/activate-exit.
+// ─────────────────────────────────────────────────────────────────────────────
 // Employee submits their resignation: creates their exit_cases row (if they
 // don't already have one). Does NOT trigger any agent — that's a separate
 // step. Identity (employee_id/name/email/department) is derived server-side
@@ -49,9 +56,14 @@ Deno.serve(async (req) => {
       return json({ error: 'last_working_day is required' }, 400)
     }
 
+    // Read the Authorization header the browser sent (contains the session JWT token).
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'not signed in' }, 401)
 
+    // Create a second Supabase client that uses the caller's own JWT.
+    // This lets Supabase verify who is making the request.
+    // We use the anon key + the user's JWT (not the service key) so that Supabase
+    // can identify the logged-in user via their session token.
     const authed = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false },
@@ -59,6 +71,9 @@ Deno.serve(async (req) => {
     const { data: { user } } = await authed.auth.getUser()
     if (!user) return json({ error: 'not signed in' }, 401)
 
+    // Use the service-role (admin) client to look up the employee's profile.
+    // We need the service key here because profiles has RLS: an employee can only
+    // read their own row, but we also need to read manager/HR profiles below.
     const { data: profile } = await admin
       .from('profiles')
       .select('full_name, email, employee_id, department, role')
@@ -66,11 +81,14 @@ Deno.serve(async (req) => {
       .single()
     if (!profile || profile.role !== 'employee') return json({ error: 'not an employee' }, 403)
 
+    // maybeSingle() returns null (not an error) if the employee has no case yet.
+    // single() would throw an error if 0 rows were found -- wrong behaviour here.
     const { data: existing } = await admin
       .from('exit_cases')
       .select('id')
       .eq('employee_id', profile.employee_id)
       .maybeSingle()
+    // If they already resigned, return the existing case instead of creating a duplicate.
     if (existing) return json({ ok: true, case: existing })
 
     const { data: manager } = await admin.from('profiles').select('id').eq('role', 'manager').limit(1).single()

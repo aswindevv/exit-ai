@@ -14,6 +14,10 @@
 -- KT event id).
 -- ============================================================
 
+-- pgvector is a PostgreSQL extension that adds a "vector" column type and
+-- fast similarity-search operations. We use it to store AI-generated text
+-- embeddings (lists of ~1536 numbers) and search for semantically similar
+-- content. Must be enabled before the exit_docs table below can be created.
 create extension if not exists vector;
 
 -- ------------------------------------------------------------
@@ -30,6 +34,8 @@ create table if not exists profiles (
     created_at  timestamptz not null default now()
 );
 
+-- Indexes speed up queries that filter by role or employee_id.
+-- Without them, every query would scan every row in the table.
 create index if not exists idx_profiles_role        on profiles (role);
 create index if not exists idx_profiles_employee_id on profiles (employee_id);
 
@@ -124,6 +130,9 @@ create table if not exists exit_docs (
     embedding vector(1536)          -- the chunk, as a vector
 );
 
--- hnsw needs no training data and works from the first row, unlike ivfflat.
+-- HNSW (Hierarchical Navigable Small World) is a vector index type that enables
+-- fast approximate nearest-neighbour search without needing training data.
+-- vector_cosine_ops means "use cosine similarity" (angle between vectors) as
+-- the distance metric. This is what makes the /ask RAG search fast.
 create index if not exists idx_exit_docs_embedding
     on exit_docs using hnsw (embedding vector_cosine_ops);
