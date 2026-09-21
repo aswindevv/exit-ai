@@ -1,3 +1,8 @@
+// ── What this file does ──────────────────────────────────────────────────
+// Maps URL paths to the correct role dashboard. Every route is guarded: if
+// the current user's role does not match the route's expected role, they are
+// redirected to their own dashboard instead of seeing someone else's pages.
+// ─────────────────────────────────────────────────────────────────────────
 import { Routes, Route, Navigate } from 'react-router-dom'
 import HelpPage from './shared/HelpPage'
 
@@ -16,9 +21,13 @@ import * as Hr from './hr/HrPages'
 import FinanceLayout from './finance/FinanceLayout'
 import * as Finance from './finance/FinancePages'
 
+// role is derived from the logged-in user's profiles.role column in Supabase.
+// session is the Supabase Auth session object (holds the user's JWT).
 export default function AppRoutes({ role, session }) {
   return (
     <Routes>
+      {/* /employee/resignation is outside the main employee layout because
+          employees who haven't resigned yet land here directly — no sidebar needed. */}
       <Route
         path="/employee/resignation"
         element={role === 'employee' ? <Employee.Resignation session={session} /> : <Navigate to={`/${role}`} replace />}

@@ -54,7 +54,10 @@ def _open_items(tasks: list[dict], docs: list[dict]) -> tuple[str, list[str]]:
     as pending, not cleared -- a stage that never ran isn't cleared. A doc
     that's uploaded but not yet 'validated' is an open item too, not just an
     incomplete task."""
+    # If no tasks exist at all, report a specific "no task recorded" item rather
+    # than silently clearing — a stage that hasn't run is not the same as cleared.
     open_items = ["no task recorded yet"] if not tasks else [t["title"] for t in tasks if t["status"] != "done"]
+    # Any document that isn't "validated" (e.g. still "submitted" or "rejected") is also an open item.
     open_items += [f"{d['doc_type']}: {d['status']}" for d in docs if d["status"] != "validated"]
     return ("cleared" if not open_items else "pending"), open_items
 
@@ -79,6 +82,8 @@ class SystemAdapter:
         status, open_items, error, attempt = "FAILED", [], None, 0
         for attempt in range(self.max_retries + 1):
             try:
+                # ThreadPoolExecutor enforces a real wall-clock timeout — _fetch()
+                # runs in a thread and is abandoned if it takes too long.
                 with ThreadPoolExecutor(max_workers=1) as pool:
                     raw_status, open_items = pool.submit(self._fetch, case_id).result(timeout=self.timeout_seconds)
                 status, error = ("CLEARED" if raw_status == "cleared" else "PENDING"), None
@@ -130,8 +135,10 @@ def consolidate_status(responses: dict[str, dict], doc_rows: list[dict]) -> dict
     responses + all case_documents rows in -> one consolidated status object
     out. No I/O, no LLM -- everything here is dict shaping. Worst-status-wins:
     a system erroring out is worse than one merely pending."""
+    # Documents that aren't "validated" are clearance blockers too.
     doc_issues = [f"{d['doc_type']}: {d['status']}" for d in doc_rows if d["status"] != "validated"]
     statuses = [r["status"] for r in responses.values()]
+    # Worst-status-wins priority: FAILED > TIMEOUT > PENDING > CLEARED.
     if "FAILED" in statuses:
         overall = "FAILED"
     elif "TIMEOUT" in statuses:

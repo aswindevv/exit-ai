@@ -1,17 +1,26 @@
+// ── What this file does ──────────────────────────────────────────────────
+// The login screen — shown to anyone who is not yet signed in. On submit it
+// calls Supabase Auth, which validates the email+password and sets a session
+// cookie. App.jsx detects that cookie and re-renders the correct dashboard.
+// ─────────────────────────────────────────────────────────────────────────
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import perficientLogo from '../assets/perficient-logo.png'
 
 export default function LoginPage() {
+  // useState stores form values and UI state between renders.
+  // React re-renders the component automatically whenever one of these changes.
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(false)  // disables the button while the network request is in flight
 
   async function handleSubmit(e) {
-    e.preventDefault()
+    e.preventDefault()   // stop the browser from doing a full page reload on form submit
     setError('')
     setBusy(true)
+    // signInWithPassword sends email + password to Supabase Auth. On success
+    // Supabase sets a session cookie; App.jsx's onAuthStateChange fires next.
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false)
     if (error) setError(error.message)

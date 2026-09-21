@@ -16,16 +16,22 @@ from __future__ import annotations
 
 import sys
 
+# notifications.py owns the compose + SMTP send logic; this module is the
+# routing point that adds agent_runs audit records and swallows exceptions
+# so a failed email never aborts the pipeline that triggered it.
 from ..core import notifications
 from ..core.config import db
 from ..core.trace import log_db, traced_node
 
 
 def _outcomes(result: dict) -> list[dict]:
+    # Some templates send to multiple recipients and return {"results": [...]};
+    # others send to one and return a flat dict. Normalise to a list either way.
     return result["results"] if "results" in result else [result]
 
 
 def _status(outcomes: list[dict]) -> str:
+    # smtp_accepted > dev_logged > failed — pick the best outcome across recipients.
     if any(o.get("sent") for o in outcomes):
         return "smtp_accepted"
     if any(o.get("logged") for o in outcomes):
@@ -34,6 +40,7 @@ def _status(outcomes: list[dict]) -> str:
 
 
 def _record_email(case_id: str | None, template: str, result: dict | None, error: str | None = None) -> None:
+    # Skip the DB write if we have no case_id to attach the record to.
     if not case_id:
         return
     outcomes = _outcomes(result) if result is not None else []
@@ -45,6 +52,7 @@ def _record_email(case_id: str | None, template: str, result: dict | None, error
     }
     if error:
         metadata["error"] = error
+    # One audit row per email attempt, regardless of whether it sent or logged.
     db.table("agent_runs").insert({
         "case_id": case_id,
         "stage": "email_drafting",
@@ -66,6 +74,8 @@ def _drafted(template: str, case_id: str | None, fn, *args, **kwargs) -> dict:
     try:
         result = fn(*args, **kwargs)
     except Exception as exc:
+        # Capture the error message and write it to agent_runs, then return a safe
+        # failure dict so callers get a consistent shape regardless of what happened.
         error = f"{type(exc).__name__}: {exc}"
         _record_email(case_id, template, None, error=error)
         return {"sent": False, "logged": False, "to": None, "error": error}

@@ -40,11 +40,15 @@ from .trace import log_db, traced_node
 
 # Shared identity + template for every outgoing email -- one look across all
 # four trigger points instead of each hand-formatting its own body.
+# Every email sent by this file appears to come from this display name.
 SENDER_DISPLAY = "ExitAI (Perficient)"
+# All emails end with these three lines as the sign-off.
 SIGNOFF = ("Regards,", "The ExitAI Team", "Perficient")
 
 
 def _compose(to_name: str | None, intro: str, lines: list[str] = (), closing: str = "") -> str:
+    # Build a plain-text email body: greeting, intro, optional bullet list,
+    # optional closing sentence, then the standard sign-off.
     greeting = f"Hi {to_name}," if to_name else "Hi there,"
     parts = [greeting, "", intro]
     if lines:
@@ -57,10 +61,15 @@ def _compose(to_name: str | None, intro: str, lines: list[str] = (), closing: st
 
 @traced_node("Notification agent -- send email")
 def _send(to: str, subject: str, body: str) -> dict:
+    # Dev-safety gate: if EMAIL_TEST_RECIPIENT is not set in .env, only log
+    # the email to the terminal — no real SMTP call happens. This prevents
+    # accidental emails during development.
     if not EMAIL_TEST_RECIPIENT:
         print(f"[email:dev-log] to={to}\nsubject={subject}\n{body}\n")
         return {"sent": False, "logged": True, "to": to}
 
+    # smtplib is Python's built-in email sending library. SMTP_SSL uses port 465
+    # with TLS from the start (safer than STARTTLS on 587 for Gmail app passwords).
     msg = MIMEText(body)
     msg["Subject"] = subject
     msg["From"] = f"{SENDER_DISPLAY} <{GMAIL_ADDRESS}>"

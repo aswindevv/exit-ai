@@ -73,11 +73,16 @@ def audit_cases(
 
     for c in cases:
         cid = c["id"]
+        # Collect every task stage that has ever been written for this case (done or pending).
         stages_present = {t["stage"] for t in all_tasks_by_case.get(cid, [])}
 
+        # Check 1: reuse find_breaches() from sla_escalation — tasks_by_case holds only pending ones.
         for b in find_breaches(tasks_by_case.get(cid, []), cases_by_id, profiles, today):
             breaches.append({"check": "sla_breach", "case_id": cid, "employee_name": c["employee_name"], "detail": b})
 
+        # Check 2: if the case has IT or finance tasks it's past the manager gate,
+        # but if no agent_runs row for stage="manager"/detail="approved" was ever written,
+        # that means the gate was skipped (data integrity violation).
         progressed = bool({"it", "finance"} & stages_present)
         if progressed and not approvals_by_case.get(cid, False):
             breaches.append({
@@ -85,12 +90,14 @@ def audit_cases(
                 "detail": "it/finance-stage tasks exist with no logged manager-gate approval for this case",
             })
 
+        # Check 3: finance tasks exist but no compliance task — compliance agent #13 was skipped.
         if "finance" in stages_present and "compliance" not in stages_present:
             breaches.append({
                 "check": "skipped_step", "case_id": cid, "employee_name": c["employee_name"],
                 "detail": "finance-stage task exists but compliance check (#13) never ran for this case",
             })
 
+    # Count how many breaches of each check type were found across all cases.
     by_check: dict[str, int] = {}
     for b in breaches:
         by_check[b["check"]] = by_check.get(b["check"], 0) + 1
@@ -208,6 +215,7 @@ def _report(state: AuditorState) -> AuditorState:
     return state
 
 
+# Three-node graph: gather real rows, run the pure audit function, write the narrative.
 _graph = StateGraph(AuditorState)
 _graph.add_node("gather", _gather)
 _graph.add_node("audit", _audit)

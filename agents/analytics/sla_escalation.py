@@ -24,6 +24,7 @@ from ..spokes import email_drafting_agent
 from ..core.config import db
 from ..core.trace import log_db, traced_node
 
+# A task must be at least this many days overdue before an escalation email is sent.
 THRESHOLD_DAYS = 5
 
 # ponytail: no per-case assignee exists for it/finance/compliance stages (no
@@ -41,8 +42,10 @@ def find_breaches(tasks: list[dict], cases: dict[str, dict], profiles: dict[str,
     impact. No I/O, no LLM -- everything here is arithmetic/lookups."""
     breaches = []
     for t in tasks:
+        # Skip tasks that aren't pending, or that have no due date to compare against.
         if t.get("status") != "pending" or not t.get("due_date"):
             continue
+        # due_date may come back as a Python date object or a string — handle both.
         due = t["due_date"] if isinstance(t["due_date"], date) else date.fromisoformat(t["due_date"])
         days_overdue = (today - due).days
         if days_overdue < THRESHOLD_DAYS:
@@ -51,11 +54,13 @@ def find_breaches(tasks: list[dict], cases: dict[str, dict], profiles: dict[str,
         if not case:
             continue
         stage = t["stage"]
+        # Name the actual person blocking this stage if one exists in profiles.
         if stage == "hr":
             blocker = profiles.get(case.get("hr_id"), {}).get("full_name") or "HR"
         elif stage == "manager":
             blocker = profiles.get(case.get("manager_id"), {}).get("full_name") or "the manager"
         else:
+            # IT / finance / compliance don't have a per-case named assignee yet.
             blocker = STAGE_TEAM.get(stage, f"the {stage} team")
         breaches.append({
             "task_id": t["id"], "case_id": t["case_id"], "stage": stage, "title": t["title"],
@@ -74,6 +79,7 @@ class SLAState(TypedDict):
 
 @traced_node("SLA Escalation -- scan overdue clearances")
 def _gather(state: SLAState) -> SLAState:
+    # Fetch all currently-pending tasks and build lookup dicts for cases/profiles.
     tasks = (
         db.table("exit_tasks").select("id, case_id, stage, title, status, due_date")
         .eq("status", "pending").execute().data or []
@@ -91,7 +97,9 @@ def _gather(state: SLAState) -> SLAState:
 def _escalate(state: SLAState) -> SLAState:
     escalated = 0
     for b in state["breaches"]:
+        # Send an escalation email via email_drafting_agent (which routes through notifications.py).
         email_drafting_agent.escalation_notice(b)
+        # Write one audit row per breach so HR can see what was escalated and when.
         db.table("agent_runs").insert({
             "case_id": b["case_id"], "stage": "sla_escalation",
             "detail": f"{b['stage']} task {b['days_overdue']}d overdue, blocked on {b['blocker']}",
@@ -102,6 +110,7 @@ def _escalate(state: SLAState) -> SLAState:
     return state
 
 
+# Two-node graph: gather (find overdue tasks) -> escalate (send emails + audit).
 _graph = StateGraph(SLAState)
 _graph.add_node("gather", _gather)
 _graph.add_node("escalate", _escalate)

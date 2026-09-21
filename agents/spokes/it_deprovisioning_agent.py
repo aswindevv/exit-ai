@@ -50,6 +50,7 @@ from ..core.trace import log_db, traced_node
 # (see it_agent.py's module docstring for the frontend contract) so the mock
 # adapter's simulated action always matches what the IT dashboard already
 # shows for a given task title.
+# re.I makes the pattern case-insensitive (matches "Laptop", "laptop", "LAPTOP").
 ASSET_RE = re.compile(r"laptop|macbook|device|headset|card|asset|collect", re.I)
 IDENTITY_RE = re.compile(r"sso|identity|account", re.I)
 REPO_RE = re.compile(r"repo|repository|source|git", re.I)
@@ -57,12 +58,14 @@ REPO_RE = re.compile(r"repo|repository|source|git", re.I)
 
 def _classify_action(title: str) -> str:
     """Pure function: task title in -> mock action-type out."""
+    # The order matters: ASSET_RE is checked first because "asset" is broader.
     if ASSET_RE.search(title):
         return "asset_recovery"
     if IDENTITY_RE.search(title):
         return "identity_sso_revoke"
     if REPO_RE.search(title):
         return "source_control_revoke"
+    # Default: anything else (e.g. "Remove from Slack") is a SaaS app revoke.
     return "saas_app_revoke"
 
 
@@ -72,6 +75,8 @@ def _verify_execution(task: dict, execution: dict) -> dict:
     reported, so a task the adapter mis-executed (wrong action, or ok=True
     with no real effect) doesn't get waved through just because it ran."""
     expected = _classify_action(task["title"])
+    # verified is True ONLY if the adapter said ok=True AND reported the right action type.
+    # This catches the "task marked done but wrong step actually ran" gap.
     verified = execution.get("ok") is True and execution.get("action_type") == expected
     return {
         "verified": verified,
@@ -95,19 +100,23 @@ class MockITAdapter:
     max_retries: int = 1
 
     def _run(self, task: dict) -> dict:
+        # This is the MOCK — in a real adapter, this would call Okta/Jamf/etc.
         return {"ok": True, "action_type": _classify_action(task["title"]), "detail": f"mock action completed for '{task['title']}'"}
 
     def execute(self, task: dict) -> dict:
         result = None
         for attempt in range(self.max_retries + 1):
             try:
+                # ThreadPoolExecutor with .result(timeout=) enforces a real wall-clock
+                # deadline — the thread is abandoned if it takes too long.
                 with ThreadPoolExecutor(max_workers=1) as pool:
                     result = pool.submit(self._run, task).result(timeout=self.timeout_seconds)
-                break
+                break   # success — exit the retry loop
             except FuturesTimeoutError:
                 result = {"ok": False, "action_type": _classify_action(task["title"]), "detail": f"mock IT provider did not respond within {self.timeout_seconds}s"}
             except Exception as exc:  # noqa: BLE001 -- a real adapter's request can fail for any reason
                 result = {"ok": False, "action_type": _classify_action(task["title"]), "detail": str(exc)}
+        # Append retry count so callers know how many attempts were needed.
         return {**result, "retries": attempt}
 
 
@@ -122,6 +131,7 @@ def execute_approved_tasks(case_id: str) -> list[dict]:
     the human has already approved (stage='it', status='done'). Idempotent:
     skips any task_id that already has an agent_runs audit row for this
     stage."""
+    # Only look at IT-stage tasks the human has already approved (status='done').
     tasks = db.table("exit_tasks").select("id, title").eq("case_id", case_id).eq("stage", "it").eq("status", "done").execute().data or []
     if not tasks:
         return []
@@ -131,6 +141,7 @@ def execute_approved_tasks(case_id: str) -> list[dict]:
     # actually executed must not get stuck that way forever (Phase 5
     # Scenario C: retry/recovery, not a permanent dead end).
     audited = db.table("agent_runs").select("status, metadata").eq("case_id", case_id).eq("stage", "it_deprovisioning_execution").execute().data or []
+    # Build a set of task IDs that have already been successfully verified — skip those.
     already_executed = {r["metadata"]["task_id"] for r in audited if r.get("status") == "verified" and r.get("metadata", {}).get("task_id")}
 
     adapter = MockITAdapter()
@@ -138,9 +149,13 @@ def execute_approved_tasks(case_id: str) -> list[dict]:
     for task in tasks:
         if task["id"] in already_executed:
             continue
+        # Run the mock adapter (would call Okta/Jamf in production).
         execution = adapter.execute(task)
+        # Independently check: did the adapter actually do the right thing?
         verification = _verify_execution(task, execution)
         status = "verified" if verification["verified"] else "verification_failed"
+        # Write one audit row per task — this is both the audit trail and the
+        # idempotency guard for the next call to execute_approved_tasks().
         db.table("agent_runs").insert({
             "case_id": case_id, "stage": "it_deprovisioning_execution", "agent": "it_deprovisioning_agent",
             "status": status, "detail": f"{task['title']} -> {execution.get('detail')} ({status})",

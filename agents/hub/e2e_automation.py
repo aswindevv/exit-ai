@@ -53,28 +53,34 @@ DEFAULT_INTERVIEW_TEXT = (
 )
 
 
+# E2EState holds the inputs and outputs of all four nodes in this graph.
+# Intermediate fields use a _ prefix to signal they're internal scratch space.
 class E2EState(TypedDict):
     case_id: str
     kt_text: str | None
     interview_text: str | None
     simulate_rejection: bool
-    initiation: dict
-    pipeline: dict
-    sla: dict
-    outcome: dict
+    initiation: dict    # result of activate_case (or {"error": ...} if not found)
+    pipeline: dict      # result of supervisor.run_case
+    sla: dict           # breach count + escalation count for this case
+    outcome: dict       # final {"status": "completed"|"blocked", "reason": ...}
 
 
 @traced_node("E2E -- initiate")
 def _initiate(state: E2EState) -> E2EState:
+    # activate_case creates the checklist, sends the resignation notice email,
+    # and transitions the case status to "in_progress". Same call the frontend makes.
     state["initiation"] = service.activate_case(state["case_id"])
     return state
 
 
 @traced_node("E2E -- coordinate stages")
 def _coordinate(state: E2EState) -> E2EState:
+    # If the case wasn't found, skip the full pipeline and let _finalize report it.
     if state["initiation"].get("error"):
         state["pipeline"] = {"skipped": state["initiation"]["error"]}
         return state
+    # supervisor.run_case() drives the entire HR -> manager -> IT -> finance -> assess pipeline.
     state["pipeline"] = supervisor.run_case(
         state["case_id"],
         kt_text=state.get("kt_text"),
@@ -91,6 +97,8 @@ def _sla_check(state: E2EState) -> E2EState:
         state["sla"] = {"skipped": "case not found"}
         return state
 
+    # Check ONLY this case's pending tasks — not the global scan (which would
+    # escalate unrelated cases as a side effect of running this one case).
     tasks = (
         db.table("exit_tasks").select("id, case_id, stage, title, status, due_date")
         .eq("case_id", case_id).eq("status", "pending").execute().data or []
@@ -104,6 +112,7 @@ def _sla_check(state: E2EState) -> E2EState:
         if profile_ids else {}
     )
     breaches = sla_escalation.find_breaches(tasks, cases, profiles, date.today())
+    # _escalate() sends emails for each breach and returns how many were sent.
     escalated = sla_escalation._escalate({"breaches": breaches, "escalated": 0})["escalated"]
     state["sla"] = {"breaches_found": len(breaches), "escalated": escalated}
     return state
@@ -120,16 +129,20 @@ def _finalize(state: E2EState) -> E2EState:
         state["outcome"] = {"status": "blocked", "reason": "manager rejected KT plan -- escalated to HR"}
         return state
 
+    # Read back the task rows that the pipeline actually wrote to decide the outcome.
+    # This prevents a false "completed" when a pipeline step partially failed.
     compliance_row = db.table("exit_tasks").select("status, title").eq("case_id", case_id).eq("stage", "compliance").execute().data
     finance_row = db.table("exit_tasks").select("status, title").eq("case_id", case_id).eq("stage", "finance").execute().data
     compliance_done = bool(compliance_row) and compliance_row[0]["status"] == "done"
     finance_done = bool(finance_row) and finance_row[0]["status"] == "done"
 
     if compliance_done and finance_done:
+        # Both clearance gates passed — mark the case complete.
         db.table("exit_cases").update({"status": "completed"}).eq("id", case_id).execute()
         log_db("update", "exit_cases", rows=1, detail="status -> completed")
         state["outcome"] = {"status": "completed"}
     else:
+        # Name the specific blocking items so the caller can surface a useful message.
         blocking = []
         if not compliance_done:
             blocking.append(compliance_row[0]["title"] if compliance_row else "compliance: not run")
@@ -144,6 +157,7 @@ def _finalize(state: E2EState) -> E2EState:
     return state
 
 
+# Four-node graph: initiate -> coordinate -> sla_check -> finalize.
 _graph = StateGraph(E2EState)
 _graph.add_node("initiate", _initiate)
 _graph.add_node("coordinate", _coordinate)
