@@ -1,3 +1,6 @@
+# Agent #13: checks that asset return, NDA, and access revocation are all done before
+# final clearance is granted. Uses keyword matching on exit_tasks titles and validated
+# case_documents rows — no LLM, all deterministic Python logic.
 """Agent #13 -- Compliance Verification (docs/agent_requirements.md #13 / blueprint1.md #13).
 
 NEW: split from risk/finance. Verifies asset return, NDA acknowledgment, and access
