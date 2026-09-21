@@ -1,6 +1,6 @@
 -- Manager dashboard fix: IT-owned work mis-filed as stage='manager'.
 --
--- agents/hr_agent.py's checklist LLM occasionally wrote IT deprovisioning
+-- agents/spokes/hr_agent.py's checklist LLM occasionally wrote IT deprovisioning
 -- items into 'manager_tasks' ("Revoke access to internal systems, servers,
 -- and repositories"), so they were stored as stage='manager' and rendered on
 -- the manager's KT approvals queue -- an item the manager cannot perform and

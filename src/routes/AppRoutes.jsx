@@ -79,6 +79,7 @@ export default function AppRoutes({ role, session }) {
         <Route path="trends" element={<Hr.Trends />} />
         <Route path="clearances" element={<Hr.Clearances />} />
         <Route path="policy-audit" element={<Hr.PolicyAudit />} />
+        <Route path="workflow-optimization" element={<Hr.WorkflowOptimization />} />
         <Route path="reports" element={<Hr.Reports />} />
         <Route path="agent-activity" element={<Hr.AgentActivity />} />
         <Route path="settings" element={<Hr.Settings />} />

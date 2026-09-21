@@ -3,7 +3,7 @@
 -- required exit documents have been submitted per case, and the real-OCR
 -- validation result for each upload.
 --
--- Required-doc list itself is deterministic Python (agents/doc_collection.py),
+-- Required-doc list itself is deterministic Python (agents/spokes/doc_collection.py),
 -- same pattern as checklist_generator's role->tasks logic -- not stored here.
 -- This table only holds rows that exist once a document has actually been
 -- submitted; "missing" is the set difference computed at read time, not a

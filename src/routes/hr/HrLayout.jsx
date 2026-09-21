@@ -14,6 +14,7 @@ export const NAV = [
   { label: 'Trends', to: 'trends', icon: 'ti-chart-line' },
   { label: 'Clearances', to: 'clearances', icon: 'ti-clipboard-check' },
   { label: 'Policy audit', to: 'policy-audit', icon: 'ti-shield-search' },
+  { label: 'Workflow optimization', to: 'workflow-optimization', icon: 'ti-route' },
   { label: 'Reports', to: 'reports', icon: 'ti-report' },
   { label: 'Agent activity', to: 'agent-activity', icon: 'ti-activity' },
   { label: 'Settings', to: 'settings', icon: 'ti-settings' },
@@ -32,8 +33,15 @@ export default function HrLayout({ session }) {
     // analytics_insights holds one row per run for four different agents, so
     // every read of it is pinned to an agent_type (0029): 'dashboard_insights'
     // is #14's, which the Reports page shows; 'policy_compliance_auditor' is
-    // #22's, which the Policy audit page shows. Latest row each.
-    const [{ data: profile }, { data: cases }, { data: alerts }, { data: tasks }, { data: interviews }, { data: insights }, { data: audits }, { data: runs }] = await Promise.all([
+    // #22's, which the Policy audit page shows; 'workflow_optimizer' is #17's,
+    // which the Workflow optimization page shows. Latest row each.
+    //
+    // approvedRuns is its own targeted query (not sliced from `runs` below,
+    // which the Agent Activity page caps at RUNS_LIMIT) -- Policy audit's live
+    // missing_approval check needs every logged manager-gate approval, not
+    // just the newest 150 agent_runs rows, or older cases could read as a
+    // false breach.
+    const [{ data: profile }, { data: cases }, { data: alerts }, { data: tasks }, { data: interviews }, { data: insights }, { data: audits }, { data: optimizations }, { data: approvedRuns }, { data: runs }] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', session.user.id).single(),
       supabase.from('exit_cases').select('*').order('last_working_day'),
       supabase.from('trend_alerts').select('*').order('created_at', { ascending: false }),
@@ -41,6 +49,8 @@ export default function HrLayout({ session }) {
       supabase.from('exit_interviews').select('*').order('created_at', { ascending: false }),
       supabase.from('analytics_insights').select('*').eq('agent_type', 'dashboard_insights').order('created_at', { ascending: false }).limit(1),
       supabase.from('analytics_insights').select('*').eq('agent_type', 'policy_compliance_auditor').order('created_at', { ascending: false }).limit(1),
+      supabase.from('analytics_insights').select('*').eq('agent_type', 'workflow_optimizer').order('created_at', { ascending: false }).limit(1),
+      supabase.from('agent_runs').select('case_id').eq('stage', 'manager').eq('detail', 'approved'),
       supabase.from('agent_runs').select('*').order('created_at', { ascending: false }).limit(RUNS_LIMIT),
     ])
     if (mountedRef.current) {
@@ -52,6 +62,8 @@ export default function HrLayout({ session }) {
         interviews: interviews ?? [],
         insight: insights?.[0] ?? null,
         audit: audits?.[0] ?? null,
+        optimization: optimizations?.[0] ?? null,
+        approvedCaseIds: new Set((approvedRuns ?? []).map((r) => r.case_id)),
         runs: runs ?? [],
         userId: session.user.id,
         reload: load,

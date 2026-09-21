@@ -1,4 +1,4 @@
-// Mirrors agents/finance_agent.py's _check_clearance gate exactly: a finance
+// Mirrors agents/spokes/finance_agent.py's _check_clearance gate exactly: a finance
 // task's own `status` column is binary (done only once truly cleared) and
 // its `title` is the only field distinguishing "blocked" from "ready", so a
 // UI that trusts `status === 'done'` alone (or a stale row where a prior

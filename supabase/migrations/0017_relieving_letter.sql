@@ -6,7 +6,7 @@
 -- (hr/manager/it/finance) is done AND finance has explicitly cleared the
 -- case (finance_cleared, set by 0013's finance role). 'compliance' is
 -- deliberately excluded from the gate -- it's an agent-only row with no
--- manual toggle anywhere in the UI (see agents/compliance_agent.py), so
+-- manual toggle anywhere in the UI (see agents/spokes/compliance_agent.py), so
 -- gating on it would make this button permanently unreachable through any
 -- role's UI, unlike e2e_automation.py's own internal completion check which
 -- runs after the full agent pipeline.
