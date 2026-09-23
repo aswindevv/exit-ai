@@ -6,10 +6,6 @@ ExitAI — AI-powered employee offboarding with a 24-agent hub-and-spoke system.
 
 Employee offboarding often spans disconnected HR, manager, IT, finance, and compliance work, making progress difficult to track and easy to delay. ExitAI brings those stages into one role-based application backed by a shared case record and auditable task history. A LangGraph supervisor coordinates case-level agents, while human users retain control of approvals, deprovisioning, dues settlement, and final relieving. The repository also includes policy-grounded Q&A, document OCR, email and calendar integrations, risk analysis, and on-demand operational analytics.
 
-## Workflow
-
-![ExitAI workflow](docs/ExitAI_workflow.png)
-
 ## Architecture
 
 ExitAI uses a LangGraph hub-and-spoke design: agents do not hand work directly to one another; the supervisor owns case state and invokes the relevant spoke.
