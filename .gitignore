@@ -11,3 +11,4 @@ __pycache__/
 *.log
 agents/.scratch/
 scripts/_review/
+ .DS_Store
