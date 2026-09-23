@@ -6,6 +6,10 @@ ExitAI — AI-powered employee offboarding with a 24-agent hub-and-spoke system.
 
 Employee offboarding often spans disconnected HR, manager, IT, finance, and compliance work, making progress difficult to track and easy to delay. ExitAI brings those stages into one role-based application backed by a shared case record and auditable task history. A LangGraph supervisor coordinates case-level agents, while human users retain control of approvals, deprovisioning, dues settlement, and final relieving. The repository also includes policy-grounded Q&A, document OCR, email and calendar integrations, risk analysis, and on-demand operational analytics.
 
+## Workflow
+
+![ExitAI AI-powered employee offboarding workflow showing a 24-agent LangGraph hub-and-spoke system. A supervisor orchestrator routes a resignation through seven stages: Resignation, HR and checklist, Manager, IT clearance, Compliance, Finance, and Relieving, with human gates at manager, IT, finance, and relieving. Supporting sections list Communication with Email drafting, SLA escalation, and FAQ chatbot RAG; Intelligence with Exit interview summarizer, Risk assessment, Rehire assessment, and Trend analyst; Analytics and audit with Dashboard insights, Workflow optimizer, Policy auditor, and Predictive attrition; and Access and security with 5 role dashboards, Row Level Security RLS, HR-only risk and sentiment, and Full agent audit trail. The tech stack lists LangGraph, Azure OpenAI GPT, Portkey, Supabase Postgres, pgvector, Tesseract, Gmail, and Calendar. The diagram has a clear, structured, professional tone.](docs/ExitAI_workflow.jpeg)
+
 ## Architecture
 
 ExitAI uses a LangGraph hub-and-spoke design: agents do not hand work directly to one another; the supervisor owns case state and invokes the relevant spoke.
@@ -24,7 +28,7 @@ The compiled supervisor graph itself runs `HR -> manager gate -> IT -> complianc
 
 ## Agents
 
-The catalog below follows [`docs/agent_requirements.md`](docs/agent_requirements.md) and [`agents_spec.md`](agents_spec.md). These are 24 named capabilities, not 24 independent LLM processes: some are deterministic, some reuse another agent through a traced wrapper, one is a human gate, and scheduled-style analytics currently run only when invoked from the CLI.
+The catalog below follows [`docs/agent_requirements.md`](docs/agent_requirements.md). These are 24 named capabilities, not 24 independent LLM processes: some are deterministic, some reuse another agent through a traced wrapper, one is a human gate, and scheduled-style analytics currently run only when invoked from the CLI.
 
 Status meanings: **working** is wired into a case, event, or request path; **manual** is implemented but must be invoked explicitly; **demo-scale** uses a deliberate stand-in for an external production dependency.
 
