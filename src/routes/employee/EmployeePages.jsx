@@ -965,21 +965,17 @@ export function ExitInterview() {
       setError(error.message)
       return
     }
-    // Trigger the Exit-Interview agent: agents/service.py is a local-only
-    // bridge (see Resignation's /activate-exit call above). If it's not
-    // running, the row is still written -- HR's analysis just won't have
-    // populated yet.
-    try {
-      await fetch('http://localhost:8787/submit-exit-interview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ case_id: exitCase.id }),
-      })
-    } catch {
-      // agent service unreachable — non-fatal, see comment above
-    }
+    // Insert succeeded — show "submitted" immediately; don't await the agent.
     setBusy(false)
     setStatus('submitted')
+    // Trigger Exit-Interview agent in the background: agents/service.py is
+    // local-only; non-fatal if not running — the row is written, HR's analysis
+    // will populate once the agent runs.
+    fetch('http://localhost:8787/submit-exit-interview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ case_id: exitCase.id }),
+    }).catch(() => {}) // agent service unreachable — non-fatal
   }
 
   if (!exitCase) return <Placeholder title="Exit interview" body="No exit case found on your profile yet." />

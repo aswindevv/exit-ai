@@ -13,7 +13,8 @@ role_map = {
     "finance": "anfiacj@gmail.com",
 }
 emp_map = {
-    "emp082": "emp082@gmail.com",  # browser pipeline test
+    "disp002": "disp-test-002@test.invalid",  # fresh disposable — browser pipeline test
+    "emp082": "emp082@gmail.com",  # seeded; keep for reference only
     "emp083": "emp083@gmail.com",  # CLI/extra test
 }
 

@@ -19,6 +19,8 @@ scripts/_review/
 scripts/verify/
 tests/e2e-journey/screenshots/
 tests/e2e-journey/magic_links.json
+*.err
+tests/e2e-journey/test_docs/
 playwright-report/
 test-results/
 artifacts/
