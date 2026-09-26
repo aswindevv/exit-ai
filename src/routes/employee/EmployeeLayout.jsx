@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import useScrollTopOnNavigate from '../../lib/useScrollTopOnNavigate'
 import Sidebar from '../../components/Sidebar'
+import LoadingShell from '../../components/LoadingShell'
 import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
 
@@ -39,11 +40,11 @@ export default function EmployeeLayout({ session }) {
     return () => { mountedRef.current = false }
   }, [session])
 
-  if (!data) return null
+  if (!data) return <LoadingShell role="employee" />
   if (!data.exitCase) return <Navigate to="/employee/resignation" replace />
 
   return (
-    <div className="shell">
+    <div className="shell shell--employee">
       <Sidebar items={NAV} initials={initials(data.profile?.full_name)} name={data.profile?.full_name} role="Employee" />
       <div ref={scrollRef}>
         <Outlet context={data} />

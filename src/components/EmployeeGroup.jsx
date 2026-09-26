@@ -4,15 +4,15 @@ import { initials } from '../lib/format'
 // across the Finance/IT/HR/Manager dashboards. Callers pass an already
 // case-creation-sorted array (Array.sort is stable, so same-employee rows
 // stay contiguous) -- this just inserts one header before each new
-// employee's first row. No new grouping data structure, no new CSS: the
-// header reuses the existing `row`/`sub` tokens already used everywhere else.
+// employee's first row. The shared grid classes keep names, metadata, and
+// status chips aligned even when their text lengths differ.
 export function EmployeeGroupHeader({ name, subtitle, chip }) {
   return (
-    <div className="row" data-group-header="true">
+    <div className="row employee-group-header" data-group-header="true">
       <span className="avatar-sm">{initials(name)}</span>
-      <p style={{ fontWeight: 600, marginLeft: 8 }}>{name}</p>
-      {subtitle && <span className="sub" style={{ marginLeft: 8 }}>{subtitle}</span>}
-      {chip && <span className={`tag ${chip.tone}`} style={{ marginLeft: 8 }}>{chip.label}</span>}
+      <p className="employee-group-header__name">{name}</p>
+      {subtitle && <span className="sub employee-group-header__subtitle">{subtitle}</span>}
+      {chip && <span className={`tag ${chip.tone} employee-group-header__status`}>{chip.label}</span>}
     </div>
   )
 }

@@ -9,7 +9,9 @@
 const PRIOR_STAGES = ['hr', 'manager', 'it']
 
 export function financeStatus(caseRow, tasks) {
-  const priors = tasks.filter((t) => t.case_id === caseRow.id && PRIOR_STAGES.includes(t.stage))
+  const priors = tasks.filter((t) => t.case_id === caseRow.id && PRIOR_STAGES.includes(t.stage) && !(
+    t.title?.startsWith('Escalated') && ['rerouted', 'resolved'].includes(t.escalation_state)
+  ))
   const stagesDone = priors.length > 0 && priors.every((t) => t.status === 'done')
   if (!stagesDone) return 'blocked'
   if (caseRow.finance_rejected) return 'held'
@@ -20,7 +22,7 @@ export function financeStatus(caseRow, tasks) {
 // so a case reads the same way ("Blocked"/"Pending"/"Held"/"Signed") everywhere.
 export const FINANCE_STATUS_TAG = {
   blocked: { tone: 't-danger', label: 'Blocked' },
-  ready: { tone: 't-warning', label: 'Pending' },
+  ready: { tone: 't-warning', label: 'Ready' },
   held: { tone: 't-danger', label: 'Held' },
   cleared: { tone: 't-success', label: 'Signed' },
 }

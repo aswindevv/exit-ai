@@ -7,8 +7,16 @@ process.loadEnvFile()
 
 const url = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_KEY
-const domain = process.env.DEMO_EMAIL_DOMAIN || 'gmail.com'
 if (!url || !serviceKey) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_KEY missing in .env')
+
+function requiredEnv(name) {
+  const value = process.env[name]
+  if (!value) throw new Error(`${name} missing in .env`)
+  return value
+}
+
+const domain = requiredEnv('DEMO_EMAIL_DOMAIN')
+const employeePasswordTemplate = requiredEnv('SEED_EMPLOYEE_PASSWORD_TEMPLATE')
 
 const db = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
 
@@ -50,16 +58,12 @@ async function main() {
   const doneIds = new Set(existing.map((r) => r.employee_id).filter(Boolean))
   const doneEmails = new Set(existing.map((r) => r.email))
 
-  // Three named accounts.
-  // NOTE: 'siva@' is 5 chars, below Supabase Auth's default 6-char password
-  // minimum. Rather than change project-wide auth config (needs a
-  // management-API token this script doesn't have), pad per blueprint's own
-  // fallback. Update CLAUDE.md's demo table if you change this.
+  // Named demo accounts are configured in .env so credentials never live in source.
   const named = [
-    { full_name: 'Aravidhan', email: `aravidhan@${domain}`, role: 'manager', password: 'aravidhan@' },
-    { full_name: 'Siva', email: `siva@${domain}`, role: 'hr', password: 'siva@1' },
-    { full_name: 'Aswin', email: `aswin@${domain}`, role: 'it', password: 'aswin@' },
-    { full_name: 'Anfia', email: 'anfiacj@gmail.com', role: 'finance', password: 'anfiacj@' },
+    { full_name: 'Aravidhan', email: requiredEnv('SEED_MANAGER_EMAIL'), role: 'manager', password: requiredEnv('SEED_MANAGER_PASSWORD') },
+    { full_name: 'Siva', email: requiredEnv('SEED_HR_EMAIL'), role: 'hr', password: requiredEnv('SEED_HR_PASSWORD') },
+    { full_name: 'Aswin', email: requiredEnv('SEED_IT_EMAIL'), role: 'it', password: requiredEnv('SEED_IT_PASSWORD') },
+    { full_name: 'Anfia', email: requiredEnv('SEED_FINANCE_EMAIL'), role: 'finance', password: requiredEnv('SEED_FINANCE_PASSWORD') },
   ]
   for (const p of named) {
     if (doneEmails.has(p.email)) {
@@ -83,7 +87,8 @@ async function main() {
     const [department, role_title] = DEPARTMENTS[i % DEPARTMENTS.length]
     empProfiles.push({ employee_id, email, full_name, department, role_title })
     if (doneIds.has(employee_id)) continue
-    await createPerson({ email, password: `${employee_id}@`, full_name, role: 'employee', employee_id, department })
+    const password = employeePasswordTemplate.replaceAll('{employee_id}', employee_id)
+    await createPerson({ email, password, full_name, role: 'employee', employee_id, department })
   }
   console.log(`employees seeded: ${empProfiles.length}`)
 

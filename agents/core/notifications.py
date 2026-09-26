@@ -20,7 +20,7 @@ Four templates / trigger points (blueprint Phase 7 + F/G resignation gate):
 
 Dev safety: EMAIL_TEST_RECIPIENT unset -> every send is only logged to the
 terminal (no network call). Set (to any value) -> real sends go out over
-Gmail SMTP, always From GMAIL_ADDRESS (aswindevv2005@gmail.com), always To
+Gmail SMTP, always From the sender account in GMAIL_ADDRESS, always To
 the actual intended recipient's own address -- the employee's mail for KT/
 overdue/completion, the manager's mail for the resignation notice, HR's mail
 for the completion notice. No redirect to a single inbox.
