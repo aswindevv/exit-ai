@@ -8,7 +8,7 @@ Employee offboarding often spans disconnected HR, manager, IT, finance, and comp
 
 ## Workflow
 
-![ExitAI AI-powered employee offboarding workflow showing a 24-agent LangGraph hub-and-spoke system. A supervisor orchestrator routes a resignation through seven stages: Resignation, HR and checklist, Manager, IT clearance, Compliance, Finance, and Relieving, with human gates at manager, IT, finance, and relieving. Supporting sections list Communication with Email drafting, SLA escalation, and FAQ chatbot RAG; Intelligence with Exit interview summarizer, Risk assessment, Rehire assessment, and Trend analyst; Analytics and audit with Dashboard insights, Workflow optimizer, Policy auditor, and Predictive attrition; and Access and security with 5 role dashboards, Row Level Security RLS, HR-only risk and sentiment, and Full agent audit trail. The tech stack lists LangGraph, Azure OpenAI GPT, Portkey, Supabase Postgres, pgvector, Tesseract, Gmail, and Calendar. The diagram has a clear, structured, professional tone.](docs/ExitAI_workflow.jpeg)
+![ExitAI AI-powered employee offboarding workflow showing a 24-agent LangGraph hub-and-spoke system. A supervisor orchestrator routes a resignation through seven stages: Resignation, HR and checklist, Manager, IT clearance, Compliance, Finance, and Relieving, with human gates at manager, IT, finance, and relieving. Supporting sections list Communication with Email drafting, SLA escalation, and FAQ chatbot RAG; Intelligence with Exit interview summarizer, Risk assessment, Rehire assessment, and Trend analyst; Analytics and audit with Dashboard insights, Workflow optimizer, Policy auditor, and Predictive attrition; and Access and security with 5 role dashboards, Row Level Security RLS, HR-only risk and sentiment, and Full agent audit trail. The tech stack lists LangGraph, Google Gemini 3.5 Flash-Lite, Portkey, Supabase Postgres, pgvector, Tesseract, Gmail, and Calendar. The diagram has a clear, structured, professional tone.](docs/ExitAI_workflow.jpeg)
 
 ## Architecture
 
@@ -63,14 +63,14 @@ Status meanings: **working** is wired into a case, event, or request path; **man
 
 Policy content is chunked by `scripts/ingest_docs.js`, embedded with OpenAI `text-embedding-3-small` through the Portkey embeddings route, and stored in the `exit_docs.embedding vector(1536)` column. PostgreSQL uses an HNSW cosine index, and `match_exit_docs` returns the four closest chunks for a query embedding.
 
-The Supabase `/ask` Edge Function embeds each question, calls `match_exit_docs`, and sends the retrieved context to the configured Azure OpenAI GPT route through Portkey. It returns the answer and the source sections actually used; unrelated questions can be refused, and general employment guidance is kept distinct from company policy.
+The Supabase `/ask` Edge Function embeds each question, calls `match_exit_docs`, and sends the retrieved context to the configured Gemini 3.5 Flash-Lite route through Portkey. It returns the answer and the source sections actually used; unrelated questions can be refused, and general employment guidance is kept distinct from company policy.
 
 pgvector keeps source text, embeddings, access controls, and application data in the existing Supabase Postgres deployment. That avoids operating and synchronizing a separate vector database, while RLS leaves `exit_docs` inaccessible to browser clients and makes the service-role `/ask` function the controlled retrieval boundary.
 
 ## Tech Stack
 
 - **Orchestration:** LangGraph hub-and-spoke graphs in Python
-- **LLM:** Azure OpenAI GPT through the Portkey gateway, migrated from Anthropic Claude; the retained `ANTHROPIC_*` names describe the compatible Messages API wire format
+- **LLM:** Google Gemini 3.5 Flash-Lite through the Portkey gateway; the project migrated from Anthropic Claude Sonnet → Azure OpenAI GPT → Gemini 3.5 Flash-Lite over time; the retained `ANTHROPIC_*` env-var names describe the compatible Messages API wire format, not the vendor
 - **Backend:** Supabase Postgres, Auth, Row Level Security, pgvector, Edge Functions, and private Storage
 - **Agent runtime:** Python service plus CLI entry points
 - **Frontend:** React 18, Vite, React Router, and Supabase JS
@@ -154,7 +154,7 @@ SUPABASE_ANON_KEY=<supabase-anon-key>
 SUPABASE_SERVICE_KEY=<supabase-service-role-key>
 ANTHROPIC_BASE_URL=<portkey-messages-endpoint>
 ANTHROPIC_API_KEY=<portkey-api-key>
-ANTHROPIC_MODEL=<azure-openai-model-route>
+ANTHROPIC_MODEL=<gemini-model-route>
 PORTKEY_BASE_URL=<portkey-api-base-url>
 PORTKEY_API_KEY=<portkey-api-key>
 PORTKEY_VIRTUAL_KEY=<embedding-model-route>
@@ -188,7 +188,7 @@ PORTKEY_API_KEY=<portkey-api-key>
 PORTKEY_VIRTUAL_KEY=<embedding-model-route>
 ANTHROPIC_BASE_URL=<portkey-messages-endpoint>
 ANTHROPIC_API_KEY=<portkey-api-key>
-ANTHROPIC_MODEL=<azure-openai-model-route>
+ANTHROPIC_MODEL=<gemini-model-route>
 EMAIL_SENDER=<sender-address>
 EMAIL_APP_PASSWORD=<email-app-password>
 HR_FORWARD_EMAIL=<hr-address>

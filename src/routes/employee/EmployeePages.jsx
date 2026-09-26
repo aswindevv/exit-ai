@@ -1075,7 +1075,9 @@ export function Resignation({ session }) {
     })
     if (error || data?.error) {
       setBusy(false)
-      setError(data?.error ?? error.message)
+      let msg = data?.error ?? error?.message ?? 'Unknown error'
+      try { const b = await error?.context?.json?.(); if (b?.error) msg = b.error } catch {}
+      setError(msg)
       return
     }
     // Trigger the exit pipeline: agents/service.py is a local-only bridge
