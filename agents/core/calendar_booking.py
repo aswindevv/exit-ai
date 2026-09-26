@@ -89,11 +89,21 @@ def _create_event(case: dict, task: dict) -> dict:
         "attendees": [{"email": a} for a in attendees],
     }
     # sendUpdates="all" emails the invite to all attendees immediately.
-    created = (
-        _service().events()
-        .insert(calendarId=KT_CALENDAR_ID, body=event, sendUpdates="all")
-        .execute()
-    )
+    try:
+        created = (
+            _service().events()
+            .insert(calendarId=KT_CALENDAR_ID, body=event, sendUpdates="all")
+            .execute()
+        )
+    except Exception as exc:
+        # Expired/revoked token or any Google API error: log and let pipeline continue.
+        detail = f"calendar booking failed (token expired or API error): {exc}"
+        print(f"[calendar:warning] {detail}")
+        if case.get("id"):
+            db.table("agent_runs").insert({
+                "case_id": case["id"], "stage": "calendar_booking", "detail": detail,
+            }).execute()
+        return {"booked": False, "error": str(exc)}
     return {"booked": True, "event_id": created["id"]}
 
 
