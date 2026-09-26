@@ -954,6 +954,13 @@ export function ExitInterview() {
       comments,
     })
     if (error) {
+      // Unique constraint (code 23505): interview already exists — the view may
+      // have missed it (security_invoker drift). Treat as already-submitted.
+      if (error.code === '23505' || error.message?.includes('unique')) {
+        setBusy(false)
+        setStatus('submitted')
+        return
+      }
       setBusy(false)
       setError(error.message)
       return
