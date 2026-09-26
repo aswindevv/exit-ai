@@ -41,11 +41,28 @@ CHECKS = {
 DOC_TYPES = {"asset_return": "Asset Return Form", "nda": "NDA"}
 
 
+def _active_gate_tasks(tasks: list[dict]) -> list[dict]:
+    """Exclude closed/re-routed escalation marker rows from compliance input."""
+    return [
+        task for task in tasks
+        if not (
+            (task.get("title") or "").startswith("Escalated")
+            and task.get("escalation_state") in ("rerouted", "resolved")
+        )
+    ]
+
+
 def evaluate(tasks: list[dict], validated_doc_types: frozenset[str] = frozenset()) -> dict:
     """Pure function: which of the three compliance checks are satisfied. A check
     with no matching task at all counts as missing (blocks), not N/A. A validated
     case_documents row for the item's doc_type (see DOC_TYPES) also satisfies it."""
     blocking = []
+    if any(
+        (task.get("title") or "").startswith("Escalated")
+        and (task.get("escalation_state") or "open") == "open"
+        for task in tasks
+    ):
+        blocking.append("manager escalation: open")
     for label, pattern in CHECKS.items():
         matches = [t for t in tasks if pattern.search(t.get("title", ""))]
         done = [t for t in matches if t.get("status") == "done"]
@@ -151,12 +168,12 @@ def _validated_doc_types(case_id: str) -> frozenset[str]:
 @traced_node("Compliance Verification -- check")
 def _check_node(state: ComplianceState) -> ComplianceState:
     case_id = state["case_id"]
-    tasks = db.table("exit_tasks").select("title, status, stage").eq("case_id", case_id).execute().data or []
+    tasks = db.table("exit_tasks").select("title, status, stage, escalation_state").eq("case_id", case_id).execute().data or []
     # exclude the compliance-stage summary task itself -- its own title (e.g.
     # "...NDA: no task found...") is written by _persist_node and would
     # otherwise keyword-match against the very checks below, self-poisoning
     # every future run. Same filter _items_node already applies.
-    keyword_tasks = [t for t in tasks if t.get("stage") != "compliance"]
+    keyword_tasks = _active_gate_tasks([t for t in tasks if t.get("stage") != "compliance"])
     state["result"] = evaluate(keyword_tasks, _validated_doc_types(case_id))
     return state
 
@@ -185,12 +202,18 @@ def _persist_node(state: ComplianceState) -> ComplianceState:
 @traced_node("Compliance Verification -- item-level trace (#13)")
 def _items_node(state: ComplianceState) -> ComplianceState:
     case_id = state["case_id"]
-    tasks = db.table("exit_tasks").select("title, status, stage").eq("case_id", case_id).execute().data or []
+    tasks = db.table("exit_tasks").select("title, status, stage, escalation_state").eq("case_id", case_id).execute().data or []
     manager_rows = (
         db.table("agent_runs").select("detail, created_at").eq("case_id", case_id).eq("stage", "manager")
         .in_("detail", ["approved", "rejected"]).order("created_at", desc=True).limit(1).execute().data or []
     )
     manager_detail = manager_rows[0]["detail"] if manager_rows else None
+    if any(
+        (task.get("title") or "").startswith("Escalated")
+        and (task.get("escalation_state") or "open") == "open"
+        for task in tasks
+    ):
+        manager_detail = "rejected"
     it_tasks = [t for t in tasks if t.get("stage") == "it"]
     case = db.table("exit_cases").select("finance_cleared").eq("id", case_id).single().execute().data or {}
     finance_cleared = bool(case.get("finance_cleared"))
@@ -198,7 +221,7 @@ def _items_node(state: ComplianceState) -> ComplianceState:
     # exclude the compliance-stage summary task itself: its own title (e.g.
     # "...NDA: no task found...") is written by _persist_node and would
     # otherwise keyword-match against the very NDA/asset/access checks below.
-    keyword_tasks = [t for t in tasks if t.get("stage") != "compliance"]
+    keyword_tasks = _active_gate_tasks([t for t in tasks if t.get("stage") != "compliance"])
     items = evaluate_items(keyword_tasks, manager_detail, it_tasks, finance_cleared, _validated_doc_types(case_id))
     now = datetime.now(timezone.utc).isoformat()
     for item in items:

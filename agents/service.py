@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Lock
 
 from .spokes import compliance_agent, doc_collection, email_drafting_agent, exit_intel_agent, finance_agent, hr_agent, it_deprovisioning_agent, risk_agent
 from .core.config import db
@@ -62,6 +63,7 @@ from .core.trace import log_db
 
 PORT = 8787
 ALLOWED_ORIGIN = "http://localhost:5173"
+_manager_approve_lock = Lock()
 
 
 def activate_case(case_id: str) -> dict:
@@ -162,7 +164,7 @@ def finance_settle_check(case_id: str) -> dict:
     return {"ok": True, "finance": finance, "compliance": compliance, "risk": risk["result"]}
 
 
-def manager_approve(case_id: str) -> dict:
+def _manager_approve(case_id: str) -> dict:
     # The APPROVED branch of agents/hub/supervisor.py's manager gate, made callable
     # for one case -- the mirror of reject_manager_task below, and the same
     # "re-run one stage for one case" shape as finance_settle_check above.
@@ -219,6 +221,31 @@ def manager_approve(case_id: str) -> dict:
         db.table("agent_runs").insert({"case_id": case_id, "stage": "manager", "detail": "approved"}).execute()
         log_db("insert", "agent_runs", rows=1, detail="manager gate: approved")
 
+    # A reroute stays open until the manager completes the renewed approval.
+    # Close its marker through the same state vocabulary used by HR and write
+    # a dedicated audit row. The guarded update makes repeated approve/sign
+    # calls harmless.
+    rerouted = [
+        task for task in manager_tasks
+        if task["id"] in escalation_ids and task.get("escalation_state") == "rerouted"
+    ]
+    for task in rerouted:
+        closed = (
+            db.table("exit_tasks").update({"escalation_state": "resolved", "status": "done"})
+            .eq("id", task["id"]).eq("escalation_state", "rerouted").execute().data or []
+        )
+        if closed:
+            db.table("agent_runs").insert({
+                "case_id": case_id,
+                "stage": "escalate",
+                "agent": "manager_approval",
+                "status": "resolved",
+                "detail": "Manager approved the re-routed item; escalation resolved",
+                "metadata": {"task_id": task["id"], "transition": "rerouted->resolved"},
+            }).execute()
+            log_db("update", "exit_tasks", rows=1, detail="rerouted escalation -> resolved/done")
+            log_db("insert", "agent_runs", rows=1, detail="rerouted escalation resolved by manager approval")
+
     # Same call supervisor._it_stage makes (the #18-traced alias for
     # it_agent.generate_plan), already idempotent: skips when IT tasks exist.
     it_plan = it_deprovisioning_agent.generate(case_id)
@@ -230,6 +257,14 @@ def manager_approve(case_id: str) -> dict:
 
     compliance = compliance_agent.run_for_case(case_id)
     return {"ok": True, "advanced": True, "it_plan": it_plan, "compliance": compliance}
+
+
+def manager_approve(case_id: str) -> dict:
+    """Serialize manager handoffs so concurrent Review/sign requests cannot
+    race IT generation or run the shared synchronous database client at the
+    same time for one approval burst."""
+    with _manager_approve_lock:
+        return _manager_approve(case_id)
 
 
 def reject_manager_task(case_id: str, task_id: str | None, reason: str | None) -> dict:

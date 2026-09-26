@@ -81,17 +81,23 @@ export default function AppRoutes({ role, session }) {
         element={role === 'hr' ? <HrLayout session={session} /> : <Navigate to={`/${role}`} replace />}
       >
         <Route index element={<Hr.Dashboard />} />
-        <Route path="all-exits" element={<Hr.AllExits />} />
-      <Route path="escalations" element={<Hr.Escalations />} />
-        <Route path="risk-and-compliance" element={<Hr.RiskAndCompliance />} />
+        <Route path="exits" element={<Hr.AllExits />} />
+        <Route path="exits/:caseId" element={<Hr.CasePage />} />
+        <Route path="escalations" element={<Hr.Escalations />} />
+        <Route path="relieving-letters" element={<Hr.RelievingLetters />} />
+        <Route path="insights" element={<Hr.Insights />} />
+        <Route path="risk-and-rehire" element={<Hr.RiskAndRehire />} />
         <Route path="exit-interviews" element={<Hr.ExitInterviews />} />
-        <Route path="trends" element={<Hr.Trends />} />
-        <Route path="clearances" element={<Hr.Clearances />} />
-        <Route path="policy-audit" element={<Hr.PolicyAudit />} />
-        <Route path="workflow-optimization" element={<Hr.WorkflowOptimization />} />
-        <Route path="reports" element={<Hr.Reports />} />
-        <Route path="agent-activity" element={<Hr.AgentActivity />} />
-        <Route path="settings" element={<Hr.Settings />} />
+        <Route path="agents" element={<Hr.Agents />} />
+        <Route path="all-exits" element={<Navigate to="/hr/exits" replace />} />
+        <Route path="risk-and-compliance" element={<Navigate to="/hr/risk-and-rehire" replace />} />
+        <Route path="trends" element={<Navigate to="/hr" replace />} />
+        <Route path="clearances" element={<Navigate to="/hr/relieving-letters" replace />} />
+        <Route path="policy-audit" element={<Navigate to="/hr" replace />} />
+        <Route path="workflow-optimization" element={<Navigate to="/hr" replace />} />
+        <Route path="reports" element={<Navigate to="/hr" replace />} />
+        <Route path="agent-activity" element={<Navigate to="/hr/agents" replace />} />
+        <Route path="settings" element={<Navigate to="/hr" replace />} />
         <Route path="*" element={<Navigate to="" replace />} />
       </Route>
 

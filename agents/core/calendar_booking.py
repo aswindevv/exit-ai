@@ -6,8 +6,8 @@ there. This module books a Google Calendar event for the same tasks and
 writes the event id back onto exit_tasks.kt_event_id (already in
 0001_schema.sql -- the column was reserved for this phase).
 
-Auth: a SINGLE shared demo Google account (aswindevv2005@gmail.com),
-authorized ONCE via agents/oauth_setup.py against the existing "Exit Auth"
+Auth: the sender account from .env is authorized ONCE via
+agents/oauth_setup.py against the existing "Exit Auth"
 Google OAuth Web client -- not a service account, not per-user login. Every
 KT event for every ExitAI user lands on that one account's calendar
 (KT_CALENDAR_ID, default "primary"), with the employee + manager invited as
