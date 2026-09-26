@@ -107,8 +107,19 @@ def submit_exit_interview(case_id: str) -> dict:
         lines.append(f"Feedback: {row['feedback']}")
     if row.get("comments"):
         lines.append(f"Additional comments: {row['comments']}")
-    result = exit_intel_agent.run_per_case(case_id, "\n".join(lines))
-    return {"ok": True, "analysis": result["result"]}
+    try:
+        result = exit_intel_agent.run_per_case(case_id, "\n".join(lines))
+        return {"ok": True, "analysis": result["result"]}
+    except Exception as exc:
+        db.table("agent_runs").insert({
+            "case_id": case_id,
+            "stage": "interview",
+            "agent": "exit_interview_summarizer_agent",
+            "status": "error",
+            "detail": f"exit interview analysis failed: {exc}",
+        }).execute()
+        log_db("insert", "agent_runs", rows=1, detail="exit interview analysis failed")
+        return {"ok": True, "analysis": None, "error": str(exc)}
 
 
 def validate_document(case_id: str, document_id: str | None) -> dict:
