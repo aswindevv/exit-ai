@@ -25,5 +25,6 @@ playwright-report/
 test-results/
 artifacts/
 supabase/.temp/
+.e2e_tmp/
 .DS_Store
 Thumbs.db
