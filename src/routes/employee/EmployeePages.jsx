@@ -53,6 +53,14 @@ function stageState(tasks) {
 const STATE_DATE = { current: 'In progress', blocked: 'Blocked', pending: 'Pending', done: '' }
 
 function buildTimeline(tasksByStage, exitCase) {
+  // When the letter is issued, all stages are definitively done — short-circuit
+  // so a stage with no tasks can't block the unlock chain and break the display.
+  if (exitCase?.relieving_letter_issued === true && exitCase?.issued_at) {
+    return [
+      ...STAGE_ORDER.map((s) => ({ label: STAGE_LABELS[s], date: '', state: 'done' })),
+      { label: 'Relieving', date: fmtDate(exitCase.issued_at), state: 'done' },
+    ]
+  }
   let unlocked = true // every stage so far is DONE
   const nodes = STAGE_ORDER.map((s) => {
     const { blocked, complete } = stageState(tasksByStage[s] || [])
