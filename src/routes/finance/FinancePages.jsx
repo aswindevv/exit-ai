@@ -113,6 +113,7 @@ export function Dashboard() {
   const [actioning, settle] = useSettle(reload)
   const [rejecting, reject] = useReject(reload)
   const [notes, setNotes] = useState({})
+  const [ledgerFilter, setLedgerFilter] = useState('all')
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
 
   const rows = cases
@@ -122,6 +123,12 @@ export function Dashboard() {
   const readyCount = rows.filter((r) => r.status === 'ready' || r.status === 'held').length
   const blockedCount = rows.filter((r) => r.status === 'blocked').length
   const settledCount = rows.filter((r) => r.status === 'cleared').length
+  const visibleRows = rows.filter((r) => {
+    if (ledgerFilter === 'ready') return r.status === 'ready' || r.status === 'held'
+    if (ledgerFilter === 'blocked') return r.status === 'blocked'
+    if (ledgerFilter === 'settled') return r.status === 'cleared'
+    return true
+  })
 
   const CHIPS = [
     { tone: 't-plain', k: 'Queue', v: String(cases.length) },
@@ -135,14 +142,14 @@ export function Dashboard() {
   ]
 
   return (
-    <>
+    <div className="finance-dashboard">
       <h2 className="sr-only">
         Finance dashboard with a sidebar nav and a work queue of exit cases
         awaiting dues clearance.
       </h2>
 
       <PageHead
-        greeting={`Good morning, ${firstName}`}
+        name={firstName}
         subtitle={`${readyCount} exit case${readyCount === 1 ? '' : 's'} ready for finance clearance.`}
         chips={CHIPS}
       />
@@ -155,8 +162,33 @@ export function Dashboard() {
         ))}
       </div>
 
-      <div className="card card--pad">
-        <p className="card-title">Finance clearance queue</p>
+      <section className="card card--pad finance-ledger">
+        <div className="section-heading">
+          <div>
+            <p className="section-eyebrow">Settlement operations</p>
+            <h2>Final settlement ledger</h2>
+            <p>Cases are ordered by readiness, then by the date they entered the queue.</p>
+          </div>
+          <span className="tag t-warning">{readyCount} awaiting finance</span>
+        </div>
+        <div className="ledger-filters" role="group" aria-label="Filter settlement ledger">
+          {[
+            ['ready', 'Ready', readyCount],
+            ['blocked', 'Blocked', blockedCount],
+            ['settled', 'Settled', settledCount],
+            ['all', 'All cases', rows.length],
+          ].map(([key, label, count]) => (
+            <button
+              type="button"
+              key={key}
+              className={`ledger-filter${ledgerFilter === key ? ' is-active' : ''}`}
+              aria-pressed={ledgerFilter === key}
+              onClick={() => setLedgerFilter(key)}
+            >
+              <span>{label}</span><strong>{count}</strong>
+            </button>
+          ))}
+        </div>
         <div className="list">
           <div className="thead" style={{ display: 'grid', gridTemplateColumns: QUEUE_COLS }}>
             <span>Employee</span>
@@ -165,7 +197,7 @@ export function Dashboard() {
             <span>Status</span>
             <span style={{ textAlign: 'right' }}>Action</span>
           </div>
-          {rows.map(({ case: c, status }) => {
+          {visibleRows.map(({ case: c, status }) => {
             const tag = FINANCE_STATUS_TAG[status]
             const actionable = status === 'ready' || status === 'held'
             const reason =
@@ -237,9 +269,15 @@ export function Dashboard() {
               </div>
             )
           })}
-          {!cases.length && <p className="sub">No cases in finance queue.</p>}
+          {!visibleRows.length && (
+            <div className="empty-state">
+              <i className="ti ti-receipt" aria-hidden="true" />
+              <p>No cases in this ledger view.</p>
+              <span>Choose another status to review the full settlement queue.</span>
+            </div>
+          )}
         </div>
-      </div>
-    </>
+      </section>
+    </div>
   )
 }

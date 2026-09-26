@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import useScrollTopOnNavigate from '../../lib/useScrollTopOnNavigate'
 import Sidebar from '../../components/Sidebar'
+import LoadingShell from '../../components/LoadingShell'
 import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
 
@@ -33,10 +34,10 @@ export default function FinanceLayout({ session }) {
     return () => { mountedRef.current = false }
   }, [session])
 
-  if (!data) return null
+  if (!data) return <LoadingShell role="finance" />
 
   return (
-    <div className="shell">
+    <div className="shell shell--finance">
       <Sidebar items={NAV} initials={initials(data.profile?.full_name)} name={data.profile?.full_name} role="Finance" />
       <div ref={scrollRef}>
         <Outlet context={data} />

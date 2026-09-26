@@ -41,6 +41,90 @@
   --brand-on-green: #ffffff;
 }
 
+/* ============================================================
+   ExitAI workspace theme
+
+   These tokens are deliberately scoped to the authenticated application.
+   LoginPage renders outside .frame, so its established palette and behavior
+   remain byte-for-byte independent from the dashboard redesign.
+   ============================================================ */
+.frame {
+  color-scheme: light;
+
+  --ui-font-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ui-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --ui-bg: #f6f7f9;
+  --ui-surface: #ffffff;
+  --ui-surface-subtle: #eef2f5;
+  --ui-surface-raised: #ffffff;
+  --ui-border: #d9e0e7;
+  --ui-border-strong: #bec8d3;
+
+  --ui-text: #17212b;
+  --ui-text-secondary: #52606d;
+  --ui-text-muted: #758290;
+  --ui-primary: #0b6b57;
+  --ui-primary-hover: #085242;
+  --ui-primary-soft: #e5f3ef;
+  --ui-on-primary: #ffffff;
+  --ui-focus: #2563eb;
+
+  --ui-success: #19734d;
+  --ui-success-soft: #e8f5ee;
+  --ui-warning: #946200;
+  --ui-warning-soft: #fff4d6;
+  --ui-danger: #b42318;
+  --ui-danger-soft: #fdecea;
+  --ui-info: #315dc6;
+  --ui-info-soft: #edf3ff;
+
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-space-10: 40px;
+  --ui-space-12: 48px;
+
+  --ui-radius-sm: 6px;
+  --ui-radius-md: 8px;
+  --ui-radius-lg: 12px;
+  --ui-radius-pill: 999px;
+  --ui-shadow-sm: 0 1px 2px rgb(23 33 43 / 0.05);
+  --ui-shadow-md: 0 12px 32px rgb(23 33 43 / 0.08);
+
+  --ui-sidebar-width: 248px;
+  --ui-content-max: 1440px;
+  --ui-control-height: 40px;
+  --ui-row-height: 48px;
+
+  /* Compatibility aliases for the existing semantic component classes. */
+  --radius: var(--ui-radius-sm);
+  --bg-page: var(--ui-bg);
+  --surface-1: var(--ui-surface-subtle);
+  --surface-2: var(--ui-surface);
+  --border: var(--ui-border);
+  --border-warning: var(--ui-warning);
+  --text-primary: var(--ui-text);
+  --text-secondary: var(--ui-text-secondary);
+  --text-muted: var(--ui-text-muted);
+  --text-accent: var(--ui-info);
+  --text-success: var(--ui-success);
+  --text-warning: var(--ui-warning);
+  --text-danger: var(--ui-danger);
+  --bg-accent: var(--ui-info-soft);
+  --bg-success: var(--ui-success-soft);
+  --bg-warning: var(--ui-warning-soft);
+  --bg-danger: var(--ui-danger-soft);
+  --fill-success: var(--ui-success);
+  --fill-info: var(--ui-info);
+  --fill-control: var(--ui-border);
+  --on-success: var(--ui-on-primary);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg-page: #1a1917;

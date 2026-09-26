@@ -53,8 +53,8 @@ EMAIL_TEST_RECIPIENT = os.environ.get("EMAIL_TEST_RECIPIENT")
 # Phase 8 -- KT calendar booking. CLAUDE.md's blueprint calls for a single
 # CALENDAR_API_KEY, but Google Calendar's write API needs OAuth (same kind of
 # swap Phase 7 made: GMAIL_ADDRESS/APP_PASSWORD instead of the generic
-# EMAIL_API_KEY). A SINGLE shared demo account (aswindevv2005@gmail.com) is
-# authorized ONCE via agents/oauth_setup.py against the existing "Exit Auth"
+# EMAIL_API_KEY). The sender account from .env is authorized ONCE via
+# agents/oauth_setup.py against the existing "Exit Auth"
 # Google OAuth Web client -- every KT event for every ExitAI user then lands
 # on that one account's calendar (KT_CALENDAR_ID), no per-user Google login
 # or calendar-sharing step. All optional -- unset -> calendar_booking.py only

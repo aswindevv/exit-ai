@@ -48,10 +48,17 @@ def _check_clearance(state: FinanceState) -> FinanceState:
     case_id = state["case_id"]
     # Fetch all HR, manager, and IT tasks for this case.
     # "all(...)" returns True only if every task's status is "done".
-    other_tasks = db.table("exit_tasks").select("status, stage").eq("case_id", case_id).in_(
+    other_tasks = db.table("exit_tasks").select("title, status, stage, escalation_state").eq("case_id", case_id).in_(
         "stage", ["hr", "manager", "it"]
     ).execute().data or []
-    stages_done = bool(other_tasks) and all(t["status"] == "done" for t in other_tasks)
+    # Escalation markers are workflow records, not clearance work. Open ones
+    # block; rerouted/resolved ones are ignored and the underlying KT rows
+    # remain the manager gate's source of truth.
+    gate_tasks = [
+        t for t in other_tasks
+        if not ((t.get("title") or "").startswith("Escalated") and t.get("escalation_state") in ("rerouted", "resolved"))
+    ]
+    stages_done = bool(gate_tasks) and all(t["status"] == "done" for t in gate_tasks)
 
     case = db.table("exit_cases").select("*").eq("id", case_id).single().execute().data or {}
     # finance_cleared is set by the Finance dashboard's "Mark dues settled" button.

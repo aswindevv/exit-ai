@@ -9,8 +9,13 @@ process.loadEnvFile()
 
 const url = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_KEY
-const domain = process.env.DEMO_EMAIL_DOMAIN || 'gmail.com'
 if (!url || !serviceKey) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_KEY missing in .env')
+
+function requiredEnv(name) {
+  const value = process.env[name]
+  if (!value) throw new Error(`${name} missing in .env`)
+  return value
+}
 
 const db = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
 
@@ -30,9 +35,9 @@ async function main() {
   const doneEmails = new Set(existing.map((r) => r.email))
 
   const delegates = [
-    { full_name: 'Divya (HR Delegate)', email: `hr.delegate@${domain}`, role: 'hr', password: 'hrdelegate@' },
-    { full_name: 'Karthik (Manager Delegate)', email: `manager.delegate@${domain}`, role: 'manager', password: 'mgrdelegate@' },
-    { full_name: 'Meera (IT Delegate)', email: `it.delegate@${domain}`, role: 'it', password: 'itdelegate@' },
+    { full_name: 'Divya (HR Delegate)', email: requiredEnv('SEED_HR_DELEGATE_EMAIL'), role: 'hr', password: requiredEnv('SEED_HR_DELEGATE_PASSWORD') },
+    { full_name: 'Karthik (Manager Delegate)', email: requiredEnv('SEED_MANAGER_DELEGATE_EMAIL'), role: 'manager', password: requiredEnv('SEED_MANAGER_DELEGATE_PASSWORD') },
+    { full_name: 'Meera (IT Delegate)', email: requiredEnv('SEED_IT_DELEGATE_EMAIL'), role: 'it', password: requiredEnv('SEED_IT_DELEGATE_PASSWORD') },
   ]
   for (const p of delegates) {
     if (doneEmails.has(p.email)) {

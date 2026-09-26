@@ -5,6 +5,7 @@ import Placeholder from '../shared/Placeholder'
 import { supabase } from '../../lib/supabase'
 import { fmtDate, daysUntil } from '../../lib/format'
 import perficientLogo from '../../assets/perficient-logo.png'
+import './my-exit.css'
 
 const STAGE_LABELS = { hr: 'Resignation', manager: 'Manager & KT', it: 'IT clearance', compliance: 'Compliance clearance', finance: 'Finance clearance' }
 const STAGE_ORDER = ['hr', 'manager', 'it', 'finance']
@@ -209,11 +210,21 @@ export function Dashboard() {
       return { label: t.title, date: fmtDate(t.due_date), tag, tone }
     })
 
-  // Pending first (sort is stable, so each group keeps its order), then capped:
-  // the dashboard shows what's left to do, My tasks has the full list.
-  const checklistPreview = [...tasks]
+  // The employee can complete HR-stage checklist items; downstream stages
+  // belong to the manager, IT, compliance, or finance teams. Keep those two
+  // responsibilities visually separate without changing task ownership.
+  const ownTasks = tasks.filter((t) => t.stage === 'hr')
+  const waitingTasks = tasks.filter((t) => t.stage !== 'hr')
+  const ownPreview = [...ownTasks]
     .sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0))
     .slice(0, CHECKLIST_PREVIEW)
+  const waitingPreview = waitingTasks
+    .filter((t) => t.status !== 'done')
+    .sort((a, b) => new Date(a.due_date || '9999-12-31') - new Date(b.due_date || '9999-12-31'))
+    .slice(0, CHECKLIST_PREVIEW)
+  const nextTask = ownTasks
+    .filter((t) => t.status !== 'done')
+    .sort((a, b) => new Date(a.due_date || '9999-12-31') - new Date(b.due_date || '9999-12-31'))[0]
 
   const tasksByStage = {}
   for (const t of tasks) (tasksByStage[t.stage] ??= []).push(t)
@@ -226,53 +237,87 @@ export function Dashboard() {
   if (isExitComplete) return <ExitComplete profile={profile} exitCase={exitCase} />
 
   return (
-    <>
+    <div className="employee-dashboard">
       <h2 className="sr-only">
         Employee exit dashboard with a sidebar nav, exit progress gauge, checklist, upcoming deadlines, exit timeline, and an assistant prompt.
       </h2>
 
       <PageHead
-        greeting={`Good morning, ${firstName}`}
+        name={firstName}
         subtitle="Complete your pending tasks for a smooth exit."
         chips={CHIPS}
       />
 
-      <div className="card card--pad mb gauge-card">
-        <div className="gauge">
-          <svg viewBox="0 0 80 80" width="76" height="76">
-            <circle cx="40" cy="40" r="32" fill="none" stroke="var(--border)" strokeWidth="7" />
-            <circle
-              cx="40"
-              cy="40"
-              r="32"
-              fill="none"
-              stroke="var(--fill-success)"
-              strokeWidth="7"
-              strokeLinecap="round"
-              strokeDasharray={CIRCUMFERENCE}
-              strokeDashoffset={offset}
-              transform="rotate(-90 40 40)"
-            />
-          </svg>
-          <span>{percent}%</span>
-        </div>
-        <div className="grow">
-          <p className="card-title card-title--tight">Exit progress</p>
-          <div className="stat-row">
-            {STATS.map((s) => (
-              <span key={s.label} className={`stat ${s.tone}`}>
-                {s.label} <b>{s.value}</b>
-              </span>
-            ))}
+      <div className="employee-hero">
+        <section className="card next-step" aria-labelledby="next-step-title">
+          <p className="next-step__eyebrow">Your next step</p>
+          <h2 id="next-step-title">{nextTask?.title ?? 'You’re all caught up'}</h2>
+          <p>
+            {nextTask
+              ? 'Complete this item to keep your exit moving. Your remaining teams will pick up their steps automatically.'
+              : 'There is nothing else you need to complete right now. We’ll keep this page updated as other teams finish their work.'}
+          </p>
+          <div className="next-step__actions">
+            <Link className="button-primary" to={nextTask ? '/employee/tasks' : '/employee/timeline'}>
+              {nextTask ? 'Review my tasks' : 'View timeline'}
+            </Link>
+            {nextTask?.due_date && <span className="next-step__meta">Due {fmtDate(nextTask.due_date)}</span>}
           </div>
-        </div>
+        </section>
+
+        <section className="card progress-summary" aria-label="Exit progress summary">
+          <div>
+            <p className="progress-summary__label">Overall exit progress</p>
+            <p className="progress-summary__value">{percent}% complete</p>
+          </div>
+          <div className="gauge-card">
+            <div className="gauge">
+              <svg viewBox="0 0 80 80" width="76" height="76" aria-hidden="true">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="var(--border)" strokeWidth="7" />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="32"
+                  fill="none"
+                  stroke="var(--fill-success)"
+                  strokeWidth="7"
+                  strokeLinecap="round"
+                  strokeDasharray={CIRCUMFERENCE}
+                  strokeDashoffset={offset}
+                  transform="rotate(-90 40 40)"
+                />
+              </svg>
+              <span>{done}/{total}</span>
+            </div>
+            <div className="stat-row grow">
+              {STATS.map((s) => (
+                <span key={s.label} className={`stat ${s.tone}`}>
+                  {s.label} <b>{s.value}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
       </div>
 
-      <div className="two-col mb">
-        <div className="card card--pad">
-          <p className="card-title">My checklist</p>
+      <ExitTimeline
+        tasksByStage={tasksByStage}
+        exitCase={exitCase}
+        isOnHold={isOnHold}
+        className="card card--pad mb"
+      />
+
+      <div className="responsibility-grid">
+        <section className="card card--pad responsibility-card">
+          <div className="responsibility-card__head">
+            <div>
+              <p className="card-title">Your tasks</p>
+              <p className="responsibility-card__copy">Items you can complete yourself.</p>
+            </div>
+            <span className="tag t-accent">{ownTasks.filter((t) => t.status !== 'done').length} open</span>
+          </div>
           <div className="list list--col">
-            {checklistPreview.map((t) => (
+            {ownPreview.map((t) => (
               <div key={t.id} className="row">
                 <i
                   className={`ti ${t.status === 'done' ? 'ti-circle-check c-success' : 'ti-circle c-muted'}`}
@@ -284,36 +329,49 @@ export function Dashboard() {
                 </span>
               </div>
             ))}
-            {tasks.length === 0 && <p className="sub c-muted">No tasks assigned yet.</p>}
+            {ownTasks.length === 0 && <p className="sub c-muted">No tasks assigned to you right now.</p>}
           </div>
-          {tasks.length > CHECKLIST_PREVIEW && (
-            <Link className="card-more" to="/employee/tasks">View all {tasks.length} tasks →</Link>
+          {ownTasks.length > CHECKLIST_PREVIEW && (
+            <Link className="card-more" to="/employee/tasks">View all {ownTasks.length} tasks →</Link>
           )}
-        </div>
+        </section>
 
-        <div className="card card--pad">
-          <p className="card-title">Upcoming deadlines</p>
-          <div className="list">
-            {DEADLINES.map((d) => (
-              <div key={d.label} className="row row--split">
-                <div>
-                  <p>{d.label}</p>
-                  <p className="sub">{d.date}</p>
-                </div>
-                <span className={`tag ${d.tone}`}>{d.tag}</span>
+        <section className="card card--pad responsibility-card">
+          <div className="responsibility-card__head">
+            <div>
+              <p className="card-title">Waiting on other teams</p>
+              <p className="responsibility-card__copy">Visible for clarity—no action is needed from you.</p>
+            </div>
+            <span className="tag t-neutral">{waitingPreview.length} active</span>
+          </div>
+          <div className="list list--col">
+            {waitingPreview.map((t) => (
+              <div key={t.id} className="row">
+                <i className="ti ti-clock c-muted" aria-hidden="true" />
+                <span className="grow">{t.title}</span>
+                <span className="tag t-warning">In progress</span>
               </div>
             ))}
-            {DEADLINES.length === 0 && <p className="sub c-muted">Nothing due right now.</p>}
+            {waitingPreview.length === 0 && <p className="sub c-muted">No outstanding work with other teams.</p>}
           </div>
-        </div>
+        </section>
       </div>
 
-      <ExitTimeline
-        tasksByStage={tasksByStage}
-        exitCase={exitCase}
-        isOnHold={isOnHold}
-        className="card card--pad mb"
-      />
+      <section className="card card--pad mb">
+        <p className="card-title">Upcoming deadlines</p>
+        <div className="list">
+          {DEADLINES.map((d) => (
+            <div key={d.label} className="row row--split">
+              <div>
+                <p>{d.label}</p>
+                <p className="sub">{d.date}</p>
+              </div>
+              <span className={`tag ${d.tone}`}>{d.tag}</span>
+            </div>
+          ))}
+          {DEADLINES.length === 0 && <p className="sub c-muted">Nothing due right now.</p>}
+        </div>
+      </section>
 
       <div className="strip strip--top">
         <span className="strip-icon">
@@ -373,7 +431,7 @@ export function Dashboard() {
           {asking ? 'Asking…' : 'Ask ↗'}
         </button>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -474,19 +532,186 @@ function ExitComplete({ profile, exitCase }) {
 export function MyExit() {
   const { profile, exitCase, tasks } = useOutletContext()
   if (!exitCase) return <Placeholder title="My exit" body="No exit case found on your profile yet." />
+
   const done = tasks.filter((t) => t.status === 'done').length
   const percent = tasks.length ? Math.round((done / tasks.length) * 100) : 0
+  const tasksByStage = {}
+  for (const task of tasks) (tasksByStage[task.stage] ??= []).push(task)
+
+  const stages = buildTimeline(tasksByStage, exitCase)
+  const stageKeys = [...STAGE_ORDER, 'relieving']
+  const stageOwners = {
+    hr: 'You',
+    manager: 'Your manager',
+    it: 'IT',
+    finance: 'Finance',
+    relieving: 'HR',
+  }
+  const stageNextStep = {
+    hr: 'Complete your remaining exit checklist items',
+    manager: 'Review your handover and knowledge transfer',
+    it: 'Collect equipment and remove system access',
+    finance: 'Complete the final finance clearance',
+    relieving: 'Prepare and issue your relieving letter',
+  }
+  const currentIndex = stages.findIndex((stage) => stage.state === 'current' || stage.state === 'blocked')
+  const activeIndex = currentIndex === -1 ? stages.length - 1 : currentIndex
+  const currentStage = stages[activeIndex]
+  const currentKey = stageKeys[activeIndex]
+  const isBlocked = currentStage?.state === 'blocked'
+  const letterIssued = exitCase.relieving_letter_issued === true && Boolean(exitCase.issued_at)
+  const pendingOwnTasks = tasks.filter((task) => task.stage === 'hr' && task.status !== 'done')
+  const compliancePending = tasks.some((task) => task.stage === 'compliance' && task.status !== 'done')
+  const financeComplete = stageState(tasksByStage.finance ?? []).complete
+
+  const daysLeft = exitCase.last_working_day ? daysUntil(exitCase.last_working_day) : null
+  const countdown = daysLeft === null
+    ? 'Last working day not scheduled'
+    : daysLeft > 0
+      ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} until your last working day`
+      : daysLeft === 0
+        ? 'Your last working day is today'
+        : `${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} since your last working day`
+
+  let statusLabel = 'In progress'
+  let statusText = 'Your exit is moving through the required clearances.'
+  if (letterIssued) {
+    statusLabel = 'Complete'
+    statusText = 'Every stage is complete and your relieving letter has been issued.'
+  } else if (isBlocked) {
+    statusLabel = 'Under HR review'
+    statusText = 'A handover item needs review. HR is coordinating the next step.'
+  } else if (currentKey === 'hr') {
+    statusText = pendingOwnTasks.length
+      ? `Waiting on ${pendingOwnTasks.length === 1 ? 'one item' : `${pendingOwnTasks.length} items`} from you.`
+      : 'HR is preparing the next steps in your exit.'
+  } else if (currentKey === 'manager') {
+    statusText = 'Your manager is reviewing your handover and knowledge transfer.'
+  } else if (currentKey === 'it') {
+    statusText = 'IT is completing your equipment and access clearance.'
+  } else if (currentKey === 'finance') {
+    statusText = 'Finance is completing your final clearance.'
+  } else if (currentKey === 'relieving') {
+    statusText = compliancePending
+      ? 'Final checks are underway before HR can issue your relieving letter.'
+      : 'Your clearances are complete. HR will issue your relieving letter next.'
+  }
+
+  const nextSteps = letterIssued
+    ? []
+    : stages
+      .map((stage, index) => ({ ...stage, key: stageKeys[index], index }))
+      .filter((stage) => stage.index >= activeIndex && stage.state !== 'done')
+      .slice(0, 3)
+      .map((stage, index) => {
+        const pendingTask = (tasksByStage[stage.key] ?? [])
+          .filter((task) => task.status !== 'done' && !task.title?.startsWith('Escalated'))
+          .sort((a, b) => new Date(a.due_date || '9999-12-31') - new Date(b.due_date || '9999-12-31'))[0]
+        return {
+          ...stage,
+          owner: stage.state === 'blocked' ? 'HR' : stageOwners[stage.key],
+          detail: index === 0 && pendingTask?.title ? pendingTask.title : stageNextStep[stage.key],
+          dueDate: index === 0 ? pendingTask?.due_date : null,
+        }
+      })
+
+  const primaryAction = letterIssued
+    ? <button type="button" className="employee-my-exit__primary" onClick={() => downloadRelievingLetter(profile, exitCase)}><i className="ti ti-download" aria-hidden="true" />Download relieving letter</button>
+    : pendingOwnTasks.length
+      ? <Link className="employee-my-exit__primary" to="/employee/tasks"><i className="ti ti-list-check" aria-hidden="true" />Review my tasks</Link>
+      : <Link className="employee-my-exit__primary" to="/employee/timeline"><i className="ti ti-timeline" aria-hidden="true" />View full timeline</Link>
+
   return (
-    <div className="card card--pad">
-      <p className="card-title">My exit</p>
-      <div className="list list--col">
-        <div className="row row--split"><span>Employee ID</span><span className="c-secondary">{profile?.employee_id ?? '—'}</span></div>
-        <div className="row row--split"><span>Department</span><span className="c-secondary">{exitCase.department}</span></div>
-        <div className="row row--split"><span>Role</span><span className="c-secondary">{exitCase.role_title}</span></div>
-        <div className="row row--split"><span>Last working day</span><span className="c-secondary">{fmtDate(exitCase.last_working_day)}</span></div>
-        <div className="row row--split"><span>Progress</span><span className="tag t-success">{percent}% done</span></div>
+    <main className="employee-my-exit">
+      <header className={`employee-my-exit__hero${letterIssued ? ' is-complete' : ''}`}>
+        <div className="employee-my-exit__hero-copy">
+          <div className="employee-my-exit__eyebrow">
+            <span>My exit</span>
+            <span aria-hidden="true">·</span>
+            <span>{profile?.employee_id ?? 'Employee ID unavailable'}</span>
+          </div>
+          <span className="employee-my-exit__status"><i className={`ti ${letterIssued ? 'ti-circle-check' : isBlocked ? 'ti-alert-circle' : 'ti-progress'}`} aria-hidden="true" />{statusLabel}</span>
+          <h1>{letterIssued ? 'Your exit is complete' : countdown}</h1>
+          <p>{statusText}</p>
+          <div className="employee-my-exit__hero-footer">
+            <span><i className="ti ti-calendar-event" aria-hidden="true" />Last working day <strong>{fmtDate(exitCase.last_working_day) || 'Not scheduled'}</strong></span>
+            {primaryAction}
+          </div>
+        </div>
+        <div className="employee-my-exit__progress" aria-label={`${percent}% of exit tasks complete`}>
+          <span>Overall progress</span>
+          <strong>{percent}%</strong>
+          <small>{done} of {tasks.length} tasks complete</small>
+          <div className="employee-my-exit__progress-track" aria-hidden="true"><span style={{ width: `${percent}%` }} /></div>
+        </div>
+      </header>
+
+      <section className="employee-my-exit__panel employee-my-exit__journey" aria-labelledby="employee-exit-journey-title">
+        <div className="employee-my-exit__section-head">
+          <div><span>Progress</span><h2 id="employee-exit-journey-title">Where you are</h2></div>
+          {!letterIssued && currentStage && <p><strong>{isBlocked ? 'HR' : stageOwners[currentKey]}</strong> {isBlocked ? 'is reviewing this stage' : 'is responsible now'}</p>}
+        </div>
+        <ol className="employee-my-exit__stages">
+          {stages.map((stage, index) => (
+            <li className={`is-${stage.state}`} key={stage.label} aria-current={stage.state === 'current' || stage.state === 'blocked' ? 'step' : undefined}>
+              <span className="employee-my-exit__stage-marker" aria-hidden="true">{stage.state === 'done' ? <i className="ti ti-check" /> : index + 1}</span>
+              <div><strong>{stage.label}</strong><span>{stage.state === 'done' ? 'Done' : stage.state === 'blocked' ? 'Under review' : stage.state === 'current' ? 'Current' : 'Pending'}</span></div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <div className="employee-my-exit__content-grid">
+          <section className="employee-my-exit__panel employee-my-exit__next" aria-labelledby="employee-next-steps-title">
+            <div className="employee-my-exit__section-head employee-my-exit__section-head--compact"><div><span>Coming up</span><h2 id="employee-next-steps-title">What happens next</h2></div></div>
+            {nextSteps.length ? (
+              <ol className="employee-my-exit__next-steps">
+                {nextSteps.map((step, index) => (
+                  <li key={step.key}>
+                    <span className="employee-my-exit__step-number">{index + 1}</span>
+                    <div><strong>{step.detail}</strong><span>{step.label}{step.dueDate ? ` · Target ${fmtDate(step.dueDate)}` : ''}</span></div>
+                    <span className="employee-my-exit__owner">{step.owner}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="employee-my-exit__empty"><i className="ti ti-circle-check" aria-hidden="true" /><div><strong>No steps remaining</strong><span>Keep your relieving letter for your records.</span></div></div>
+            )}
+          </section>
+
+          <section className="employee-my-exit__panel employee-my-exit__dates-panel" aria-labelledby="employee-key-dates-title">
+            <div className="employee-my-exit__section-head employee-my-exit__section-head--compact"><div><span>Schedule</span><h2 id="employee-key-dates-title">Key dates</h2></div></div>
+            <dl className="employee-my-exit__dates">
+              <div><dt><i className="ti ti-calendar-event" aria-hidden="true" />Last working day</dt><dd>{fmtDate(exitCase.last_working_day) || 'Not scheduled'}</dd></div>
+              <div><dt><i className="ti ti-wallet" aria-hidden="true" />Final settlement timing</dt><dd className="is-muted">{financeComplete ? 'Timing not recorded' : 'Not scheduled yet'}</dd></div>
+              <div><dt><i className="ti ti-file-certificate" aria-hidden="true" />Relieving letter</dt><dd className={letterIssued ? 'is-success' : 'is-muted'}>{letterIssued ? `Issued ${fmtDate(exitCase.issued_at)}` : 'Not issued yet'}</dd></div>
+            </dl>
+          </section>
+
+          <section className="employee-my-exit__panel employee-my-exit__details-panel" aria-labelledby="employee-exit-details-title">
+            <div className="employee-my-exit__section-head employee-my-exit__section-head--compact"><div><span>Your record</span><h2 id="employee-exit-details-title">Exit details</h2></div></div>
+            <dl className="employee-my-exit__details">
+              <div><dt>Employee</dt><dd>{exitCase.employee_name || profile?.full_name || 'Not available'}</dd></div>
+              <div><dt>Employee ID</dt><dd>{profile?.employee_id ?? 'Not available'}</dd></div>
+              <div><dt>Department</dt><dd>{exitCase.department || 'Not available'}</dd></div>
+              <div><dt>Role</dt><dd>{exitCase.role_title || 'Not available'}</dd></div>
+              <div><dt>Resignation date</dt><dd className="is-muted">Not available in this record</dd></div>
+              <div><dt>Last working day</dt><dd>{fmtDate(exitCase.last_working_day) || 'Not scheduled'}</dd></div>
+              <div><dt>Manager</dt><dd className="is-muted">Not available in your exit record</dd></div>
+            </dl>
+          </section>
+
+          <aside className="employee-my-exit__panel employee-my-exit__support" aria-labelledby="employee-exit-support-title">
+            <div className="employee-my-exit__section-head employee-my-exit__section-head--compact"><div><span>Support</span><h2 id="employee-exit-support-title">Questions?</h2></div></div>
+            <div className="employee-my-exit__contact"><span className="employee-my-exit__contact-icon"><i className="ti ti-user" aria-hidden="true" /></span><div><strong>Your manager</strong><span>Contact details are not available here yet.</span></div></div>
+            <div className="employee-my-exit__contact"><span className="employee-my-exit__contact-icon"><i className="ti ti-users" aria-hidden="true" /></span><div><strong>HR support</strong><span>For policy, documentation, and exit questions.</span></div></div>
+            <div className="employee-my-exit__support-links">
+              <Link to="/employee/help">View support contacts <i className="ti ti-arrow-right" aria-hidden="true" /></Link>
+              <Link to="/employee">Ask the ExitAI assistant <i className="ti ti-arrow-right" aria-hidden="true" /></Link>
+            </div>
+          </aside>
       </div>
-    </div>
+    </main>
   )
 }
 

@@ -26,7 +26,7 @@ const ACCESS_CATEGORIES = [
 // width is set once on the container, so an Approve button present on one
 // row and absent ("—") on the next can't shrink that row's other columns
 // the way flex basis/shrink could.
-const QUEUE_COLS = '1.6fr 52px 64px 62px'
+const QUEUE_COLS = 'minmax(300px, 1.6fr) 86px 112px 96px'
 
 const itGroupKey = (t) => t.case_id
 // allTasks is the full (unfiltered) IT task list -- "all done" must reflect
@@ -116,11 +116,20 @@ function TaskRow({ t, actioning, approveTask }) {
 export function Dashboard() {
   const { profile, tasks, reload } = useOutletContext()
   const [actioning, approveTask] = useApprove(reload)
+  const [queueFilter, setQueueFilter] = useState('pending')
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
 
   const pending = tasks.filter((t) => t.status !== 'done')
   const done = tasks.filter((t) => t.status === 'done')
   const overdue = pending.filter((t) => t.due_date && daysUntil(t.due_date) < 0)
+  const failed = tasks.filter((t) => t.verification_status === 'verification_failed')
+  const queueRows = tasks.filter((t) => {
+    if (queueFilter === 'pending') return t.status !== 'done'
+    if (queueFilter === 'overdue') return t.status !== 'done' && t.due_date && daysUntil(t.due_date) < 0
+    if (queueFilter === 'failed') return t.verification_status === 'verification_failed'
+    if (queueFilter === 'done') return t.status === 'done' && t.verification_status !== 'verification_failed'
+    return true
+  })
 
   const KPIS = [
     { label: 'Pending approval', value: String(pending.length), tone: 'var(--text-warning)' },
@@ -143,13 +152,13 @@ export function Dashboard() {
   }).filter((r) => r.count !== '0 of 0')
 
   return (
-    <>
+    <div className="it-dashboard">
       <h2 className="sr-only">
         IT dashboard with a sidebar nav, deprovisioning queue awaiting approval, asset recovery list, and access revocation summary.
       </h2>
 
       <PageHead
-        greeting={`Good morning, ${firstName}`}
+        name={firstName}
         subtitle={`${pending.length} deprovisioning item${pending.length === 1 ? '' : 's'} are waiting for your approval.`}
         chips={CHIPS}
       />
@@ -162,8 +171,34 @@ export function Dashboard() {
         ))}
       </div>
 
-      <div className="card card--pad mb">
-        <p className="card-title">Deprovisioning queue</p>
+      <section className="card card--pad mb it-queue">
+        <div className="section-heading">
+          <div>
+            <p className="section-eyebrow">Controlled execution</p>
+            <h2>Deprovisioning work queue</h2>
+            <p>Review by employee, then approve each task for execution and verification.</p>
+          </div>
+          <span className="tag t-warning">{pending.length} require action</span>
+        </div>
+        <div className="queue-filters" role="group" aria-label="Filter deprovisioning queue">
+          {[
+            ['pending', 'Pending', pending.length],
+            ['overdue', 'Overdue', overdue.length],
+            ['failed', 'Failed verification', failed.length],
+            ['done', 'Verified', done.length - failed.length],
+            ['all', 'All', tasks.length],
+          ].map(([key, label, count]) => (
+            <button
+              key={key}
+              type="button"
+              className={`queue-filter${queueFilter === key ? ' is-active' : ''}`}
+              aria-pressed={queueFilter === key}
+              onClick={() => setQueueFilter(key)}
+            >
+              {label} <span>{count}</span>
+            </button>
+          ))}
+        </div>
         <div className="list">
           <div className="thead" style={{ display: 'grid', gridTemplateColumns: QUEUE_COLS }}>
             <span>Task</span>
@@ -172,13 +207,14 @@ export function Dashboard() {
             <span style={{ textAlign: 'right' }}>Action</span>
           </div>
           {withEmployeeHeaders(
-            tieredByCompletion([...tasks], itAllDone(tasks), itCreatedAt),
+            tieredByCompletion([...queueRows], itAllDone(tasks), itCreatedAt),
             itGroupKey,
             itGroupHeader(tasks),
             (t) => <TaskRow key={t.id} t={t} actioning={actioning} approveTask={approveTask} />
           )}
+          {queueRows.length === 0 && <div className="empty-state"><i className="ti ti-circle-check" aria-hidden="true" /><p>No tasks in this view.</p><span>Choose another status to inspect the queue.</span></div>}
         </div>
-      </div>
+      </section>
 
       <div className="two-col two-col--even mb">
         <div className="card card--pad">
@@ -232,7 +268,7 @@ export function Dashboard() {
           </p>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 

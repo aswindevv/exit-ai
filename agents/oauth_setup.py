@@ -1,7 +1,7 @@
 """One-time admin script -- Phase 8 KT calendar OAuth setup.
 
-Authorizes a SINGLE shared demo Google account (aswindevv2005@gmail.com) for
-calendar booking, once. Every KT event for every ExitAI user then gets
+Authorizes the sender account from .env for calendar booking, once. Every KT
+event for every ExitAI user then gets
 created on that one account's calendar (KT_CALENDAR_ID) via the resulting
 refresh token -- there is no per-user Google login in this demo; production
 would use a service account or per-user calendars instead.
@@ -22,8 +22,8 @@ the whole calendar) -- least privilege for "book a KT slot".
 Run once (from repo root, with agents/.venv active):
     python -m agents.oauth_setup
 
-It opens your browser -- sign in as aswindevv2005@gmail.com and consent --
-then prints the refresh token here. Copy it into .env as GOOGLE_REFRESH_TOKEN;
+It opens your browser -- sign in as the sender account from .env and consent
+-- then prints the refresh token here. Copy it into .env as GOOGLE_REFRESH_TOKEN;
 this script never writes .env itself.
 """
 from __future__ import annotations

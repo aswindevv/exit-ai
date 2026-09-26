@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import sys
 from datetime import date
+from threading import Lock
 
 from langgraph.graph import StateGraph
 from typing_extensions import TypedDict
@@ -81,19 +82,30 @@ _graph.add_edge("generate", "persist")
 _graph.set_finish_point("persist")
 it_plan_graph = _graph.compile()
 
+# The local bridge is a ThreadingHTTPServer, so two near-simultaneous manager
+# actions can both pass a plain select-before-insert check. Serialize that
+# short critical section; the database check below remains the source of
+# truth and covers every caller (approve, sign clearance, supervisor, reroute).
+_generation_lock = Lock()
+
 
 # Public entry point. Idempotent: if IT tasks already exist for this case,
 # it returns early instead of inserting duplicates. This makes it safe to
 # call multiple times (e.g., re-running the pipeline after a partial failure).
 def generate_plan(case_id: str, force: bool = False) -> dict:
-    """Idempotent unless force=True: skips if stage='it' tasks already exist."""
-    if not force:
+    """Generate at most one IT plan for a case.
+
+    ``force`` is retained for call compatibility, but cannot create duplicate
+    task sets: an existing IT plan always wins.
+    """
+    with _generation_lock:
         existing = db.table("exit_tasks").select("id").eq("case_id", case_id).eq("stage", "it").execute().data
         if existing:
             return {"skipped": True, "reason": "it tasks already exist"}
-    # Fetch the full case row from the database, then run the graph.
-    case = db.table("exit_cases").select("*").eq("id", case_id).single().execute().data
-    return it_plan_graph.invoke({"case_id": case_id, "case": case, "result": {}})
+        # Keep generation and persistence inside the lock: the graph contains
+        # both nodes, and releasing between them would reintroduce the race.
+        case = db.table("exit_cases").select("*").eq("id", case_id).single().execute().data
+        return it_plan_graph.invoke({"case_id": case_id, "case": case, "result": {}})
 
 
 if __name__ == "__main__":
