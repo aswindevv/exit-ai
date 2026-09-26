@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import useScrollTopOnNavigate from '../../lib/useScrollTopOnNavigate'
 import Sidebar from '../../components/Sidebar'
+import LoadingShell from '../../components/LoadingShell'
 import { supabase } from '../../lib/supabase'
 import { initials } from '../../lib/format'
 
@@ -34,10 +35,10 @@ export default function ItLayout({ session }) {
     return () => { mountedRef.current = false }
   }, [session])
 
-  if (!data) return null
+  if (!data) return <LoadingShell role="it" />
 
   return (
-    <div className="shell">
+    <div className="shell shell--it">
       <Sidebar items={NAV} initials={initials(data.profile?.full_name)} name={data.profile?.full_name} role="IT" />
       <div ref={scrollRef}>
         <Outlet context={data} />

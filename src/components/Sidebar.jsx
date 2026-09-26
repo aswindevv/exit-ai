@@ -14,7 +14,7 @@ import perficientLogo from '../assets/perficient-logo.png'
 
 export default function Sidebar({ items, initials, name, role }) {
   return (
-    <div className="card sidebar">
+    <aside className="sidebar" aria-label={`${role} workspace navigation`}>
       {/* Brand logo at the top of the sidebar */}
       <div className="brand">
         <img src={perficientLogo} alt="Perficient" className="brand-logo" />
@@ -24,7 +24,7 @@ export default function Sidebar({ items, initials, name, role }) {
       {/* Nav links — NavLink automatically adds the "is-active" class when
           the current URL matches the link's `to` path. `end` means only
           match exactly that path, not any child routes. */}
-      <div className="nav">
+      <nav className="nav" aria-label="Primary navigation">
         {items.map((item) => (
           <NavLink
             key={item.to}
@@ -36,7 +36,7 @@ export default function Sidebar({ items, initials, name, role }) {
             {item.label}
           </NavLink>
         ))}
-      </div>
+      </nav>
 
       {/* Footer: shows who is logged in, and a sign-out button. */}
       <div className="user">
@@ -56,6 +56,6 @@ export default function Sidebar({ items, initials, name, role }) {
           <i className="ti ti-logout" aria-hidden="true" />
         </button>
       </div>
-    </div>
+    </aside>
   )
 }

@@ -215,8 +215,8 @@ function TeamExitsTable({ reports, limit }) {
 
 // One KT task row, shared by the dashboard card and the KT approvals page so
 // the two queues can't drift apart (they were duplicated line for line). The
-// `.row` class, the Review/Reject labels and the Escalated/Approved tag text
-// are read by scripts/verify/verify_manager_kt_clearances.cjs -- keep them.
+// Keep the `.row` class, Review/Reject labels, and Escalated/Approved tag text
+// consistent across both views.
 function KtTaskRow({ task, tasks, actioning, approveTask, rejecting, rejectTask }) {
   const escalated = isEscalationRow(task) || hasOpenEscalation(task.case_id, tasks)
   const done = task.status === 'done'
@@ -258,7 +258,7 @@ function KtTaskRow({ task, tasks, actioning, approveTask, rejecting, rejectTask 
 
 // The employee-level clearance list, shared by the dashboard card and the
 // Clearances page so the two can never disagree about who is signable.
-function ClearanceSignOff({ reports, tasks, signing, signClearance, withHeader, limit }) {
+function ClearanceSignOff({ reports, tasks, signing, signClearance, withHeader, limit, compact = false }) {
   // clearanceRows sorts signable-first, so a limited preview on the dashboard
   // shows what needs the manager, never a truncated alphabet.
   const all = clearanceRows(reports, tasks)
@@ -276,6 +276,25 @@ function ClearanceSignOff({ reports, tasks, signing, signClearance, withHeader, 
       {rows.map(({ report, state }) => {
         const tag = CLEARANCE_STATE_TAG[state.key]
         const ready = state.key === 'ready'
+        if (compact) {
+          return (
+            <div className="clearance-compact" key={report.id} data-clearance-case={report.id}>
+              <div className="clearance-compact__copy">
+                <p>{report.employee_name}</p>
+                <span>{state.total ? `${state.approved} of ${state.total} KT items approved` : 'No KT tasks yet'}</span>
+              </div>
+              <div className="clearance-compact__action">
+                <span className={`tag ${tag.tone}`}>{tag.label}</span>
+                {ready && (
+                  <button className="btn-approve" style={BTN} onClick={() => signClearance(report.id)} disabled={signing[report.id] === 'pending'}>
+                    {signing[report.id] === 'pending' ? 'Signing…' : 'Sign clearance'}
+                  </button>
+                )}
+              </div>
+              {signing[report.id] && signing[report.id] !== 'pending' && <p className="sub c-danger">{signing[report.id]}</p>}
+            </div>
+          )
+        }
         return (
           <div key={report.id} data-clearance-case={report.id}>
             <div className="row" style={{ display: 'grid', gridTemplateColumns: CLEARANCE_COLS, alignItems: 'center' }}>
@@ -349,40 +368,28 @@ export function Dashboard() {
   ]
 
   return (
-    <>
+    <div className="manager-dashboard">
       <h2 className="sr-only">
         Manager dashboard with a sidebar nav, team exit summary, exiting reports
         table, knowledge-transfer approvals, and a KT review summary.
       </h2>
 
       <PageHead
-        greeting={`Good morning, ${firstName}`}
+        name={firstName}
         subtitle={`${reports.length} of your reports are exiting this month.`}
         chips={CHIPS}
       />
 
-      <div className="kpi-row mb">
-        {KPIS.map((k) => (
-          <span key={k.label} className="kpi">
-            {k.label} <b className={k.valueClass}>{k.value}</b>
-          </span>
-        ))}
-      </div>
-
-      <div className="card card--pad mb">
-        <p className="card-title">My team's exits</p>
-        <TeamExitsTable reports={reports} limit={TEAM_PREVIEW} />
-        {reports.length > TEAM_PREVIEW && (
-          <Link className="card-more" to="/manager/my-team">View all {reports.length} exiting reports →</Link>
-        )}
-      </div>
-
-      <div className="two-col two-col--even mb">
-        <div className="card card--pad">
-          <p className="card-title">
-            KT approvals
-            {ktToReview > 0 && <span className="card-title-count t-warning">{ktToReview} pending</span>}
-          </p>
+      <div className="manager-focus-grid">
+        <section className="card card--pad manager-inbox">
+          <div className="section-heading">
+            <div>
+              <p className="section-eyebrow">Decision queue</p>
+              <h2>Knowledge-transfer approvals</h2>
+              <p>Review each employee’s handover items and make a clear decision.</p>
+            </div>
+            {ktToReview > 0 && <span className="tag t-warning">{ktToReview} awaiting review</span>}
+          </div>
           <div className="list">
             {ktPreview.length === 0 && <p className="sub">Nothing awaiting your review.</p>}
             {withEmployeeHeaders(
@@ -405,25 +412,50 @@ export function Dashboard() {
           {ktToReview > KT_PREVIEW && (
             <Link className="card-more" to="/manager/kt-approvals">View all {ktToReview} KT approvals →</Link>
           )}
-        </div>
+        </section>
 
-        <div className="card card--pad">
-          <p className="card-title">
-            Clearances to sign
-            {toSign.length > 0 && <span className="card-title-count t-accent">{toSign.length} ready</span>}
-          </p>
-          <ClearanceSignOff
-            reports={reports}
-            tasks={tasks}
-            signing={signing}
-            signClearance={signClearance}
-            limit={CLEARANCE_PREVIEW}
-          />
-          {reports.length > CLEARANCE_PREVIEW && (
-            <Link className="card-more" to="/manager/clearances">View all {reports.length} employees →</Link>
-          )}
-        </div>
+        <aside className="manager-decision-rail">
+          <div className="kpi-row manager-kpi-stack">
+            {KPIS.map((k) => (
+              <span key={k.label} className="kpi">
+                <span className="manager-kpi-label">{k.label}</span>
+                <b className={k.valueClass}>{k.value}</b>
+              </span>
+            ))}
+          </div>
+
+          <section className="card card--pad manager-signoff">
+            <p className="card-title">
+              Ready to sign
+              {toSign.length > 0 && <span className="card-title-count t-accent">{toSign.length}</span>}
+            </p>
+            <ClearanceSignOff
+              reports={reports}
+              tasks={tasks}
+              signing={signing}
+              signClearance={signClearance}
+              limit={CLEARANCE_PREVIEW}
+              compact
+            />
+            {reports.length > CLEARANCE_PREVIEW && (
+              <Link className="card-more" to="/manager/clearances">View all {reports.length} employees →</Link>
+            )}
+          </section>
+        </aside>
       </div>
+
+      <section className="card card--pad mb manager-team-table">
+        <div className="section-heading section-heading--compact">
+          <div>
+            <h2>Team exit overview</h2>
+            <p>Upcoming departures and current progress across your reporting line.</p>
+          </div>
+        </div>
+        <TeamExitsTable reports={reports} limit={TEAM_PREVIEW} />
+        {reports.length > TEAM_PREVIEW && (
+          <Link className="card-more" to="/manager/my-team">View all {reports.length} exiting reports →</Link>
+        )}
+      </section>
 
       <div className="strip strip--top">
         <span className="strip-icon">
@@ -438,7 +470,7 @@ export function Dashboard() {
           </p>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 

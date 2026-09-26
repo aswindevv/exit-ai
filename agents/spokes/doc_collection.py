@@ -1,7 +1,7 @@
 # Agent #16: tracks which documents (NDA, Asset Return Form, etc.) an employee has uploaded,
 # sends email reminders for missing ones, and validates uploads using real Tesseract OCR —
 # checking that the file actually contains the expected keywords and the employee's own name.
-"""Agent #16 -- Document Collection (docs/agent_requirements.md #16 / blueprint1.md #16).
+"""Agent #16 -- Document Collection (docs/agent_requirements.md #16).
 
 NEW. "Identifies required documents for an exit case, checks which are
 submitted, sends reminders for missing ones, and validates uploads using
@@ -50,11 +50,16 @@ from ..core.trace import log_db, traced_node
 import pytesseract
 from PIL import Image
 
-# pytesseract shells out to the real `tesseract` binary. Prefer PATH; fall
-# back to TESSERACT_PATH (set in .env) when it isn't on PATH -- exactly the
-# case on this machine (installed, not added to PATH).
-if not shutil.which("tesseract") and os.environ.get("TESSERACT_PATH"):
-    pytesseract.pytesseract.tesseract_cmd = os.environ["TESSERACT_PATH"]
+# pytesseract shells out to the real `tesseract` binary. A configured path is
+# useful on Windows, where it is commonly installed outside PATH. It may point
+# at that Windows executable while this project is opened on macOS, though, so
+# only use it when it exists on the current machine; otherwise use `tesseract`
+# from PATH.
+configured_tesseract = os.environ.get("TESSERACT_PATH")
+if configured_tesseract and os.path.isfile(os.path.expanduser(configured_tesseract)):
+    pytesseract.pytesseract.tesseract_cmd = os.path.expanduser(configured_tesseract)
+else:
+    pytesseract.pytesseract.tesseract_cmd = shutil.which("tesseract") or "tesseract"
 
 # ponytail: flat base list + a department extra, not a full role/dept matrix
 # like checklist_generator's -- there's no per-role document policy to model
